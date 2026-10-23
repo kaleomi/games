@@ -50,6 +50,9 @@ export class Save {
         merit: clampInt(p.merit, 0, 1e12, 0),
         weekMerit: clampInt(p.weekMerit, 0, 1e12, 0),
         seen: clampInt(p.seen, 0, 1e15, 0),
+        cls: ['dps', 'tank', 'healer'].includes(p.cls) ? p.cls : null,
+        shards: clampInt(p.shards, 0, 1e12, 0),
+        gear: validGear(p.gear),
       };
     }
     return {
@@ -70,7 +73,7 @@ export class Save {
   get(uid, name, avatar) {
     let p = this.data.players[uid];
     if (!p) {
-      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0 };
+      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: 0, gear: {} };
       this.prune();
     }
     if (name) p.name = String(name).slice(0, 24);
@@ -117,6 +120,19 @@ export class Save {
   }
 
   clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0, mode: this.data.mode || 'pvp', pveStage: 1, pveBest: 0 }; this.dirty = true; this.flush(); }
+}
+
+const GEAR_SLOTS = ['weapon', 'armor', 'engine', 'core'];
+function validGear(g) {
+  const out = {};
+  if (!g || typeof g !== 'object') return out;
+  for (const slot of GEAR_SLOTS) {
+    const it = g[slot];
+    if (!it || typeof it !== 'object') continue;
+    const tier = clampInt(it.tier, 0, 4, 0), roll = Number(it.roll);
+    out[slot] = { tier, roll: Number.isFinite(roll) ? Math.max(0.5, Math.min(1.5, roll)) : 1, name: String(it.name || '').slice(0, 20) };
+  }
+  return out;
 }
 
 function clampInt(v, lo, hi, d) { const n = Math.floor(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; }

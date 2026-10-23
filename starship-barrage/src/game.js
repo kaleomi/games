@@ -3,7 +3,8 @@ import {
   W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES,
 } from './config.js';
 import { skinFor } from './save.js';
-import { setupBoss, startPve, stepPve, stepAlien, currentStage } from './pve.js';
+import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone } from './pve.js';
+import { setupShip, stepShip, stepBeam, hurt as fleetHurt, castUlt, parseClass, refreshStats, rollDrops, laneCenter } from './fleet.js';
 
 const TEAM_IDS = ['red', 'blue'];
 const other = t => (t === 'red' ? 'blue' : 'red');
@@ -38,6 +39,7 @@ export function parseCommand(text) {
   if (has('蓄力', 'xl')) return { type: 'weapon', weapon: 'charge' };
   if (has('核心')) return { type: 'target', target: 'core' };
   if (has('炮台')) return { type: 'target', target: 'turret' };
+  if (has('大招', 'dz')) return { type: 'ult' };
   if (/^左/.test(s)) return { type: 'lane', lane: 'L' };
   if (/^中/.test(s)) return { type: 'lane', lane: 'M' };
   if (/^右/.test(s)) return { type: 'lane', lane: 'R' };
@@ -77,6 +79,7 @@ export class Game {
     this.modeVote = null;
     this.pve = null;
     this.alienSeq = 0;
+    this.zones = []; this.barriers = []; this.zoneSeq = 0;
     this.memStage = 1;
     this.teams = {};
     for (const id of TEAM_IDS) this.teams[id] = this.makeTeam(id);
@@ -99,6 +102,7 @@ export class Game {
       x: 360, y: def.flagY, present: true, coreDy: 0, hitW: FLAGSHIP.hitWidth, boss: false,
     };
     if (this.mode === 'pve' && id === 'red') setupBoss(this, t);
+    if (this.mode === 'pve' && id === 'blue') setupFleetSide(t);
     return t;
   }
 
@@ -119,6 +123,7 @@ export class Game {
     this.time = 0;
     this.winner = null;
     this.pve = null;
+    this.zones = []; this.barriers = [];
     this.bullets.length = 0; this.emitters.length = 0; this.hazards.length = 0; this.battleships.length = 0;
     for (const id of TEAM_IDS) this.teams[id] = this.makeTeam(id);
     const nowMs = this.now();
@@ -147,10 +152,10 @@ export class Game {
     this.phaseT = ROUND.resultSeconds;
     this.winner = winner;
     const result = { winner, reason, round: this.roundNo, mvp: {}, players: 0, mode: this.mode };
-    if (this.mode === 'pve' && winner === 'blue') for (const f of this.humans()) f.merit += PVE.stageClearMerit;
+    if (this.mode === 'pve' && winner === 'blue') for (const f of this.humans()) f.merit += PVE.stageClearContrib;
     for (const id of TEAM_IDS) {
       const list = this.humans().filter(f => f.team === id).sort((a, b) => b.merit - a.merit);
-      result.mvp[id] = list.slice(0, this.mode === 'pve' ? 5 : 3).map(f => ({ uid: f.uid, name: f.name, merit: Math.floor(f.merit), kills: f.kills }));
+      result.mvp[id] = list.slice(0, this.mode === 'pve' ? 5 : 3).map(f => ({ uid: f.uid, name: f.name, merit: Math.floor(f.merit), kills: f.kills, cls: f.cls || null }));
     }
     if (this.mode === 'pve') {
       const stage = this.pve?.stage || currentStage(this);
@@ -159,6 +164,7 @@ export class Game {
       if (this.save) { this.save.data.pveStage = next; this.save.data.pveBest = Math.max(this.save.data.pveBest || 0, clear ? stage : 0); this.save.dirty = true; }
       this.memStage = next;
       Object.assign(result, { stage, clear, next });
+      result.drops = clear ? rollDrops(this, stage) : [];
     }
     for (const f of this.humans()) {
       const p = f.test ? null : this.save?.get(f.uid);
@@ -217,6 +223,7 @@ export class Game {
       weapon: ['laser', 'spread', 'charge'][Math.floor(this.random() * 3)],
       lane: ['L', 'M', 'R'][Math.floor(this.random() * 3)], target: 'core',
       lastActive: nowMs, pvpTeam: team || null,
+      gear: test ? {} : (prof.gear ||= {}), prefCls: prof.cls || null, dodgeUntil: 0,
     };
     this.resetFighterForRound(f);
     this.fighters.set(uid, f);
@@ -239,6 +246,20 @@ export class Game {
     f.drones = 0; f.dronesUntil = 0; f.droneCd = 0;
     f.wander = this.random() * Math.PI * 2; f.depth = 0.3 + this.random() * 0.5;
     f.interceptT = 0; f.labelUntil = f.labelUntil || 0; f.invuln = 1.5;
+    if (this.mode === 'pve' && !f.alien && f.team === 'blue') setupShip(this, f);
+  }
+
+  setClass(f, cls) {
+    if (this.mode !== 'pve' || f.alien) return false;
+    f.prefCls = cls;
+    const p = !f.test && !f.npc ? this.save?.peek(f.uid) : null;
+    if (p) { p.cls = cls; this.save.dirty = true; }
+    if (f.cls === cls) return true;
+    f.cls = cls;
+    refreshStats(f);
+    this.emit('toast', { uid: f.uid, text: `${f.name} 换成${{ dps: '输出舰', tank: '重装机甲', healer: '医疗舰' }[cls]}` });
+    f.labelUntil = this.clock + 3;
+    return true;
   }
 
   syncNpcs(force = false) {
@@ -262,6 +283,10 @@ export class Game {
   // 返回 true 表示消息被游戏使用
   chat(user, text) {
     this.stats.chats++;
+    if (this.mode === 'pve') {
+      const cls = parseClass(text);
+      if (cls) { const f = this.join(user); if (f) this.setClass(f, cls); return !!f; }
+    }
     const cmd = parseCommand(text);
     if (!cmd) return false;
     if (cmd.type === 'team') { const f = this.join(user, cmd.team); return !!f; }
@@ -277,7 +302,8 @@ export class Game {
         else { const tu = this.liveTurrets(other(f.team)); if (tu.length) { const near = tu.sort((a, b) => Math.abs(a.x - f.x) - Math.abs(b.x - f.x))[0]; f.lane = near.x < 300 ? 'L' : near.x > 420 ? 'R' : 'M'; } }
         break;
       }
-      case 'intercept': this.intercept(f); break;
+      case 'intercept': if (this.mode === 'pve') interceptZone(this, f); else this.intercept(f); break;
+      case 'ult': if (this.mode === 'pve' && this.phase === 'battle' && f.energy >= 100) castUlt(this, f); break;
       case 'mode': this.voteMode(f, cmd.mode); break;
       case 'card': this.emit('card', { uid: f.uid }); break;
       default: break;
@@ -296,7 +322,8 @@ export class Game {
     const room = Math.max(0, FIGHTER.likeChargeCapPerSec - f.likeWindow);
     const add = Math.min(room, n * FIGHTER.likeCharge);
     f.likeWindow += add;
-    f.charge = Math.min(100, f.charge + add);
+    if (this.mode === 'pve' && !f.alien) f.energy = Math.min(100, (f.energy || 0) + add / FIGHTER.likeCharge * PVE.energyPerLike);
+    else f.charge = Math.min(100, f.charge + add);
   }
 
   intercept(f) {
@@ -318,6 +345,13 @@ export class Game {
     f.lastActive = this.now();
     this.stats.gifts++; this.stats.giftUnits += amount;
     const tier = tierForGift(gift, this.settings);
+    if (this.mode === 'pve') {
+      const price = Number(gift.price);
+      const value = (Number.isFinite(price) && price > 0 ? price : 1) * amount;
+      const had = (f.dodgeUntil || 0) > this.clock;
+      f.dodgeUntil = Math.min(this.clock + PVE.autoDodgeCap, Math.max(this.clock, f.dodgeUntil || 0) + value * PVE.autoDodgePerValue);
+      if (!had) this.emit('toast', { uid: f.uid, text: `${f.name} 开启自动躲弹 ${Math.ceil((f.dodgeUntil - this.clock) / 60)}分钟` });
+    }
     this.emit('gift', { uid: f.uid, name: f.name, team: f.team, gift: gift.name || '礼物', count: amount, tier });
     if (this.phase !== 'battle') {
       this.pendingGifts.push({ user: { id: f.uid, name: f.name }, gift, amount, tier });
@@ -334,7 +368,10 @@ export class Game {
   boost(f, units) {
     f.power = Math.min(GIFT.powerMax, f.power + units);
     f.powerUntil = this.clock + GIFT.powerSeconds;
-    f.shield = Math.min(GIFT.shieldMax, f.shield + units);
+    if (this.mode === 'pve' && f.maxHp) {
+      f.shieldHp = Math.min(f.maxHp * 0.5, (f.shieldHp || 0) + f.maxHp * 0.1 * units);
+      f.energy = Math.min(100, (f.energy || 0) + PVE.energyPerSmallGift * units);
+    } else f.shield = Math.min(GIFT.shieldMax, f.shield + units);
   }
 
   applyGift(user, gift, amount, tier) {
@@ -470,6 +507,7 @@ export class Game {
       if (t.core <= 0 && t.present) { this.emit('explode', { x: t.x, y: t.y + t.coreDy, size: 4, team: id }); return this.endBattle(other(id), 'destroyed'); }
     }
     if (this.mode === 'pve') {
+      if (this.pve?.wiped) return this.endBattle('red', 'wipe');
       if (this.pve?.sub === 'boss' && this.pve.t <= 0) return this.endBattle('red', 'timeout');
       return;
     }
@@ -496,8 +534,8 @@ export class Game {
       tu.cd -= dt;
       if (tu.cd <= 0) {
         const [a, b] = FLAGSHIP.turretFire;
-        tu.cd = (a + this.random() * (b - a)) * (low ? 0.75 : 1);
-        this.spawnPattern(t.id, this.random() < 0.5 ? 'turretFan' : 'turretSpiral', tu.x, tu.y + t.def.dir * 20, tu.pod ? null : null);
+        if (tu.pod) { tu.cd = 5.5 + this.random() * 3; this.spawnPattern(t.id, this.random() < 0.6 ? 'podFan' : 'podSpiral', tu.x, tu.y + 20, null); }
+        else { tu.cd = (a + this.random() * (b - a)) * (low ? 0.75 : 1); this.spawnPattern(t.id, this.random() < 0.5 ? 'turretFan' : 'turretSpiral', tu.x, tu.y + t.def.dir * 20, null); }
       }
     }
     // 礼物阵型队列
@@ -507,7 +545,7 @@ export class Game {
       t.patternT = GIFT.patternQueueGap;
       const f = this.fighters.get(job.owner);
       const x = f && f.alive && f.team === t.id ? f.x : 360;
-      const y = f && f.alive && f.team === t.id ? f.y : t.y + t.def.dir * 80;
+      const y = f && f.alive && f.team === t.id ? f.y : t.fleet ? 1150 : t.y + t.def.dir * 80;
       this.spawnPattern(t.id, job.kind, x, y, job.owner);
     }
     // 战舰队列
@@ -591,6 +629,12 @@ export class Game {
   stepFighters(dt, combat) {
     for (const f of [...this.fighters.values()]) {
       if (f.alien) { if (combat && f.alive) stepAlien(this, f, dt); continue; }
+      if (this.mode === 'pve' && f.team === 'blue') {
+        if (!f.alive) { if (combat) { f.respawn -= dt; if (f.respawn <= 0) this.respawnFighter(f); } continue; }
+        stepShip(this, f, dt, combat);
+        if (combat) { stepBeam(this, f, dt); this.fireDrones(f, dt); }
+        continue;
+      }
       if (!f.alive) {
         if (combat) { f.respawn -= dt; if (f.respawn <= 0) this.respawnFighter(f); }
         continue;
@@ -680,10 +724,7 @@ export class Game {
       this.addBullet(f.x, f.y + dir * 18, 0, dir * 900, 16, 25, f.team, 'shot', f.uid, 8, { overload: true });
       this.emit('overload', { uid: f.uid, x: f.x, y: f.y, team: f.team });
     }
-    if (f.drones) {
-      f.droneCd -= dt;
-      if (f.droneCd <= 0) { f.droneCd = 0.25; for (const s of [-1, 1]) this.addBullet(f.x + s * 26, f.y, 0, dir * 1000, 3, 1, f.team, 'shot', f.uid, 0, { gift: true }); }
-    }
+    this.fireDrones(f, dt);
     if (f.fireCd > 0) return;
     const w = WEAPONS[f.weapon];
     const p = f.power;
@@ -704,7 +745,19 @@ export class Game {
     }
   }
 
+  fireDrones(f, dt) {
+    if (!f.drones) return;
+    const dir = TEAMS[f.team].dir;
+    f.droneCd -= dt;
+    if (f.droneCd <= 0) { f.droneCd = 0.25; for (const s of [-1, 1]) this.addBullet(f.x + s * 26, f.y, 0, dir * 1000, 3, 1, f.team, 'shot', f.uid, 0, { gift: true }); }
+  }
+
   respawnFighter(f) {
+    if (this.mode === 'pve' && f.team === 'blue') {
+      f.alive = true; f.hp = f.maxHp; f.invuln = 2; f.shieldHp = 0;
+      f.x = laneCenter(f.lane) + (f.slotDx || 0); f.y = 1230; f.vx = f.vy = 0;
+      return;
+    }
     const def = TEAMS[f.team], zone = this.zoneOf(f.team);
     f.alive = true; f.hp = f.maxHp; f.invuln = 2;
     f.x = 120 + this.random() * 480;
@@ -714,13 +767,14 @@ export class Game {
 
   killFighter(f, killer) {
     if (!f.alive) return;
-    f.alive = false; f.respawn = FIGHTER.respawn; f.shield = 0;
+    f.alive = false; f.respawn = this.mode === 'pve' ? PVE.respawn : FIGHTER.respawn; f.shield = 0; f.beamT = 0;
     this.emit('explode', { x: f.x, y: f.y, size: f.alien && f.kind === 'gunner' ? 2 : 1, team: f.team, alien: !!f.alien });
     if (killer && killer.team !== f.team && !killer.alien) { killer.merit += f.alien ? PVE.alien[f.kind].merit : MERIT.kill; killer.kills++; }
     if (f.alien) this.fighters.delete(f.uid);
   }
 
   hurtFighter(f, dmg, ownerUid) {
+    if (this.mode === 'pve') return fleetHurt(this, f, dmg, ownerUid);
     if (!f.alive || f.invuln > 0) return false;
     if (f.shield > 0) { f.shield--; this.emit('shieldhit', { x: f.x, y: f.y }); return true; }
     f.hp -= dmg;
@@ -733,6 +787,7 @@ export class Game {
     if (this.bullets.length >= LIMITS.bullets) return null;
     const b = { x, y, vx, vy, r, dmg, team, kind, owner, pierce: pierce || 0, life: 6, split: 0, hue: 0, laser: false, orb: false, overload: false, gift: false, hit: null };
     if (extra) Object.assign(b, extra);
+    if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * ((this.pve?.stage || 1) - 1)) : PVE.giftDmg;
     this.bullets.push(b);
     return b;
   }
@@ -747,9 +802,11 @@ export class Game {
       case 'spiral': E({ kind: 'spiral', dur: 2.2, rate: 0.05, arms: 4, spin: 3.4, sweep: 1.35, speed: 260, r: 5.5, gift: true }); break;
       case 'fan': E({ kind: 'fan', dur: 1.2, rate: 0.12, n: 9, arc: 1.1, speed: 300, r: 5.5, gift: true }); break;
       case 'ring': E({ kind: 'ring', dur: 0.5, rate: 0.25, n: 18, speed: 260, r: 5, gift: true }); break;
-      case 'bossRing': E({ kind: 'ring', dur: 1.0, rate: 0.33, n: 26, speed: 200, r: 6 }); break;
+      case 'bossRing': E({ kind: 'ring', dur: 0.7, rate: 0.34, n: 14, speed: 180, r: 6 }); break;
       case 'bossFlower': E({ kind: 'spiral', dur: 3, rate: 0.06, arms: 6, spin: 1.6, sweep: 1.5, speed: 190, r: 5.5 }); break;
-      case 'gunnerFan': E({ kind: 'fan', dur: 0.5, rate: 0.25, n: 7, arc: 0.8, speed: 220, r: 6, aim: true }); break;
+      case 'podFan': E({ kind: 'fan', dur: 0.8, rate: 0.32, n: 4, arc: 0.7, speed: 210, r: 6, aim: true }); break;
+      case 'podSpiral': E({ kind: 'spiral', dur: 1.0, rate: 0.16, arms: 2, spin: 2.2, sweep: 1.1, speed: 190, r: 5.5 }); break;
+      case 'gunnerFan': E({ kind: 'fan', dur: 0.3, rate: 0.25, n: 5, arc: 0.7, speed: 210, r: 6, aim: true }); break;
       case 'split': {
         for (let i = 0; i < 4; i++) {
           const a = base + (i - 1.5) * 0.35;
@@ -822,7 +879,7 @@ export class Game {
       for (const f of this.fighters.values()) {
         if (f.team === h.team || !f.alive || h.hit.has(f.uid)) continue;
         const inside = h.vertical ? Math.abs(f.x - h.x) < 16 && f.y > h.y1 && f.y < h.y2 : Math.abs(f.y - h.y) < 16;
-        if (inside) { h.hit.add(f.uid); this.hurtFighter(f, 2, h.owner); }
+        if (inside) { h.hit.add(f.uid); this.hurtFighter(f, this.mode === 'pve' ? PVE.hazardDmg : 2, h.owner); }
       }
       if (h.active <= 0) this.hazards.splice(i, 1);
     }
@@ -851,17 +908,46 @@ export class Game {
   damageFlag(enemyId, raw, ownerUid, kind, fromGift = false) {
     const t = this.teams[enemyId];
     const n = this.attackers(other(enemyId));
-    const norm = fromGift ? 1 : Math.pow(FLAGSHIP.attackerNorm / Math.max(FLAGSHIP.attackerNorm, n), this.mode === 'pve' ? 0.5 : 0.8);
+    const norm = fromGift ? 1 : Math.pow(FLAGSHIP.attackerNorm / Math.max(FLAGSHIP.attackerNorm, n), this.mode === 'pve' ? 0.7 : 0.8);
     let dmg = raw * norm * (kind === 'danmaku' ? 0.4 : 1);
     const counted = dmg;
     t.sinceHit = 0; t.dmgTaken += dmg;
     if (t.shield > 0) { const s = Math.min(t.shield, dmg); t.shield -= s; dmg -= s; }
     if (dmg > 0) { t.core = Math.max(0, t.core - dmg); t.hitFlash = Math.max(t.hitFlash, 0.15); }
     const o = this.fighters.get(ownerUid);
-    if (o) {
+    if (o && this.mode === 'pve') { if (!o.alien) o.merit += counted * PVE.contrib.dmg; }
+    else if (o) {
       o.dmgAcc += counted;
       while (o.dmgAcc >= 100) { o.dmgAcc -= 100; o.merit += MERIT.per100Damage; }
     }
+  }
+
+  // 输出舰集束导弹：追踪最近的异形，没有就追母舰核心/触手炮
+  steerMissile(b, dt) {
+    b.age = (b.age || 0) + dt;
+    if (b.age < 0.25) return;
+    if (!b.tgt || b.age - (b.tgtAt || 0) > 0.4) {
+      b.tgtAt = b.age;
+      let best = null, bd = 1e12;
+      for (const f of this.fighters.values()) {
+        if (!f.alien || !f.alive) continue;
+        const d = (f.x - b.x) ** 2 + (f.y - b.y) ** 2;
+        if (d < bd) { bd = d; best = { x: f.x, y: f.y, uid: f.uid }; }
+      }
+      const boss = this.teams.red;
+      if (!best && boss.present) {
+        best = { x: boss.x, y: boss.y + PVE.coreDy };
+        for (const pod of boss.turrets || []) if (pod.alive) { const d = (pod.x - b.x) ** 2 + (pod.y - b.y) ** 2; if (d < bd) { bd = d; best = { x: pod.x, y: pod.y }; } }
+      }
+      b.tgt = best;
+    }
+    if (b.tgt?.uid) { const f = this.fighters.get(b.tgt.uid); if (f && f.alive) { b.tgt.x = f.x; b.tgt.y = f.y; } }
+    if (!b.tgt) return;
+    const sp = Math.hypot(b.vx, b.vy) || 1, nsp = Math.min(620, sp + 500 * dt);
+    const want = Math.atan2(b.tgt.y - b.y, b.tgt.x - b.x), cur = Math.atan2(b.vy, b.vx);
+    let da = want - cur; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    const a = cur + Math.max(-6 * dt, Math.min(6 * dt, da));
+    b.vx = Math.cos(a) * nsp; b.vy = Math.sin(a) * nsp;
   }
 
   stepBullets(dt, combat) {
@@ -869,6 +955,7 @@ export class Game {
     let w = 0;
     for (let i = 0; i < arr.length; i++) {
       const b = arr[i];
+      if (b.missile) this.steerMissile(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
       let dead = b.life <= 0 || b.y < -40 || b.y > H + 40 || b.x < -40 || b.x > W + 40;
       if (!dead && b.split > 0) {
@@ -890,6 +977,15 @@ export class Game {
 
   collide(b) {
     const enemyId = other(b.team);
+    if (this.mode === 'pve' && b.team === 'red' && this.barriers.length) {
+      for (const bar of this.barriers) {
+        const [l0, l1] = PVE.lanes[bar.lane];
+        if (b.x > l0 && b.x < l1 && Math.abs(b.y - bar.y) < 10 + b.r) {
+          const o = this.fighters.get(bar.owner); if (o) o.merit += b.dmg * PVE.contrib.taken;
+          return true;
+        }
+      }
+    }
     // 战机
     const cx = Math.floor(b.x / CELL), cy = Math.floor(b.y / CELL);
     const rr = FIGHTER.radius + b.r;
@@ -903,7 +999,8 @@ export class Game {
           const dx = f.x - b.x, dy = f.y - b.y;
           if (dx * dx + dy * dy > rr * rr) continue;
           if (b.hit && b.hit.has(f.uid)) continue;
-          if (!this.hurtFighter(f, b.kind === 'danmaku' ? 1 : b.dmg * (b.gift || b.overload || f.alien ? 1 : this.shotFactor[b.team]), b.owner)) continue;
+          const hitDmg = this.mode === 'pve' ? b.dmg : b.kind === 'danmaku' ? 1 : b.dmg * (b.gift || b.overload || f.alien ? 1 : this.shotFactor[b.team]);
+          if (!this.hurtFighter(f, hitDmg, b.owner)) continue;
           if (b.pierce > 0) { b.pierce--; (b.hit ||= new Set()).add(f.uid); continue; }
           return true;
         }
@@ -926,13 +1023,10 @@ export class Game {
         if (tu.dead) continue;
         const dx = tu.x - b.x, dy = tu.y - b.y;
         if (dx * dx + dy * dy < (26 + b.r) ** 2) {
-          tu.hp -= b.kind === 'danmaku' ? 0.5 : b.dmg;
-          if (tu.hp <= 0) {
-            tu.dead = true; tu.respawn = FLAGSHIP.turretRespawn;
-            const o = this.fighters.get(b.owner); if (o) o.merit += MERIT.turret;
-            this.emit('explode', { x: tu.x, y: tu.y, size: 2, team: enemyId });
-            this.emit('banner', { team: b.team, uid: b.owner, name: o?.name || '', text: tu.pod ? '击毁母舰触手炮' : '击毁敌方炮台', tier: 0 });
-          }
+          const dmg = this.mode === 'pve' ? b.dmg * (b.kind === 'danmaku' ? 0.4 : 1) : (b.kind === 'danmaku' ? 0.5 : b.dmg);
+          tu.hp -= dmg;
+          if (this.mode === 'pve') { const o = this.fighters.get(b.owner); if (o && !o.alien) o.merit += dmg * PVE.contrib.dmg; }
+          if (tu.hp <= 0) this.killTurret(t, tu, b.owner);
           return true;
         }
       }
@@ -943,6 +1037,15 @@ export class Game {
       }
     }
     return false;
+  }
+
+  killTurret(t, tu, ownerUid) {
+    if (tu.dead) return;
+    tu.dead = true; tu.respawn = tu.pod ? PVE.podRespawn : FLAGSHIP.turretRespawn;
+    const o = this.fighters.get(ownerUid);
+    if (o && !o.alien) o.merit += this.mode === 'pve' ? 30 : MERIT.turret;
+    this.emit('explode', { x: tu.x, y: tu.y, size: 2, team: t.id });
+    this.emit('banner', { team: other(t.id), uid: ownerUid, name: o?.name || '', text: tu.pod ? '击毁母舰触手炮' : '击毁敌方炮台', tier: 0 });
   }
 
   // ───────── 工具 ─────────

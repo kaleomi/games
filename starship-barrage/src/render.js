@@ -2,6 +2,9 @@
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
 import { bossTimeText } from './pve.js';
+import { healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
+import { PVE, CLASSES, GEAR } from './config.js';
+import { laneCenter, hasAutoDodge } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
@@ -33,6 +36,7 @@ export class Renderer {
     this.shake = 0;
     this.hintIdx = 0;
     this.boardCache = { t: -1, red: [], blue: [] };
+    this.reticles = []; this.healLinks = []; this.floaters = []; this.pops = []; this.laneFlashes = []; this.loots = [];
     for (let i = 0; i < 140; i++) this.stars.push({ x: Math.random() * W, y: Math.random() * H, z: 0.2 + Math.random() * 0.8 });
     this.resize();
   }
@@ -107,6 +111,11 @@ export class Renderer {
   // 矢量美术（加载完成前返回 null，用简化图形兜底）
   fighterArt(f) {
     const skin = f.npc ? 0 : Math.min(5, f.skin | 0);
+    if (this.game.mode === 'pve' && f.cls) {
+      if (f.cls === 'healer') return this.art.get(`hl|${skin}`, px => healerSvg(skin, px), 50, 50, 3);
+      if (f.cls === 'tank') return this.art.get(`mc|${skin}`, px => mechSvg(skin, px), 58, 58, 3);
+      return this.art.get(`f|blue|charge|${skin}|0`, px => fighterSvg('blue', 'charge', skin, false, px), 50, 50, 3);
+    }
     return this.art.get(`f|${f.team}|${f.weapon}|${skin}|${f.npc ? 1 : 0}`, px => fighterSvg(f.team, f.weapon, skin, f.npc, px), 50, 50, 3);
   }
   flagArt(team) { return this.art.get(`flag|${team}`, (w, h) => flagshipSvg(team, w, h), 640, 200, 2); }
@@ -117,6 +126,9 @@ export class Renderer {
   alienArt(kind) { const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
   podArt(dead) { return this.art.get(`pod|${dead ? 1 : 0}`, px => podSvg(px, dead), 58, 58, 3); }
   bossArt() { return this.art.get('boss', (w, h) => bossSvg(w, h), BOSS_VIEW.w, BOSS_VIEW.h, 2); }
+  sprite(key, make, w, h = w, res = 3) { return this.art.get(key, make, w, h, res); }
+  skillIcon(id, size = 30) { return this.sprite(`sk|${id}|${size}`, px => skillIconSvg(id, px), size, size, 3); }
+  gearIcon(slot, tier, size = 30) { return this.sprite(`gi|${slot}|${tier}|${size}`, px => gearIconSvg(slot, tier, px), size, size, 3); }
   blit(x, c, cx, cy) { x.drawImage(c, cx - c.w / 2, cy - c.h / 2, c.w, c.h); }
 
   // ───────── 事件 → 特效 ─────────
@@ -141,6 +153,19 @@ export class Renderer {
         case 'ship': break;
         case 'vote': this.toast(`${e.name} 投票换${e.modeName}模式（${e.votes}/${e.need}）`, null, '#ffe28a'); break;
         case 'dive': this.ring(e.x, e.y, '#ff5ad1', 26); break;
+        case 'diveWarn': this.reticles.push({ x: e.x, y: e.y, r: e.r, t: e.t, max: e.t }); break;
+        case 'heal': this.pops.push({ uid: e.uid, id: 'heal', t: 0 }); this.healLinks.push({ uid: e.uid, x: e.x, y: e.y, targets: e.targets, t: 0.6 }); for (const tg of e.targets) this.floaters.push({ x: tg.x, y: tg.y - 10, text: `+${tg.amount}`, color: '#7dffb0', t: 0, plus: true }); break;
+        case 'skill': this.pops.push({ uid: e.uid, id: e.skill, t: 0 }); break;
+        case 'ult': {
+          const id = { healer: 'healUlt', tank: 'barrier', dps: 'beam' }[e.cls];
+          this.pops.push({ uid: e.uid, id, t: 0, big: true });
+          this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `释放「${CLASSES[e.cls].ult}」${e.revived ? `，复活${e.revived}人` : ''}`, tier: 3, icon: id });
+          if (e.cls === 'healer') this.flashes.push({ t: 0.35, color: '#5dff9e' });
+          break;
+        }
+        case 'zone': break;
+        case 'strike': this.shake = Math.max(this.shake, e.kind === 'cannon' ? 20 : 10); for (const l of e.lanes) this.laneFlashes.push({ lane: l, t: 0.6, kind: e.kind }); break;
+        case 'loot': this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: g.teams.red.x, y0: g.teams.red.y }); this.toast(`${e.name} 获得 ${e.text}${e.equipped ? ' · 已自动装备' : ' · 分解为星核碎片'}`, null, GEAR.tiers[e.item.tier].color); if (e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `获得${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: e.item.tier >= 3 ? 4 : 2, gear: e.item }); break;
         default: break;
       }
     }
@@ -187,10 +212,13 @@ export class Renderer {
     this.sx = sx; this.sy = sy;
     x.save(); x.translate(sx, sy);
     for (const id of ['red', 'blue']) this.drawFlagship(x, g.teams[id]);
+    if (g.mode === 'pve') this.drawZones(x, dt);
     this.drawHazards(x);
+    if (g.mode === 'pve') this.drawBarriers(x);
     for (const s of g.battleships) this.drawShip(x, s);
     this.drawFighters(x);
     this.drawBullets(x);
+    if (g.mode === 'pve') this.drawPveFx(x, dt);
     this.drawParticles(x, dt);
     this.drawCannons(x);
     x.restore();
@@ -218,6 +246,7 @@ export class Renderer {
 
   drawFlagship(x, t) {
     if (t.boss) return this.drawBoss(x, t);
+    if (t.fleet) return;
     const def = t.def, y = t.y, d = def.dir;
     x.save();
     x.translate(t.x, y);
@@ -358,6 +387,7 @@ export class Renderer {
     for (const f of g.fighters.values()) {
       if (!f.alive) continue;
       if (f.alien) { this.drawAlien(x, f); continue; }
+      if (g.mode === 'pve' && f.team === 'blue') { this.drawPveShip(x, f, top); continue; }
       const d = TEAMS[f.team].dir;
       const art = this.fighterArt(f);
       x.save(); x.translate(f.x, f.y);
@@ -408,6 +438,193 @@ export class Renderer {
     return this.art.get(`b|${shape}|${color}|${size}`, px => bulletSvg(shape, color, px), size, size, 3);
   }
 
+  drawPveShip(x, f, top) {
+    const g = this.game;
+    const art = this.fighterArt(f);
+    if (f.beamT > 0) this.drawBeam(x, f);
+    // 自动躲弹（付费）雷达环
+    if (hasAutoDodge(g, f)) {
+      const rd = this.sprite('radar', px => radarSvg(px), 56);
+      if (rd) { x.save(); x.translate(f.x, f.y); x.rotate(g.clock * 2.2); x.globalAlpha = 0.85; this.blit(x, rd, 0, 0); x.restore(); x.globalAlpha = 1; }
+    }
+    if (f.taunt > 0) { x.strokeStyle = `rgba(255,90,90,${0.35 + 0.3 * Math.sin(g.clock * 10)})`; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 34, 0, Math.PI * 2); x.stroke(); }
+    x.save(); x.translate(f.x, f.y);
+    if (f.invuln > 0 && Math.floor(g.clock * 12) % 2) x.globalAlpha = 0.45;
+    x.globalCompositeOperation = 'lighter';
+    const fl = this.glowSprite('#7fe3ff', 2.6 + f.power * 0.7);
+    x.drawImage(fl, -fl.half, 22 - fl.half + Math.random() * 3);
+    x.globalCompositeOperation = 'source-over';
+    if (art) this.blit(x, art, 0, 0); else { const spr = this.shipSprite('blue', 0, f.npc); x.drawImage(spr, -spr.half, -spr.half); }
+    if (f.hitFlash > 0 && art) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = f.hitFlash * 4; this.blit(x, art, 0, 0); x.globalCompositeOperation = 'source-over'; }
+    x.restore(); x.globalAlpha = 1;
+    if (f.shieldHp > 0) { const sb = this.sprite('bubble', px => shieldBubbleSvg(px), 58); if (sb) { x.globalAlpha = Math.min(1, 0.4 + f.shieldHp / f.maxHp); this.blit(x, sb, f.x, f.y); x.globalAlpha = 1; } }
+    const av = !f.npc && this.avatar(f.avatar);
+    if (av) {
+      const ay = f.y + 4;
+      x.save(); x.beginPath(); x.arc(f.x, ay, 7, 0, Math.PI * 2); x.clip(); x.drawImage(av, f.x - 7, ay - 7, 14, 14); x.restore();
+      x.strokeStyle = '#7fe3ff'; x.lineWidth = 1.5; x.beginPath(); x.arc(f.x, ay, 7.5, 0, Math.PI * 2); x.stroke();
+    }
+    if (f.drones) { const da = this.droneArt('blue'); if (da) for (const k of [-1, 1]) this.blit(x, da, f.x + k * 30, f.y + Math.sin(g.clock * 6 + k) * 4); }
+    // 血条 + 大招能量
+    const bw = 36, by = f.y + 27, pct = Math.max(0, f.hp / f.maxHp);
+    x.fillStyle = 'rgba(0,0,0,.65)'; x.fillRect(f.x - bw / 2 - 1, by - 1, bw + 2, 7);
+    x.fillStyle = pct > 0.6 ? '#4dff88' : pct > 0.3 ? '#ffd24a' : '#ff4d5e'; x.fillRect(f.x - bw / 2, by, bw * pct, 3.5);
+    if (f.shieldHp > 0) { x.fillStyle = '#bfefff'; x.fillRect(f.x - bw / 2, by, bw * Math.min(1, f.shieldHp / f.maxHp), 1.5); }
+    x.fillStyle = f.energy >= 100 ? '#ffe28a' : 'rgba(255,226,138,.6)'; x.fillRect(f.x - bw / 2, by + 4, bw * Math.min(1, (f.energy || 0) / 100), 1.6);
+    if (f.energy >= 100) { x.strokeStyle = `rgba(255,216,107,${0.5 + 0.4 * Math.sin(g.clock * 8)})`; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 30, 0, Math.PI * 2); x.stroke(); }
+    const rank = this.rankOf.get(f.uid);
+    const show = !f.npc && (top.has(f.uid) || f.labelUntil > g.clock || (this.card && this.card.uid === f.uid));
+    if (show) {
+      const ly = f.y - 36;
+      const text = `${f.name}·${CLASSES[f.cls].short}`;
+      this.label(x, text, f.x, ly, 13, rank != null ? '#ffe28a' : '#ffffff');
+      const m = rank != null && this.medalArt(rank);
+      if (m) { x.font = `500 13px ${FONT}`; this.blit(x, m, f.x - x.measureText(text).width / 2 - 11, ly - 1); }
+    }
+  }
+
+  drawBeam(x, f) {
+    const [l0, l1] = PVE.lanes[f.lane];
+    const cx = f.x, k = Math.min(1, f.beamT / 0.4);
+    x.save(); x.globalCompositeOperation = 'lighter';
+    const lane = x.createLinearGradient(l0, 0, l1, 0);
+    lane.addColorStop(0, 'rgba(255,180,58,0)'); lane.addColorStop(0.5, `rgba(255,180,58,${0.18 * k})`); lane.addColorStop(1, 'rgba(255,180,58,0)');
+    x.fillStyle = lane; x.fillRect(l0, 0, l1 - l0, f.y);
+    const core = x.createLinearGradient(cx - 26, 0, cx + 26, 0);
+    core.addColorStop(0, 'rgba(0,0,0,0)'); core.addColorStop(0.3, '#ffb43a'); core.addColorStop(0.5, '#ffffff'); core.addColorStop(0.7, '#ffb43a'); core.addColorStop(1, 'rgba(0,0,0,0)');
+    x.globalAlpha = 0.85 * k + Math.random() * 0.15; x.fillStyle = core; x.fillRect(cx - 26 - Math.random() * 4, 0, 52 + Math.random() * 8, f.y - 16);
+    x.restore(); x.globalAlpha = 1;
+  }
+
+  drawZones(x, dt) {
+    const g = this.game;
+    const tile = this.sprite('zt', px => zoneTileSvg(px), 48, 48, 2);
+    if (tile && !this.zonePattern) { this.zonePattern = x.createPattern(tile, 'repeat'); }
+    const glyph = this.sprite('zg', px => zoneGlyphSvg(px), 56);
+    const y0 = PVE.zone[0] - 50, y1 = H - 48;
+    for (const z of g.zones) {
+      const urgent = z.warn < 3;
+      const blink = urgent ? 0.55 + 0.45 * Math.sin(g.clock * 20) : 0.75 + 0.25 * Math.sin(g.clock * 5);
+      for (const l of z.lanes) {
+        const [a, b] = PVE.lanes[l];
+        x.save();
+        x.globalAlpha = blink;
+        x.fillStyle = 'rgba(255,30,58,.12)'; x.fillRect(a, y0, b - a, y1 - y0);
+        if (this.zonePattern) { x.save(); x.beginPath(); x.rect(a, y0, b - a, y1 - y0); x.clip(); x.translate(0, (g.clock * 30) % 48); x.fillStyle = this.zonePattern; x.fillRect(a, y0 - 48, b - a, y1 - y0 + 48); x.restore(); }
+        x.globalAlpha = 1;
+        x.strokeStyle = urgent ? '#ffffff' : '#ff4d5e'; x.lineWidth = 3; x.setLineDash([14, 8]); x.strokeRect(a + 2, y0, b - a - 4, y1 - y0); x.setLineDash([]);
+        // 进度条：剩余秒数
+        const k = Math.max(0, z.warn / z.max);
+        x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(a + 10, y0 + 8, b - a - 20, 8);
+        x.fillStyle = urgent ? '#ffffff' : '#ff4d5e'; x.fillRect(a + 10, y0 + 8, (b - a - 20) * k, 8);
+        const cx = (a + b) / 2, cy = (y0 + y1) / 2 - 40;
+        if (glyph) this.blit(x, glyph, cx, cy - 60);
+        x.font = `900 76px ${NUM}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+        x.lineWidth = 6; x.strokeStyle = 'rgba(40,0,8,.85)'; x.strokeText(String(Math.ceil(z.warn)), cx, cy + 16);
+        x.fillStyle = urgent ? '#ffffff' : '#ff8a96'; x.fillText(String(Math.ceil(z.warn)), cx, cy + 16);
+        this.label(x, `${z.caster}·${z.name}`, cx, cy + 70, 17, '#ffd0d6', true);
+        if (z.kind === 'cannon') this.label(x, `发「拦截」削弱 已-${Math.round(Math.min(0.6, z.intercept) * 100)}%`, cx, cy + 96, 15, '#ffe28a', true);
+        x.restore();
+      }
+    }
+    for (let i = this.laneFlashes.length - 1; i >= 0; i--) {
+      const f = this.laneFlashes[i]; f.t -= dt;
+      if (f.t <= 0) { this.laneFlashes.splice(i, 1); continue; }
+      const [a, b] = PVE.lanes[f.lane];
+      x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = f.t / 0.6;
+      const gr = x.createLinearGradient(a, 0, b, 0);
+      const c = f.kind === 'cannon' ? '#8dff5a' : f.kind === 'acid' ? '#9dff3a' : '#ff4d5e';
+      gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.5, c); gr.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = gr; x.fillRect(a, 0, b - a, H);
+      x.fillStyle = '#ffffff'; x.globalAlpha = (f.t / 0.6) * 0.5; x.fillRect((a + b) / 2 - 12, 0, 24, H);
+      x.restore();
+    }
+  }
+
+  drawBarriers(x) {
+    const g = this.game;
+    const art = this.sprite('barrier', (w, h) => barrierSvg(w, h), 220, 32, 2);
+    for (const b of g.barriers) {
+      const [a, c] = PVE.lanes[b.lane];
+      x.globalAlpha = Math.min(1, b.t / 0.6) * (0.85 + 0.15 * Math.sin(g.clock * 12));
+      if (art) x.drawImage(art, a, b.y - 16, c - a, 32);
+      else { x.fillStyle = 'rgba(127,227,255,.5)'; x.fillRect(a, b.y - 6, c - a, 12); }
+      x.globalAlpha = 1;
+    }
+  }
+
+  drawPveFx(x, dt) {
+    const g = this.game;
+    // 治疗链
+    for (let i = this.healLinks.length - 1; i >= 0; i--) {
+      const h = this.healLinks[i]; h.t -= dt;
+      if (h.t <= 0) { this.healLinks.splice(i, 1); continue; }
+      const src = g.fighters.get(h.uid);
+      const sx = src ? src.x : h.x, sy = src ? src.y : h.y;
+      x.save(); x.globalCompositeOperation = 'lighter';
+      for (const t of h.targets) {
+        const tg = g.fighters.get(t.uid); const tx = tg ? tg.x : t.x, ty = tg ? tg.y : t.y;
+        const mx = (sx + tx) / 2 + (ty - sy) * 0.15, my = (sy + ty) / 2 - 40;
+        x.globalAlpha = h.t / 0.6;
+        x.strokeStyle = '#5dff9e'; x.lineWidth = 6; x.globalAlpha *= 0.35;
+        x.beginPath(); x.moveTo(sx, sy); x.quadraticCurveTo(mx, my, tx, ty); x.stroke();
+        x.globalAlpha = h.t / 0.6; x.strokeStyle = '#eafff2'; x.lineWidth = 1.6;
+        x.beginPath(); x.moveTo(sx, sy); x.quadraticCurveTo(mx, my, tx, ty); x.stroke();
+      }
+      x.restore(); x.globalAlpha = 1;
+    }
+    // 自爆虫锁定圈
+    const ret = this.sprite('ret', px => reticleSvg(px), 64);
+    for (let i = this.reticles.length - 1; i >= 0; i--) {
+      const r = this.reticles[i]; r.t -= dt;
+      if (r.t <= -0.3) { this.reticles.splice(i, 1); continue; }
+      const k = Math.max(0, r.t / r.max);
+      if (ret) { x.save(); x.translate(r.x, r.y); x.rotate(g.clock * 3); const s = (r.r * 2) / 64 * (1 + k * 0.6); x.scale(s, s); x.globalAlpha = 0.6 + 0.4 * Math.sin(g.clock * 16); this.blit(x, ret, 0, 0); x.restore(); x.globalAlpha = 1; }
+    }
+    // 技能图标弹出
+    for (let i = this.pops.length - 1; i >= 0; i--) {
+      const p = this.pops[i]; p.t += dt;
+      const dur = p.big ? 1.6 : 1;
+      if (p.t > dur) { this.pops.splice(i, 1); continue; }
+      const f = g.fighters.get(p.uid); if (!f || !f.alive) continue;
+      const size = p.big ? 44 : 28, icon = this.skillIcon(p.id, size);
+      if (!icon) continue;
+      const k = Math.min(1, p.t / 0.15), out = Math.max(0, (p.t - (dur - 0.3)) / 0.3);
+      x.globalAlpha = 1 - out;
+      const s = 0.6 + 0.4 * k + (p.big ? Math.sin(p.t * 8) * 0.04 : 0);
+      x.save(); x.translate(f.x, f.y - 48 - p.t * 14); x.scale(s, s); this.blit(x, icon, 0, 0); x.restore();
+      x.globalAlpha = 1;
+    }
+    // 回血数字
+    const plus = this.sprite('plus', px => healPlusSvg(px), 18);
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    for (let i = this.floaters.length - 1; i >= 0; i--) {
+      const fl = this.floaters[i]; fl.t += dt;
+      if (fl.t > 1) { this.floaters.splice(i, 1); continue; }
+      x.globalAlpha = 1 - fl.t;
+      if (plus) this.blit(x, plus, fl.x - 14, fl.y - fl.t * 40);
+      x.font = `800 14px ${NUM}`; x.lineWidth = 3; x.strokeStyle = 'rgba(0,30,10,.9)'; x.strokeText(fl.text, fl.x + 6, fl.y - fl.t * 40);
+      x.fillStyle = fl.color; x.fillText(fl.text, fl.x + 6, fl.y - fl.t * 40);
+    }
+    x.globalAlpha = 1;
+    // 掉落装备飞向战机
+    for (let i = this.loots.length - 1; i >= 0; i--) {
+      const l = this.loots[i]; l.t += dt;
+      if (l.t > 2.2) { this.loots.splice(i, 1); continue; }
+      const f = g.fighters.get(l.uid);
+      const tx = f ? f.x : 360, ty = f ? f.y : 900, k = Math.min(1, l.t / 1.4), e = 1 - (1 - k) ** 3;
+      const px = l.x0 + (tx - l.x0) * e, py = l.y0 + (ty - l.y0) * e - Math.sin(k * Math.PI) * 120;
+      const icon = this.gearIcon(l.item.slot, l.item.tier, 34);
+      x.globalAlpha = l.t > 1.8 ? (2.2 - l.t) / 0.4 : 1;
+      x.globalCompositeOperation = 'lighter';
+      const gl = this.glowSprite(GEAR.tiers[l.item.tier].color, 12);
+      x.drawImage(gl, px - gl.half, py - gl.half);
+      x.globalCompositeOperation = 'source-over';
+      if (icon) this.blit(x, icon, px, py);
+      x.globalAlpha = 1;
+    }
+  }
+
   drawAlien(x, f) {
     const art = this.alienArt(f.kind);
     x.save(); x.translate(f.x, f.y);
@@ -434,6 +651,10 @@ export class Renderer {
         x.strokeStyle = pal.laser; x.lineWidth = 2.4;
         x.beginPath(); x.moveTo(b.x, b.y); x.lineTo(b.x - b.vx * 0.018, b.y - b.vy * 0.018); x.stroke();
         continue;
+      }
+      if (b.missile) {
+        const ms = this.sprite('missile', px => missileSvg(px), 20);
+        if (ms) { const a = Math.atan2(b.vy, b.vx) + Math.PI / 2, c = Math.cos(a) * k, sn = Math.sin(a) * k; x.setTransform(c, sn, -sn, c, k * b.x + ox, k * b.y + oy); x.drawImage(ms, -10, -10, 20, 20); continue; }
       }
       let color, shape;
       if (b.kind === 'shot') { color = b.overload ? '#fff3a8' : b.gift ? '#ffd86b' : pal.shot; shape = b.orb || b.overload ? 'orb' : b.gift ? 'kunai' : 'rice'; }
@@ -477,11 +698,9 @@ export class Renderer {
     const g = this.game;
     for (const id of ['red', 'blue']) {
       const t = g.teams[id], c = t.cannon, def = t.def, d = def.dir;
-      if (!t.present) {
-        if (c.state === 'charging') this.label(x, '主炮已蓄满，等母舰现身', t.x, t.y + d * 130, 18, '#ffe28a', true);
-        continue;
-      }
-      const fy = t.boss ? t.y + 90 : t.y + d * 60, cx = t.x;
+      if (!t.present && !t.fleet) continue;
+      if (t.fleet && c.state === 'charging' && !g.teams.red.present) { this.label(x, '舰队主炮已蓄满，等母舰现身', 360, 1140, 18, '#ffe28a', true); continue; }
+      const fy = t.boss ? t.y + 90 : t.fleet ? 1215 : t.y + d * 60, cx = t.x;
       if (c.state === 'charging') {
         const k = 1 - c.t / GIFT.cannonCharge;
         x.globalCompositeOperation = 'lighter';
@@ -529,25 +748,27 @@ export class Renderer {
     else timeText = g.phase === 'battle' ? `第${g.roundNo}局 · ${mm}:${String(ss).padStart(2, '0')}` : g.phase === 'lobby' ? `第${g.roundNo}局 ${Math.ceil(g.phaseT)}秒后开战` : '结算中';
     x.font = `600 18px ${FONT}`;
     const tw = Math.max(220, x.measureText(timeText).width + 40);
-    x.fillStyle = 'rgba(5,8,20,.55)'; roundRect(x, 360 - tw / 2, 622, tw, 36, 18); x.fill();
-    x.fillStyle = '#e8eeff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(timeText, 360, 641);
+    const ty = pve ? 1174 : 641;   // 讨伐模式中间是战场，提示挪到底部
+    x.fillStyle = 'rgba(5,8,20,.55)'; roundRect(x, 360 - tw / 2, ty - 19, tw, 36, 18); x.fill();
+    x.fillStyle = '#e8eeff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(timeText, 360, ty);
     // 本局战功榜
     if (pve) this.board(x, 'blue', 520, 300);
     else { this.board(x, 'red', 520, 196); this.board(x, 'blue', 520, 1000); }
     // 模式投票
     const v = g.voteView();
-    let hy = 672;
+    let hy = pve ? 1214 : 672;
     if (v) {
+      const vy = pve ? 560 : 662;
       const text = `投票换${v.modeName}模式 ${v.votes}/${v.need} · 发「换${v.modeName}」同意`;
       x.font = `600 15px ${FONT}`; const w = x.measureText(text).width + 30;
-      x.fillStyle = 'rgba(80,60,0,.75)'; roundRect(x, 360 - w / 2, 662, w, 26, 13); x.fill();
-      x.fillStyle = '#ffe28a'; x.fillText(text, 360, 675);
-      hy = 702;
+      x.fillStyle = 'rgba(80,60,0,.75)'; roundRect(x, 360 - w / 2, vy, w, 26, 13); x.fill();
+      x.fillStyle = '#ffe28a'; x.fillText(text, 360, vy + 13);
+      if (!pve) hy = 702;
     }
     // 指令提示轮播
     const other = pve ? '对战' : '讨伐';
     const hints = pve
-      ? ['发任意指令加入舰队，一起讨伐异形母舰', '发「激光」「散弹」「蓄力」换武器', '发「左」「中」「右」换编队位置', '母舰湮灭炮蓄力时，全员发「拦截」', '点赞给自己战机充能，满了放超载炮', `发「换${other}」投票切到红蓝对战`, '发「我的」查看等级和战功']
+      ? ['发「输出」「机甲」「医疗」选战舰加入', '红色区域10秒后命中，发「左」「中」「右」躲开', '机甲站前排挡子弹，医疗给血最少的队友回血', '点赞充大招能量，满了自动放，也可发「大招」', '湮灭炮锁定时，全员发「拦截」削弱它', '打爆母舰掉装备，自动穿上更好的', `发「换${other}」投票切到红蓝对战`, '发「我的」查看战舰、装备和贡献']
       : ['发「红」「蓝」加入舰队', '发「激光」「散弹」「蓄力」换武器', '发「左」「中」「右」换编队位置', '发「核心」「炮台」选攻击目标', '点赞给自己战机充能，满了放超载炮', '对面主炮蓄力时，发「拦截」削弱它', `发「换${other}」投票切到打BOSS模式`, '发「我的」查看等级和战功'];
     if (g.clock - (this.hintAt || 0) > 5) { this.hintAt = g.clock; this.hintIdx = (this.hintIdx + 1) % hints.length; }
     x.font = `15px ${FONT}`; x.fillStyle = 'rgba(200,215,255,.75)'; x.fillText(hints[this.hintIdx % hints.length], 360, hy);
@@ -557,6 +778,7 @@ export class Renderer {
   }
 
   teamBar(x, t, y) {
+    if (t.fleet) return this.fleetBar(x, y);
     const def = t.def;
     x.fillStyle = 'rgba(4,6,16,.78)'; x.fillRect(0, y, W, 46);
     const pct = t.core / t.coreMax, sp = t.shieldMax > 0 ? t.shield / t.shieldMax : 0;
@@ -580,12 +802,33 @@ export class Renderer {
     x.fillText(c.state === 'cool' ? `${gun}冷却${Math.ceil(c.t)}s` : c.state === 'charging' ? `${gun}蓄力` : c.state === 'firing' ? `${gun}发射` : `${gun}待命`, W - 14, y + 39);
   }
 
+  fleetBar(x, y) {
+    const g = this.game;
+    let n = 0, alive = 0, hp = 0, max = 0;
+    const cls = { dps: 0, tank: 0, healer: 0 };
+    for (const f of g.fighters.values()) if (!f.alien && f.team === 'blue') { n++; cls[f.cls]++; if (f.alive) { alive++; hp += f.hp; } max += f.maxHp || 0; }
+    x.fillStyle = 'rgba(4,6,16,.78)'; x.fillRect(0, y, W, 46);
+    const pct = max ? hp / max : 0;
+    x.fillStyle = 'rgba(255,255,255,.08)'; x.fillRect(150, y + 12, 420, 14);
+    const gr = x.createLinearGradient(150, 0, 570, 0); gr.addColorStop(0, '#3aa8ff'); gr.addColorStop(1, '#5dff9e');
+    x.fillStyle = gr; x.fillRect(150, y + 12, 420 * pct, 14);
+    x.textBaseline = 'middle'; x.textAlign = 'left'; x.font = `700 18px ${FONT}`; x.fillStyle = '#7fe3ff';
+    x.fillText('苍穹舰队', 14, y + 20);
+    x.font = `13px ${FONT}`; x.fillStyle = '#aab4cc'; x.fillText(`存活 ${alive}/${n}`, 14, y + 38);
+    x.font = `12px ${FONT}`; x.fillStyle = '#c8d2ee'; x.textAlign = 'center';
+    x.fillText(`输出 ${cls.dps} · 机甲 ${cls.tank} · 医疗 ${cls.healer}`, 360, y + 37);
+    x.textAlign = 'right'; x.font = `700 20px ${NUM}`; x.fillStyle = '#ffffff'; x.fillText(`${Math.round(pct * 100)}%`, W - 14, y + 22);
+    const c = g.teams.blue.cannon;
+    x.font = `12px ${FONT}`; x.fillStyle = c.state === 'idle' ? '#7f8aa6' : '#ffe28a';
+    x.fillText(c.state === 'cool' ? `主炮冷却${Math.ceil(c.t)}s` : c.state === 'charging' ? '主炮蓄力' : c.state === 'firing' ? '主炮发射' : '主炮待命', W - 14, y + 39);
+  }
+
   board(x, team, px, py) {
-    const list = (this.boardCache[team] || []).filter(f => f.merit > 0);
+    const list = (this.boardCache[team] || []).filter(f => f.merit > 0).sort((a, b) => b.merit - a.merit);
     if (!list.length) return;
     x.textAlign = 'left'; x.textBaseline = 'middle';
     x.fillStyle = 'rgba(4,6,16,.5)'; roundRect(x, px, py, 186, 22 + list.length * 22, 10); x.fill();
-    x.font = `600 13px ${FONT}`; x.fillStyle = TEAMS[team].glow; x.fillText('本局战功', px + 10, py + 12);
+    x.font = `600 13px ${FONT}`; x.fillStyle = TEAMS[team].glow; x.fillText(this.game.mode === 'pve' ? '贡献榜' : '本局战功', px + 10, py + 12);
     list.forEach((f, i) => {
       x.font = `13px ${FONT}`; x.fillStyle = i === 0 ? '#ffe28a' : '#dfe6ff';
       const m = i < 3 && this.medalArt(i);
@@ -617,7 +860,12 @@ export class Renderer {
       x.font = `700 ${big ? 26 : 19}px ${FONT}`;
       x.fillStyle = '#ffffff';
       const name = b.name ? `${trim(b.name, 10)} ` : '';
-      x.fillText(`${name}${b.text}`, 0, 1);
+      const icon = b.icon ? this.skillIcon(b.icon, big ? 50 : 36) : b.gear ? this.gearIcon(b.gear.slot, b.gear.tier, big ? 50 : 36) : null;
+      if (icon) {
+        const tw = x.measureText(`${name}${b.text}`).width, iw = big ? 50 : 36;
+        this.blit(x, icon, -(tw + iw + 8) / 2 + iw / 2, 0);
+        x.fillText(`${name}${b.text}`, iw / 2 + 4, 1);
+      } else x.fillText(`${name}${b.text}`, 0, 1);
       x.restore();
       y -= h + 8;
     }
@@ -650,8 +898,24 @@ export class Renderer {
     x.textAlign = 'left'; x.textBaseline = 'middle';
     x.font = `700 20px ${FONT}`; x.fillStyle = '#ffffff'; x.fillText(trim(f.name, 12), 180, 728);
     x.font = `14px ${FONT}`; x.fillStyle = '#c8d2ee';
+    if (this.game.mode === 'pve' && f.cls) {
+      x.fillStyle = 'rgba(6,10,26,.9)'; roundRect(x, 160, 826, 400, 60, 16); x.fill();
+      x.strokeStyle = TEAMS[f.team].color; x.stroke();
+      const c = CLASSES[f.cls], st = f.stats || {};
+      x.fillStyle = '#c8d2ee'; x.font = `14px ${FONT}`;
+      const dodge = hasAutoDodge(this.game, f) ? `自动躲弹 ${Math.ceil((f.dodgeUntil - this.game.clock) / 60)}分` : '手动躲弹';
+      x.fillText(`Lv.${lv}  ${c.name}  血${Math.round(f.maxHp)} 攻${(st.atk || 0).toFixed(1)}  ${dodge}`, 180, 758);
+      x.fillText(`本局贡献 ${Math.floor(f.merit)}  大招 ${Math.floor(f.energy || 0)}%  星核碎片 ${p?.shards || 0}`, 180, 784);
+      const slots = Object.keys(GEAR.slots);
+      slots.forEach((s, i) => {
+        const it = f.gear?.[s], cx = 196 + i * 92;
+        if (it) { const ic = this.gearIcon(s, it.tier, 34); if (ic) this.blit(x, ic, cx, 852); x.font = `11px ${FONT}`; x.fillStyle = GEAR.tiers[it.tier].color; x.textAlign = 'center'; x.fillText(GEAR.tiers[it.tier].name, cx, 876); x.textAlign = 'left'; }
+        else { x.strokeStyle = 'rgba(255,255,255,.2)'; x.lineWidth = 1; x.strokeRect(cx - 16, 836, 32, 32); x.font = `11px ${FONT}`; x.fillStyle = '#6f7894'; x.textAlign = 'center'; x.fillText(GEAR.slots[s].name, cx, 852); x.textAlign = 'left'; }
+      });
+    } else {
     x.fillText(`Lv.${lv}  涂装：${SKINS[Math.min(SKINS.length - 1, f.skin)].name}  武器：${{ laser: '激光', spread: '散弹', charge: '蓄力' }[f.weapon]}`, 180, 758);
     x.fillText(`本局战功 ${Math.floor(f.merit)}  击落 ${f.kills}  本周战功 ${p?.weekMerit || 0}  胜场 ${p?.wins || 0}`, 180, 784);
+    }
     x.fillStyle = 'rgba(255,255,255,.1)'; x.fillRect(180, 802, 360, 6);
     x.fillStyle = '#ffe28a'; x.fillRect(180, 802, 360 * Math.min(1, (p?.xp || 0) / need), 6);
   }

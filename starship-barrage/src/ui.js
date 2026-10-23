@@ -1,7 +1,8 @@
 // 设置面板、开局规则页、结算页（DOM）
-import { TEAMS, GIFT, LEVEL, SKINS, PVE } from './config.js';
+import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR } from './config.js';
 import { bossMax } from './pve.js';
-import { emblemSvg, logoSvg, medalSvg, gearSvg } from './art.js';
+import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, fighterSvg } from './art.js';
+import { describeItem } from './fleet.js';
 
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
 
@@ -18,10 +19,10 @@ export function rulesHtml(settings, mode = 'pvp') {
   const range = i => i < 4 ? `${t[i]}–${t[i + 1] - 1}` : `${t[i]}+`;
   const pve = mode === 'pve';
   const how = pve ? `
-      <li>发 <b>任意指令</b>（如「加入」「激光」）加入舰队，头像变成你的战机，<b>AI自动驾驶、躲弹、开火</b></li>
-      <li><b>激光 / 散弹 / 蓄力</b> 换武器 · <b>左 / 中 / 右</b> 换编队 · <b>点赞</b>充能，满了打出超载炮</li>
-      <li>先清虫群，再打<b>异形母舰</b>；母舰血量过半后会蓄力湮灭炮，全员发 <b>拦截</b> 削弱它</li>
-      <li>打爆母舰进下一关；要塞被毁或${PVE.bossMinutes}分钟没打完，退回一关 · 发 <b>换对战</b> 投票切回红蓝对战</li>`
+      <li>发 <b>输出 / 机甲 / 医疗</b> 选战舰加入（发「加入」默认补缺的职业），战舰<b>自动开火、自动放技能</b></li>
+      <li>异形放技能时航道会出现<b>红色区域，10秒倒计时</b>：发 <b>左 / 中 / 右</b> 换航道躲开（总有一条是安全的）</li>
+      <li><b>点赞</b>充大招能量，满了自动放；也可以发 <b>大招</b> · 母舰「湮灭炮」锁定时全员发 <b>拦截</b> 削弱</li>
+      <li>打爆母舰进下一关并<b>掉落装备</b>；全队阵亡或${PVE.bossMinutes}分钟没打完，退回一关 · 发 <b>换对战</b> 投票切回红蓝对战</li>`
     : `
       <li>发 <b>红</b> 或 <b>蓝</b> 加入舰队，头像变成你的战机，<b>AI自动驾驶、躲弹、开火</b></li>
       <li><b>激光 / 散弹 / 蓄力</b> 换武器 · <b>左 / 中 / 右</b> 换编队 · <b>核心 / 炮台</b> 选目标</li>
@@ -32,9 +33,11 @@ export function rulesHtml(settings, mode = 'pvp') {
     <h2>怎么玩</h2>
     <ul>${how}
     </ul>
+    ${pve ? classTable() : ''}
     <h2>礼物效果 <small>按单个礼物价值（抖币）</small></h2>
     <table>
-      <tr><td>${range(0)}</td><td>火力+1、护盾+1，持续${GIFT.powerSeconds}秒；每${GIFT.smallComboEvery}个放一组环形弹幕</td></tr>
+      ${pve ? `<tr><td>任意</td><td><b>自动躲弹</b>：每1抖币${PVE.autoDodgePerValue}秒，红区和子弹自动躲（不送礼要自己发「左/中/右」）</td></tr>` : ''}
+      <tr><td>${range(0)}</td><td>${pve ? `火力+1、护盾+10%、大招能量+${PVE.energyPerSmallGift}，持续${GIFT.powerSeconds}秒` : `火力+1、护盾+1，持续${GIFT.powerSeconds}秒`}；每${GIFT.smallComboEvery}个放一组环形弹幕</td></tr>
       <tr><td>${range(1)}</td><td>弹幕阵型（螺旋 / 扇形）</td></tr>
       <tr><td>${range(2)}</td><td>激光网格或分裂弹 + 2架护卫僚机${GIFT.droneSeconds}秒</td></tr>
       <tr><td>${range(3)}</td><td>召唤战舰${GIFT.battleshipSeconds}秒，舰体写着你的名字</td></tr>
@@ -42,12 +45,35 @@ export function rulesHtml(settings, mode = 'pvp') {
     </table>
     <h2>榜单与成长</h2>
     <ul>
-      <li>战功只按战果计算（击落、伤害、炮台、拦截、${pve ? '过关' : '胜利'}），<b>不显示消费金额</b></li>
+      ${pve ? `<li><b>贡献值</b>＝打伤害 + 给队友回血 + 替队友挨打，过关全员+${PVE.stageClearContrib}，<b>不显示消费金额</b></li>
+      <li>打爆母舰掉装备：贡献前三必掉，其余${60}%；更好的自动穿上，差的分解成星核碎片。品质：${GEAR.tiers.map(t => `<span style="color:${t.color}">${t.name}</span>`).join(' · ')}</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
       <li>等级跟着抖音账号保存，<b>等级越高，AI躲弹越灵活</b>，满${LEVEL.max}级；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
       <li>灰色「NPC」战机是人少时的补位电脑，不是真人，不进榜单</li>
       <li>礼物效果固定、没有抽奖；理性消费，未成年人请勿打赏</li>
     </ul>
   </div>`;
+}
+
+const svgImg = (svg, size) => `<img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" width="${size}" height="${size}" alt="">`;
+
+function classTable() {
+  const art = { dps: fighterSvg('blue', 'charge', 2, false, 120), tank: mechSvg(2, 120), healer: healerSvg(2, 120) };
+  const icons = { dps: ['missile', 'beam'], tank: ['shield', 'barrier'], healer: ['heal', 'healUlt'] };
+  const skillText = {
+    dps: ['6枚追踪导弹', '沿航道光束2.5秒'],
+    tank: ['护盾+嘲讽，吸引火力', '航道屏障挡子弹6秒'],
+    healer: ['给血量最低的2艘回血', '全体回血40%，复活阵亡'],
+  };
+  return `<h2>三种战舰 <small>发名字切换，存档记住</small></h2>
+    <div class="classes">${Object.entries(CLASSES).map(([id, c]) => `
+      <div class="cls ${id}">
+        <div class="art">${svgImg(art[id], 54)}</div>
+        <div class="info"><b>${c.name}</b><small>血${c.hp} · 攻${c.atk}${c.armor ? ` · 减伤${Math.round(c.armor * 100)}%` : ''}</small>
+          <div class="sk">${svgImg(skillIconSvg(icons[id][0], 56), 22)}<span>${c.skill}：${skillText[id][0]}</span></div>
+          <div class="sk">${svgImg(skillIconSvg(icons[id][1], 56), 22)}<span>${c.ult}：${skillText[id][1]}</span></div>
+        </div>
+      </div>`).join('')}
+    </div>`;
 }
 
 export class UI {
@@ -261,11 +287,13 @@ export class UI {
       this.resKey = res.round;
       const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i>${esc(m.name)}<b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
       if (res.mode === 'pve') {
-        const list = (res.mvp.blue || []).map((m, i) => `<div><i>${i < 3 ? medalSvg(i, 30) : `<span class="rk">${i + 1}</span>`}</i>${esc(m.name)}<b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
+        const list = (res.mvp.blue || []).map((m, i) => `<div><i>${i < 3 ? medalSvg(i, 30) : `<span class="rk">${i + 1}</span>`}</i><span>${esc(m.name)}${m.cls ? `<small class="ct">${CLASSES[m.cls].short}</small>` : ''}</span><b>贡献 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
+        const drops = (res.drops || []).slice(0, 8).map(d => `<div class="drop">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 64), 30)}<span>${esc(d.name)}</span><b style="color:${GEAR.tiers[d.item.tier].color}">${esc(describeItem(d.item))}</b><em>${d.equipped ? '已装备' : '分解'}</em></div>`).join('');
         this.resultEl.innerHTML = `
           <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `第${res.stage}关 讨伐成功` : '讨伐失败'}</div>
-          <div class="reason">${res.clear ? `异形母舰被击毁 · 下一局挑战第${res.next}关` : `${res.reason === 'timeout' ? `${PVE.bossMinutes}分钟内没打爆母舰` : '苍穹要塞被摧毁'} · 退回第${res.next}关`}</div>
-          <div class="mvps"><div class="mvp blue wide"><h3>${emblemSvg('blue', 26)}本关战功榜</h3>${list}</div></div>
+          <div class="reason">${res.clear ? `异形母舰被击毁 · 下一局挑战第${res.next}关` : `${res.reason === 'timeout' ? `${PVE.bossMinutes}分钟内没打爆母舰` : '舰队全员阵亡'} · 退回第${res.next}关`}</div>
+          <div class="mvps"><div class="mvp blue wide"><h3>${emblemSvg('blue', 26)}本关贡献榜</h3>${list}</div></div>
+          ${drops ? `<div class="drops"><h3>装备掉落</h3>${drops}</div>` : ''}
           <div class="next">经验已结算 · 下一局马上开始</div>`;
       } else {
         this.resultEl.innerHTML = `

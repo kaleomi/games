@@ -510,6 +510,200 @@ export function bossSvg(pxW, pxH) {
 </svg>`;
 }
 
+// ───────── 讨伐模式战舰：医疗舰、重装机甲（机头朝上） ─────────
+export function healerSvg(skin, px) {
+  const s = skinStyle('blue', skin, false);
+  const G = '#5dff9e';
+  const hull = 'M0,-27 C10,-27 15,-17 15,-5 L14,13 C12,20 6,24 0,24 C-6,24 -12,20 -14,13 L-15,-5 C-15,-17 -10,-27 0,-27 Z';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-34 -34 68 68">${defs(s)}
+    <defs><radialGradient id="hg"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="${G}"/><stop offset="1" stop-color="${G}" stop-opacity="0"/></radialGradient></defs>
+    ${[-6, 6].map(x => `<rect x="${x - 2.2}" y="22" width="4.4" height="3" rx=".8" fill="#2a2f3d"/><ellipse cx="${x}" cy="27" rx="2.6" ry="4" fill="url(#nozzle)"/>`).join('')}
+    ${both('M-14,0 L-22,0 L-22,6 L-14,8 Z', `fill="url(#wing)" stroke="${s.trim}" stroke-width=".6"`)}
+    ${both('M-30,-10 C-30,-14 -18,-14 -18,-10 L-18,16 C-18,20 -30,20 -30,16 Z', `fill="url(#wing)" stroke="${s.trim}" stroke-width=".8"`)}
+    ${both('M-28,-6 L-20,-6 M-28,4 L-20,4 M-28,12 L-20,12', `stroke="${s.stripe}" stroke-width="1.2"`)}
+    ${both('M-24,-13 m-4.4,0 a4.4,4.4 0 1 0 8.8,0 a4.4,4.4 0 1 0 -8.8,0', 'fill="url(#hg)"')}
+    ${both('M-24,-13 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0', `fill="none" stroke="${G}" stroke-width="1.2"`)}
+    <path d="${hull}" fill="url(#hull)" stroke="${s.trim}" stroke-width=".9"/><path d="${hull}" fill="url(#hullSide)"/>
+    <path d="M-10,6 L10,6 M-11,13 L11,13 M-9,-14 L9,-14" stroke="#000" stroke-opacity=".28" stroke-width=".6"/>
+    <circle cy="-4" r="11" fill="url(#hg)" opacity=".75" filter="url(#soft)"/>
+    <path d="M-2.8,-13 h5.6 v6.2 h6.2 v5.6 h-6.2 v6.2 h-5.6 v-6.2 h-6.2 v-5.6 h6.2 Z" fill="${G}" stroke="#0a3a1e" stroke-width=".8"/>
+    <path d="M-1.2,-11.4 h2.4 v6.2 h6.2 v2.4 h-6.2 v6.2 h-2.4 v-6.2 h-6.2 v-2.4 h6.2 Z" fill="#ffffff" opacity=".85"/>
+    <path d="M0,-25 C3,-24 4.4,-21 4.2,-18 L-4.2,-18 C-4.4,-21 -3,-24 0,-25 Z" fill="url(#canopy)" stroke="#0a0f1c" stroke-width=".5"/>
+    ${s.sparkle ? sparkles() : ''}${s.aura ? `<g fill="none" stroke="${s.aura}" stroke-width="2.6" opacity=".8" filter="url(#blur)"><path d="${hull}"/></g>` : ''}
+  </svg>`;
+}
+
+export function mechSvg(skin, px) {
+  const s = skinStyle('blue', skin, false);
+  const hex = (x, y, r) => `<path d="M${x},${y - r} L${x + r * .87},${y - r / 2} L${x + r * .87},${y + r / 2} L${x},${y + r} L${x - r * .87},${y + r / 2} L${x - r * .87},${y - r / 2} Z"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-36 -36 72 72">${defs(s)}
+    <defs>
+      <linearGradient id="sh" x1="-32" y1="-28" x2="-10" y2="-4" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e8f6ff"/><stop offset=".4" stop-color="${s.c.light}"/><stop offset="1" stop-color="${s.c.deep}"/></linearGradient>
+      <radialGradient id="vis"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="${s.c.glow}"/><stop offset="1" stop-color="${s.c.glow}" stop-opacity="0"/></radialGradient>
+    </defs>
+    ${[-8, 8].map(x => `<ellipse cx="${x}" cy="26" rx="3.2" ry="5" fill="url(#nozzle)"/>`).join('')}
+    <rect x="-13" y="6" width="26" height="17" rx="4" fill="url(#wing)" stroke="${s.trim}" stroke-width=".9"/>
+    ${[-8, 8].map(x => `<rect x="${x - 3}" y="18" width="6" height="5" rx="1" fill="#2a2f3d"/>`).join('')}
+    <path d="M-15,-9 L15,-9 L17,9 L-17,9 Z" fill="url(#hull)" stroke="${s.trim}" stroke-width="1"/>
+    <path d="M-15,-9 L15,-9 L17,9 L-17,9 Z" fill="url(#hullSide)"/>
+    <path d="M-10,-2 L10,-2 M-11,4 L11,4 M0,-9 L0,9" stroke="#000" stroke-opacity=".3" stroke-width=".7"/>
+    <rect x="-6" y="-1" width="12" height="4" rx="1" fill="${s.stripe}"/>
+    ${both('M-25,-4 m-9,0 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0', `fill="url(#wing)" stroke="${s.trim}" stroke-width="1"`)}
+    ${both('M-31,-7 L-19,-7 L-19,-2 L-31,-2 Z', `fill="${s.stripe}" opacity=".9"`)}
+    <rect x="19" y="-30" width="6" height="24" rx="1.6" fill="#c6cfe2" stroke="${s.trim}" stroke-width=".8"/>
+    <rect x="18" y="-14" width="8" height="4" fill="${s.stripe}"/>
+    <circle cx="22" cy="-30" r="3" fill="url(#nozzle)"/>
+    <path d="M-34,-22 L-14,-30 L-8,-14 L-12,-4 L-28,-2 Z" fill="url(#sh)" stroke="${s.trim}" stroke-width="1.1"/>
+    <g fill="none" stroke="${s.c.glow}" stroke-width=".7" opacity=".8">${hex(-24, -17, 4)}${hex(-17, -20, 4)}${hex(-20, -11, 4)}</g>
+    <path d="M-32,-21 L-14,-28" stroke="#fff" stroke-opacity=".8" stroke-width="1.2"/>
+    <rect x="-6" y="-19" width="12" height="11" rx="4" fill="url(#hull)" stroke="${s.trim}" stroke-width=".9"/>
+    <rect x="-5" y="-16" width="10" height="3" rx="1.5" fill="url(#vis)"/>
+    <rect x="-4" y="-15.4" width="8" height="1.6" rx=".8" fill="#fff"/>
+    ${s.gold ? `<path d="M-15,-9 L15,-9 L17,9 L-17,9 Z" fill="none" stroke="#ffe08a" stroke-width=".7"/>` : ''}
+    ${s.sparkle ? sparkles() : ''}${s.aura ? `<g fill="none" stroke="${s.aura}" stroke-width="3" opacity=".8" filter="url(#blur)"><path d="M-15,-9 L15,-9 L17,9 L-17,9 Z"/><circle cx="-25" cy="-4" r="9"/><circle cx="25" cy="-4" r="9"/></g>` : ''}
+  </svg>`;
+}
+
+// ───────── 技能图标（徽章） ─────────
+const SKILL_STYLE = {
+  heal:     { a: '#c9ffe0', b: '#1fb86a', c: '#063a20', ult: false },
+  healUlt:  { a: '#eaffd8', b: '#2fd47a', c: '#063a20', ult: true },
+  shield:   { a: '#d8f3ff', b: '#2d8fd9', c: '#062244', ult: false },
+  barrier:  { a: '#e6f8ff', b: '#3aa8ff', c: '#062244', ult: true },
+  missile:  { a: '#ffe2c4', b: '#ff7a2e', c: '#3a1300', ult: false },
+  beam:     { a: '#fff2c4', b: '#ffb43a', c: '#3a1f00', ult: true },
+};
+export function skillIconSvg(id, px) {
+  const st = SKILL_STYLE[id];
+  let sym = '';
+  const cross = (x, y, k) => `<path transform="translate(${x},${y}) scale(${k})" d="M-2.6,-8 h5.2 v5.4 h5.4 v5.2 h-5.4 v5.4 h-5.2 v-5.4 h-5.4 v-5.2 h5.4 Z" fill="#fff" stroke="${st.c}" stroke-width="1"/>`;
+  if (id === 'heal') sym = `<path d="M-9,5 C-6,-6 6,-6 9,5" fill="none" stroke="#eafff2" stroke-width="2.2" stroke-dasharray="3 2"/>${cross(-9, 5, 0.75)}${cross(9, 5, 0.75)}${cross(0, -6, 0.9)}`;
+  if (id === 'healUlt') sym = `${Array.from({ length: 12 }, (_, i) => `<path d="M0,-17 L1.6,-10 L-1.6,-10 Z" fill="#fff" opacity=".9" transform="rotate(${i * 30})"/>`).join('')}<circle r="9.5" fill="#fff" opacity=".25"/>${cross(0, 0, 1.25)}`;
+  if (id === 'shield') sym = `<path d="M0,-14 L11,-9 L10,4 C8,10 4,13 0,15 C-4,13 -8,10 -10,4 L-11,-9 Z" fill="#fff" fill-opacity=".2" stroke="#fff" stroke-width="2"/><path d="M2,-8 L-4,1 L0,1 L-2,9 L5,-1 L1,-1 Z" fill="#fff"/>`;
+  if (id === 'barrier') { const h = (x, y) => `<path d="M${x},${y - 6} L${x + 5.2},${y - 3} L${x + 5.2},${y + 3} L${x},${y + 6} L${x - 5.2},${y + 3} L${x - 5.2},${y - 3} Z" fill="#fff" fill-opacity=".25" stroke="#fff" stroke-width="1.6"/>`; sym = h(-10.4, -4) + h(0, -4) + h(10.4, -4) + h(-5.2, 5) + h(5.2, 5) + `<path d="M-15,12 H15" stroke="#fff" stroke-width="2"/>`; }
+  if (id === 'missile') { const m = (x, y, a) => `<g transform="translate(${x},${y}) rotate(${a})"><path d="M0,-10 C2.2,-7 2.4,-3 2.2,4 L-2.2,4 C-2.4,-3 -2.2,-7 0,-10 Z" fill="#fff"/><path d="M-2.2,2 L-4.2,6 L-2.2,5 Z M2.2,2 L4.2,6 L2.2,5 Z" fill="#fff"/><path d="M-1.4,5 L0,11 L1.4,5 Z" fill="#ffe08a"/></g>`; sym = m(-9, 3, -18) + m(0, -1, 0) + m(9, 3, 18); }
+  if (id === 'beam') sym = `<rect x="-4.5" y="-17" width="9" height="30" rx="4.5" fill="#fff" opacity=".35"/><rect x="-2" y="-17" width="4" height="30" rx="2" fill="#fff"/><path d="M-12,13 L12,13 L8,17 L-8,17 Z" fill="#fff"/>${[[-9, -8], [9, -2], [-8, 4], [10, -12]].map(([x, y]) => `<path d="M${x},${y - 3} L${x + 1},${y} L${x},${y + 3} L${x - 1},${y} Z" fill="#fff"/>`).join('')}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-24 -24 48 48">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="-20" x2="0" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${st.a}"/><stop offset=".45" stop-color="${st.b}"/><stop offset="1" stop-color="${st.c}"/></linearGradient>
+      <linearGradient id="rim" x1="-20" y1="-20" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff6c8"/><stop offset=".5" stop-color="#ffcc4d"/><stop offset="1" stop-color="#8a5a00"/></linearGradient>
+      <filter id="gl" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    </defs>
+    ${st.ult ? '<rect x="-22" y="-22" width="44" height="44" rx="12" fill="url(#rim)"/>' : ''}
+    <rect x="${st.ult ? -19.5 : -21}" y="${st.ult ? -19.5 : -21}" width="${st.ult ? 39 : 42}" height="${st.ult ? 39 : 42}" rx="${st.ult ? 10 : 11}" fill="url(#bg)" stroke="${st.ult ? 'none' : '#fff'}" stroke-opacity=".5" stroke-width="1.2"/>
+    <path d="M-17,-12 C-10,-17 10,-17 17,-12 L17,-15 C10,-19 -10,-19 -17,-15 Z" fill="#fff" opacity=".35"/>
+    <g filter="url(#gl)" opacity=".7">${sym}</g>${sym}
+  </svg>`;
+}
+
+// ───────── 技能特效精灵 ─────────
+export function missileSvg(px) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-12 -12 24 24">
+    <defs><radialGradient id="f"><stop offset="0" stop-color="#fff"/><stop offset=".4" stop-color="#ffb43a"/><stop offset="1" stop-color="#ff5a1a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="b" x1="-2" y1="0" x2="2" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8a93a6"/><stop offset=".5" stop-color="#ffffff"/><stop offset="1" stop-color="#6a7388"/></linearGradient></defs>
+    <ellipse cx="0" cy="8" rx="2.6" ry="4.4" fill="url(#f)"/>
+    <path d="M0,-10 C2,-8 2.2,-4 2.2,4 L-2.2,4 C-2.2,-4 -2,-8 0,-10 Z" fill="url(#b)" stroke="#1a1f2e" stroke-width=".5"/>
+    <path d="M-2.2,1 L-4.6,5.4 L-2.2,4.6 Z M2.2,1 L4.6,5.4 L2.2,4.6 Z" fill="#ff7a2e"/>
+    <path d="M-1.4,-7 L1.4,-7" stroke="#ff4d5e" stroke-width="1.2"/>
+  </svg>`;
+}
+
+export function shieldBubbleSvg(px, color = '#7fe3ff') {
+  const hexes = [];
+  for (let r = -3; r <= 3; r++) for (let q = -3; q <= 3; q++) {
+    const x = (q + r / 2) * 9, y = r * 7.8;
+    if (Math.hypot(x, y) > 24) continue;
+    hexes.push(`<path d="M${x},${y - 4.5} L${x + 3.9},${y - 2.25} L${x + 3.9},${y + 2.25} L${x},${y + 4.5} L${x - 3.9},${y + 2.25} L${x - 3.9},${y - 2.25} Z"/>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-30 -30 60 60">
+    <defs><radialGradient id="g"><stop offset=".55" stop-color="${color}" stop-opacity="0"/><stop offset=".9" stop-color="${color}" stop-opacity=".35"/><stop offset="1" stop-color="#ffffff" stop-opacity=".8"/></radialGradient>
+    <clipPath id="c"><circle r="26"/></clipPath></defs>
+    <circle r="26" fill="url(#g)"/>
+    <g clip-path="url(#c)" fill="none" stroke="${color}" stroke-opacity=".35" stroke-width=".8">${hexes.join('')}</g>
+    <circle r="26" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="1.2"/>
+    <path d="M-16,-18 A24,24 0 0 1 8,-24" stroke="#fff" stroke-opacity=".9" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+
+export function barrierSvg(pxW, pxH) {
+  const cells = [];
+  for (let i = 0; i < 13; i++) {
+    const x = 9 + i * 16.8, y = i % 2 ? 19 : 13;
+    cells.push(`<path d="M${x},${y - 8} L${x + 7},${y - 4} L${x + 7},${y + 4} L${x},${y + 8} L${x - 7},${y + 4} L${x - 7},${y - 4} Z"/>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" viewBox="0 0 220 32">
+    <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="32" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff" stop-opacity=".9"/><stop offset=".5" stop-color="#7fe3ff" stop-opacity=".55"/><stop offset="1" stop-color="#3aa8ff" stop-opacity=".15"/></linearGradient>
+    <filter id="b" x="-10%" y="-60%" width="120%" height="220%"><feGaussianBlur stdDeviation="2.2"/></filter></defs>
+    <g filter="url(#b)" fill="#7fe3ff" opacity=".6">${cells.join('')}</g>
+    <g fill="url(#g)" stroke="#e6faff" stroke-width="1.2">${cells.join('')}</g>
+    <path d="M2,16 H218" stroke="#fff" stroke-width="1" stroke-opacity=".8" stroke-dasharray="6 4"/>
+  </svg>`;
+}
+
+export function healPlusSvg(px) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-12 -12 24 24">
+    <defs><filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.6"/></filter></defs>
+    <path d="M-2.6,-8 h5.2 v5.4 h5.4 v5.2 h-5.4 v5.4 h-5.2 v-5.4 h-5.4 v-5.2 h5.4 Z" fill="#5dff9e" filter="url(#b)"/>
+    <path d="M-2.6,-8 h5.2 v5.4 h5.4 v5.2 h-5.4 v5.4 h-5.2 v-5.4 h-5.4 v-5.2 h5.4 Z" fill="#5dff9e" stroke="#eafff2" stroke-width=".8"/>
+    <path d="M-1,-6.4 h2 v5.4 h5.4 v2 h-5.4 v5.4 h-2 v-5.4 h-5.4 v-2 h5.4 Z" fill="#fff" opacity=".8"/>
+  </svg>`;
+}
+
+export function reticleSvg(px) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-32 -32 64 64">
+    <defs><radialGradient id="g"><stop offset=".5" stop-color="#ff2a3a" stop-opacity="0"/><stop offset="1" stop-color="#ff2a3a" stop-opacity=".45"/></radialGradient></defs>
+    <circle r="29" fill="url(#g)"/>
+    <circle r="29" fill="none" stroke="#ff4d5e" stroke-width="2"/>
+    <circle r="18" fill="none" stroke="#ff8a8a" stroke-width="1.4" stroke-dasharray="4 4"/>
+    ${[0, 90, 180, 270].map(a => `<path d="M0,-31 L0,-22" stroke="#fff" stroke-width="2.4" transform="rotate(${a})"/>`).join('')}
+    <circle r="3" fill="#fff"/>
+  </svg>`;
+}
+
+export function radarSvg(px) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-30 -30 60 60">
+    <circle r="27" fill="none" stroke="#7fe3ff" stroke-width="1.2" stroke-dasharray="10 6" opacity=".9"/>
+    ${[0, 120, 240].map(a => `<path d="M-4,-29 L0,-24 L4,-29" fill="none" stroke="#e6faff" stroke-width="1.8" transform="rotate(${a})"/>`).join('')}
+    <path d="M0,0 L0,-26 A26,26 0 0 1 18,-19 Z" fill="#7fe3ff" opacity=".18"/>
+  </svg>`;
+}
+
+export function zoneTileSvg(px) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="0 0 48 48">
+    <rect width="48" height="48" fill="#ff1f3a" fill-opacity=".14"/>
+    <path d="M-12,48 L36,0 L48,0 L0,48 Z M12,48 L60,0 L72,0 L24,48 Z M-36,48 L12,0 L24,0 L-24,48 Z" fill="#ff3a4f" fill-opacity=".22"/>
+  </svg>`;
+}
+
+export function zoneGlyphSvg(px) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-32 -32 64 64">
+    <defs><filter id="b" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="2.4"/></filter></defs>
+    <path d="M0,-26 L26,20 L-26,20 Z" fill="#ff1f3a" filter="url(#b)" opacity=".8"/>
+    <path d="M0,-26 L26,20 L-26,20 Z" fill="#2a0008" fill-opacity=".75" stroke="#ff4d5e" stroke-width="3" stroke-linejoin="round"/>
+    <rect x="-3" y="-11" width="6" height="18" rx="2" fill="#fff"/><circle cy="13" r="3.2" fill="#fff"/>
+  </svg>`;
+}
+
+export function gearIconSvg(slot, tier, px) {
+  const T = ['#c9d1e2', '#4fa3ff', '#ffc94d', '#ff4d5e', 'rainbow'][tier] || '#c9d1e2';
+  const rim = T === 'rainbow' ? 'url(#rb)' : T;
+  let sym = '';
+  if (slot === 'weapon') sym = `<rect x="-3.5" y="-15" width="7" height="22" rx="1.6" fill="url(#m)" stroke="#0a0d16" stroke-width=".8"/><rect x="-6.5" y="4" width="13" height="9" rx="2" fill="url(#m)" stroke="#0a0d16" stroke-width=".8"/><rect x="-4.5" y="-8" width="9" height="2.4" fill="${rim}"/><circle cy="-15" r="3" fill="#fff" opacity=".85"/>`;
+  if (slot === 'armor') sym = `<path d="M0,-14 L12,-9 L11,4 C9,10 4,13 0,15 C-4,13 -9,10 -11,4 L-12,-9 Z" fill="url(#m)" stroke="#0a0d16" stroke-width=".9"/><path d="M0,-9 L7,-6 L6.4,3 C5,7 2.4,9 0,10 Z" fill="${rim}" opacity=".8"/>`;
+  if (slot === 'engine') sym = `<path d="M-8,-12 L8,-12 L10,2 L-10,2 Z" fill="url(#m)" stroke="#0a0d16" stroke-width=".9"/><rect x="-9" y="2" width="18" height="4" rx="1" fill="#2a2f3d"/><path d="M-6,6 Q0,18 6,6 Z" fill="#7fe3ff"/><path d="M-3,6 Q0,13 3,6 Z" fill="#fff"/><path d="M-6,-7 H6" stroke="${rim}" stroke-width="2"/>`;
+  if (slot === 'core') sym = `<path d="M0,-14 L10,-4 L6,12 L-6,12 L-10,-4 Z" fill="${rim}" opacity=".35"/><path d="M0,-14 L10,-4 L6,12 L-6,12 L-10,-4 Z M0,-14 L0,12 M-10,-4 L10,-4" fill="none" stroke="#fff" stroke-width="1.2"/><circle r="4" fill="#fff"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-24 -24 48 48">
+    <defs>
+      <linearGradient id="rb" x1="-20" y1="-20" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset=".25" stop-color="#ffc371"/><stop offset=".5" stop-color="#5fffb0"/><stop offset=".75" stop-color="#5fb8ff"/><stop offset="1" stop-color="#c57bff"/></linearGradient>
+      <radialGradient id="bg" cx="-6" cy="-8" r="30" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2c3550"/><stop offset="1" stop-color="#0b0f1c"/></radialGradient>
+      <linearGradient id="m" x1="-8" y1="0" x2="8" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6a7390"/><stop offset=".5" stop-color="#eef2fb"/><stop offset="1" stop-color="#5a6380"/></linearGradient>
+    </defs>
+    <rect x="-21" y="-21" width="42" height="42" rx="9" fill="url(#bg)" stroke="${rim}" stroke-width="3"/>
+    <rect x="-17" y="-17" width="34" height="34" rx="6" fill="none" stroke="${rim}" stroke-opacity=".35" stroke-width="1"/>
+    ${sym}
+  </svg>`;
+}
+
 // ───────── 栅格化缓存 ─────────
 export class ArtCache {
   constructor() { this.map = new Map(); }

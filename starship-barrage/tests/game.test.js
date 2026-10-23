@@ -200,7 +200,7 @@ test('弹幕「换讨伐」投票：在场一半人同意就切换，红蓝玩�
   assert.equal(game.fighters.get('v0').team, 'blue');
 });
 
-test('讨伐模式：虫群后母舰现身，打爆进下一关，失败退回一关', () => {
+test('讨伐模式：虫群后母舰现身，打爆进下一关，全队阵亡退回一关', () => {
   const { game, save } = newGame();
   game.setMode('pve');
   save.data.pveStage = 3; game.startLobby();
@@ -219,7 +219,8 @@ test('讨伐模式：虫群后母舰现身，打爆进下一关，失败退回�
   // 下一局失败
   game.phaseT = 0.001; game.step(1 / 60); toBattle(game);
   assert.equal(game.pve.stage, 4);
-  game.teams.blue.core = 0; game.step(1 / 60);
+  for (const f of game.fighters.values()) if (!f.alien) { f.alive = false; f.respawn = 99; }
+  game.step(1 / 60);
   assert.equal(game.phase, 'result');
   assert.equal(save.data.pveStage, 3);
 });
@@ -254,4 +255,89 @@ test('讨伐模式整局能打完，异形会被击落且不进榜单', () => {
   assert.equal(game.phase, 'result');
   assert.ok(game.roundBoard('blue', 20).every(f => !f.alien && !f.npc));
   assert.ok(game.humans().some(f => f.kills > 0));
+});
+
+test('讨伐模式：选战舰；医疗舰先给血量最低的两艘回血，全员满血才攻击', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'h', name: '奶妈' }, '医疗');
+  game.chat({ id: 'a', name: 'A' }, '输出');
+  game.chat({ id: 'b', name: 'B' }, '输出');
+  game.chat({ id: 'c', name: 'C' }, '机甲');
+  const [h, a, b, c] = ['h', 'a', 'b', 'c'].map(id => game.fighters.get(id));
+  assert.equal(h.cls, 'healer'); assert.equal(c.cls, 'tank');
+  assert.ok(c.maxHp > a.maxHp * 2);
+  toBattle(game);
+  a.hp = a.maxHp * 0.3; b.hp = b.maxHp * 0.5; c.hp = c.maxHp * 0.9;
+  h.skillCd = 0; h.fireCd = 0;
+  const shotsBefore = game.bullets.filter(x => x.owner === 'h').length;
+  game.step(1 / 60);
+  assert.ok(a.hp > a.maxHp * 0.3 && b.hp > b.maxHp * 0.5);
+  assert.equal(c.hp, c.maxHp * 0.9);
+  assert.equal(game.bullets.filter(x => x.owner === 'h').length, shotsBefore);
+  assert.ok(h.merit > 0);
+  for (const f of [a, b, c, h]) f.hp = f.maxHp;
+  h.fireCd = 0; game.step(1 / 60);
+  assert.ok(game.bullets.some(x => x.owner === 'h'));
+});
+
+test('讨伐模式：红色区域10秒后命中，发「左/中/右」躲开就没事；付费自动躲弹会自己躲', async () => {
+  const { castZone } = await import('../src/pve.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'stay', name: '不动' }, '输出');
+  game.chat({ id: 'move', name: '会躲' }, '输出');
+  game.chat({ id: 'rich', name: '付费' }, '输出');
+  toBattle(game);
+  const ships = ['stay', 'move', 'rich'].map(id => game.fighters.get(id));
+  for (const f of ships) { f.lane = 'M'; f.x = 360; f.invuln = 0; }
+  game.gift({ id: 'rich' }, { name: '小心心', price: 1, count: 20 });
+  assert.ok(game.fighters.get('rich').dodgeUntil > game.clock + 100);
+  game.pve.t = 999;
+  for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
+  const z = castZone(game, 'strike', 1, '测试');
+  assert.equal(z.warn, 10);
+  assert.ok(z.lanes.includes('M'));
+  game.chat({ id: 'move' }, '左');
+  const hp0 = ships.map(f => f.hp);
+  for (let i = 0; i < 60 * 10.2; i++) { game.step(1 / 60); for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid); game.bullets.length = 0; }
+  assert.ok(ships[0].hp < hp0[0] * 0.5, '原地不动的被打');
+  assert.ok(ships[1].hp >= hp0[1] - 1, '发「左」的躲开了');
+  assert.notEqual(ships[2].lane, 'M');
+  assert.ok(ships[2].hp >= hp0[2] - 1, '付费自动躲开');
+});
+
+test('讨伐模式：机甲大招立起屏障挡子弹，挨打和挡子弹都记贡献', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 't', name: '坦' }, '机甲');
+  toBattle(game);
+  const t = game.fighters.get('t');
+  t.energy = 100; t.wantUlt = true; game.step(1 / 60);
+  assert.equal(game.barriers.length, 1);
+  const bar = game.barriers[0];
+  const before = t.merit;
+  game.addBullet((game.constructor && 360) && (t.lane === 'L' ? 134 : t.lane === 'M' ? 360 : 586), bar.y - 30, 0, 300, 5, 1, 'red', 'danmaku', null, 0);
+  for (let i = 0; i < 30; i++) game.step(1 / 60);
+  assert.ok(t.merit > before);
+});
+
+test('讨伐模式：打爆母舰按贡献掉装备，自动穿戴并提升属性，存档保存', () => {
+  const { game, save } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  for (let i = 0; i < 5; i++) game.chat({ id: 'g' + i, name: 'G' + i }, '输出');
+  toBattle(game);
+  game.humans().forEach((f, i) => { f.merit = 100 + i; });
+  const atk0 = game.fighters.get('g4').stats.atk, hp0 = game.fighters.get('g4').maxHp;
+  game.pve.t = 0.001;
+  for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
+  game.teams.red.core = 0; game.step(1 / 60);
+  const drops = game.drainEvents().filter(e => e.type === 'loot');
+  assert.ok(drops.length >= 3);
+  const top = game.fighters.get('g4');
+  const p = save.peek('g4');
+  assert.ok(Object.keys(p.gear).length >= 1, '第一名必掉并穿上');
+  assert.ok(top.stats.atk > atk0 || top.maxHp > hp0 || top.stats.haste > 0 || top.stats.power > 1);
+  const back = new Save({ storage: { getItem: () => save.exportJson(), setItem() {} } });
+  assert.deepEqual(back.peek('g4').gear, p.gear);
 });
