@@ -1,0 +1,181 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { Game, parseCommand, tierForGift } from '../src/game.js';
+import { Save, weekKeyOf } from '../src/save.js';
+import { GiftCounter, normalizeMessage, routeMessage } from '../src/relay.js';
+import { GIFT, MERIT } from '../src/config.js';
+
+function seeded(seed = 7) { return () => ((seed = (seed * 16807) % 2147483647) / 2147483647); }
+function memStorage() { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) }; }
+function newGame(opts = {}) { const save = new Save({ storage: memStorage() }); return { save, game: new Game({ save, random: seeded(), ...opts }) }; }
+function toBattle(game) { game.phaseT = 0.001; game.step(1 / 60); assert.equal(game.phase, 'battle'); }
+
+test('弹幕指令解析', () => {
+  assert.deepEqual(parseCommand('红'), { type: 'team', team: 'red' });
+  assert.deepEqual(parseCommand('蓝队'), { type: 'team', team: 'blue' });
+  assert.equal(parseCommand('激光').weapon, 'laser');
+  assert.equal(parseCommand('换散弹').weapon, 'spread');
+  assert.equal(parseCommand('蓄力').weapon, 'charge');
+  assert.equal(parseCommand('左').lane, 'L');
+  assert.equal(parseCommand('打核心').target, 'core');
+  assert.equal(parseCommand('拦截拦截').type, 'intercept');
+  assert.equal(parseCommand('主播好帅'), null);
+  assert.equal(parseCommand(''), null);
+});
+
+test('礼物按单价分档，按名字指定优先', () => {
+  const s = { tiers: [1, 10, 50, 200, 1000], giftTierByName: { 墨镜: 3 } };
+  assert.equal(tierForGift({ name: '小心心', price: 1 }, s), 1);
+  assert.equal(tierForGift({ name: 'x', price: 10 }, s), 2);
+  assert.equal(tierForGift({ name: 'x', price: 199 }, s), 3);
+  assert.equal(tierForGift({ name: 'x', price: 299 }, s), 4);
+  assert.equal(tierForGift({ name: 'x', price: 3000 }, s), 5);
+  assert.equal(tierForGift({ name: '墨镜', price: 99 }, s), 3);
+  assert.equal(tierForGift({ name: '未知', price: NaN }, s), 1);
+});
+
+test('加入时自动分到人少的一队，开战后不能换队', () => {
+  const { game } = newGame();
+  game.chat({ id: 'a', name: 'A' }, '红');
+  const b = game.join({ id: 'b', name: 'B' });
+  assert.equal(b.team, 'blue');
+  toBattle(game);
+  game.chat({ id: 'a', name: 'A' }, '蓝');
+  assert.equal(game.fighters.get('a').team, 'red');
+});
+
+test('人少时补位NPC，真人加入后NPC减少，NPC不进战功榜', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 4 } });
+  const npcRed = () => [...game.fighters.values()].filter(f => f.npc && f.team === 'red').length;
+  assert.equal(npcRed(), 4);
+  game.chat({ id: 'a', name: 'A' }, '红');
+  assert.equal(npcRed(), 3);
+  toBattle(game);
+  for (let i = 0; i < 600; i++) game.step(1 / 60);
+  assert.ok(game.roundBoard('red', 10).every(f => !f.npc));
+});
+
+test('开战前送的礼物不丢，开战后生效', () => {
+  const { game } = newGame();
+  game.gift({ id: 'g', name: '大哥' }, { name: '嘉年华', price: 300, count: 1 });
+  assert.equal(game.pendingGifts.length, 1);
+  toBattle(game);
+  assert.equal(game.pendingGifts.length, 0);
+  const team = game.fighters.get('g').team;
+  for (let i = 0; i < 3; i++) game.step(1 / 60);
+  assert.equal(game.battleships.filter(s => s.team === team).length, 1);
+  assert.equal(game.battleships[0].name, '大哥号');
+});
+
+test('战功只来自战果：送礼本身不加战功', () => {
+  const { game } = newGame();
+  toBattle(game);
+  const f = game.join({ id: 'rich', name: '土豪' });
+  game.gift({ id: 'rich' }, { name: '火箭', price: 1000, count: 1 });
+  game.gift({ id: 'rich' }, { name: '小心心', price: 1, count: 50 });
+  assert.equal(f.merit, 0);
+});
+
+test('主播主炮：对面拦截最多削弱60%', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  toBattle(game);
+  const a = game.join({ id: 'a', name: 'A' }, 'red');
+  for (let i = 0; i < 100; i++) game.join({ id: 'b' + i, name: 'B' + i }, 'blue');
+  game.gift({ id: 'a' }, { name: '火箭', price: 1000, count: 1 });
+  assert.equal(game.teams.red.cannon.state, 'charging');
+  let t = 0;
+  for (let i = 0; i < 100; i++) { game.clock += 1; game.chat({ id: 'b' + i }, '拦截'); }
+  assert.equal(game.teams.red.cannon.intercept, GIFT.interceptCap);
+  const before = game.teams.blue.core;
+  while (game.teams.red.cannon.state === 'charging' && t < 10) { game.step(1 / 60); t += 1 / 60; }
+  const lost = before - game.teams.blue.core;
+  const expected = game.teams.blue.coreMax * GIFT.cannonDamage * (1 - GIFT.interceptCap);
+  assert.ok(lost >= expected * 0.99 && lost < expected * 1.3, `主炮伤害 ${lost} 预期约 ${expected}`);
+  assert.ok(a.merit > 0);
+  assert.ok(game.fighters.get('b0').merit >= MERIT.intercept);
+});
+
+test('同一火箭连送多个：第一个开主炮，其余变成战舰', () => {
+  const { game } = newGame();
+  toBattle(game);
+  const f = game.join({ id: 'r', name: 'R' });
+  game.gift({ id: 'r' }, { name: '火箭', price: 1000, count: 3 });
+  assert.equal(game.teams[f.team].cannon.state, 'charging');
+  assert.equal(game.teams[f.team].shipQueue.length, 2);
+});
+
+test('一局结束：真人获得经验并写入存档，测试观众不写入', () => {
+  const { game, save } = newGame();
+  game.chat({ id: 'p', name: '玩家' }, '红');
+  game.chat({ id: 'test:1', name: '测试1' }, '蓝');
+  toBattle(game);
+  game.teams.blue.core = 0;
+  game.step(1 / 60);
+  assert.equal(game.phase, 'result');
+  assert.equal(game.winner, 'red');
+  const p = save.peek('p');
+  assert.equal(p.games, 1); assert.equal(p.wins, 1);
+  assert.ok(p.xp > 0 || p.level > 1);
+  assert.equal(save.peek('test:1'), null);
+});
+
+test('一局能自然打完且不报错（30人，10分钟）', () => {
+  const { game } = newGame();
+  for (let i = 0; i < 30; i++) game.chat({ id: 'u' + i, name: 'U' + i }, i % 2 ? '红' : '蓝');
+  toBattle(game);
+  for (let i = 0; i < 60 * 600 && game.phase === 'battle'; i++) {
+    game.step(1 / 60);
+    if (i % 300 === 0) game.gift({ id: 'u' + (i % 30) }, { name: 'x', price: [1, 10, 50, 200][i % 4], count: 1 });
+    if (i % 120 === 0) game.like({ id: 'u' + (i % 30) }, 20);
+  }
+  assert.ok(game.bullets.length <= 3200);
+  assert.ok(game.teams.red.core < game.teams.red.coreMax || game.teams.blue.core < game.teams.blue.coreMax);
+});
+
+test('点赞充能每人每秒有上限', () => {
+  const { game } = newGame();
+  toBattle(game);
+  const f = game.join({ id: 'l', name: 'L' });
+  game.like({ id: 'l' }, 1000);
+  assert.equal(f.charge, 30);
+});
+
+test('连击礼物累计数量换算成新增数量', () => {
+  const c = new GiftCounter();
+  const m = (count, end, group = 'g1') => ({ user: { id: 'u' }, gift: { id: 1, name: '小心心', count, type: 1, repeatEnd: end, groupId: group } });
+  assert.equal(c.count(m(1, 0), 0), 1);
+  assert.equal(c.count(m(5, 0), 100), 4);
+  assert.equal(c.count(m(5, 1), 200), 0);
+  assert.equal(c.count(m(3, 0, 'g2'), 300), 3);
+});
+
+test('消息去重：同一条弹幕和同一帧礼物只处理一次', () => {
+  const calls = { chat: 0, gift: 0 };
+  const h = { chat: () => calls.chat++, gift: () => calls.gift++ };
+  const state = { seen: new Set(), counter: new GiftCounter(), now: () => 0 };
+  const chat = normalizeMessage({ method: 'WebcastChatMessage', id: 9, content: '红', user: { id: 1, nickname: 'A' } });
+  routeMessage(chat, h, state); routeMessage(chat, h, state);
+  const gift = normalizeMessage({ method: 'WebcastGiftMessage', id: 10, user: { id: 1 }, gift: { id: 2, name: '玫瑰', count: 1, diamondCount: 1 } });
+  routeMessage(gift, h, state); routeMessage(gift, h, state);
+  assert.deepEqual(calls, { chat: 1, gift: 1 });
+});
+
+test('没有用户ID的礼物不乱记到别人头上', () => {
+  let unknown = 0, gifts = 0;
+  const state = { seen: new Set(), counter: new GiftCounter(), now: () => 0 };
+  routeMessage(normalizeMessage({ method: 'WebcastGiftMessage', id: 1, user: { nickname: '神秘人' }, gift: { name: '火箭', count: 1, price: 1000 } }), { unknownGift: () => unknown++, gift: () => gifts++ }, state);
+  assert.equal(unknown, 1); assert.equal(gifts, 0);
+});
+
+test('存档：导入校验、每周战功清零', () => {
+  let now = new Date(2026, 9, 20).getTime();
+  const s = new Save({ storage: memStorage(), now: () => now });
+  const p = s.get('x', '玩家');
+  p.weekMerit = 500; p.merit = 500;
+  now = new Date(2026, 9, 27).getTime();
+  s.rollWeek();
+  assert.equal(s.peek('x').weekMerit, 0);
+  assert.equal(s.peek('x').merit, 500);
+  assert.throws(() => s.importJson('{"version":2}'));
+  assert.equal(weekKeyOf(new Date(2026, 9, 25).getTime()), '2026-10-19');
+});
