@@ -257,7 +257,7 @@ test('讨伐模式整局能打完，异形会被击落且不进榜单', () => {
   assert.ok(game.humans().some(f => f.kills > 0));
 });
 
-test('讨伐模式：选战舰；医疗舰先给血量最低的两艘回血，平时也会自动索敌开火', () => {
+test('讨伐模式：选战舰；医疗舰自动给血量最低的三艘回血，平时也会自动索敌开火', () => {
   const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
   game.setMode('pve');
   game.chat({ id: 'h', name: '奶妈' }, '医疗');
@@ -268,13 +268,12 @@ test('讨伐模式：选战舰；医疗舰先给血量最低的两艘回血，�
   assert.equal(h.cls, 'healer'); assert.equal(c.cls, 'tank');
   assert.ok(c.maxHp > a.maxHp * 2);
   toBattle(game);
-  a.hp = a.maxHp * 0.3; b.hp = b.maxHp * 0.5; c.hp = c.maxHp * 0.9;
+  a.hp = a.maxHp * 0.3; b.hp = b.maxHp * 0.5; c.hp = c.maxHp * 0.9; h.hp = h.maxHp;
   h.skillCd = 0; h.fireCd = 0;
-  game.chat({ id: 'h' }, '技能');
   const shotsBefore = game.bullets.filter(x => x.owner === 'h').length;
   game.step(1 / 60);
-  assert.ok(a.hp > a.maxHp * 0.3 && b.hp > b.maxHp * 0.5);
-  assert.equal(c.hp, c.maxHp * 0.9);
+  assert.ok(a.hp > a.maxHp * 0.3 && b.hp > b.maxHp * 0.5 && c.hp > c.maxHp * 0.9, '自动回血，同时治疗3艘');
+  assert.ok(h.skillCd > 9, '冷却10秒');
   assert.ok(h.merit > 0);
   assert.ok(game.bullets.filter(x => x.owner === 'h').length > shotsBefore, '有人受伤时医疗舰照样开火');
 });
@@ -335,7 +334,9 @@ test('讨伐模式：机甲「冲击」击退虫群、打散子弹；「无敌�
   assert.ok(pack.some(p => p.hp < 1e4), '旋风斩打到怪');
   castZoneHit(game, t);
   assert.equal(t.hp, hp1, '无敌期间不掉血');
-  for (let i = 0; i < 60 * 5; i++) game.step(1 / 60);
+  for (let i = 0; i < 60 * 3; i++) game.step(1 / 60);
+  for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
+  for (let i = 0; i < 60 * 3; i++) game.step(1 / 60);
   assert.equal(t.rushT, 0);
   assert.ok(t.y >= 600 && !t.returning, '结束后飞回航道');
 });
@@ -362,17 +363,20 @@ test('讨伐模式：打爆母舰按贡献掉装备，自动穿戴并提升属�
   assert.deepEqual(back.peek('g4').gear, p.gear);
 });
 
-test('讨伐模式：真人要发「技能」「大招」才放，大招冷却45秒；NPC自动放', () => {
+test('讨伐模式：小技能自动放（冷却10秒），大招要发「大招」，冷却45秒', () => {
   const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
   game.setMode('pve');
   game.chat({ id: 'd', name: '输出' }, '输出');
   toBattle(game);
   const d = game.fighters.get('d');
+  game.step(1 / 60);
+  assert.ok(game.bullets.some(b => b.owner === 'd' && b.missile), '小技能自动放导弹');
+  assert.ok(d.skillCd > 9.5);
   for (let i = 0; i < 60 * 8; i++) game.step(1 / 60);
-  assert.equal(game.bullets.filter(b => b.owner === 'd' && b.missile).length, 0, '不发弹幕不放技能');
-  assert.equal(d.beamT, 0);
-  game.chat({ id: 'd' }, '技能'); game.step(1 / 60);
-  assert.ok(game.bullets.some(b => b.owner === 'd' && b.missile), '发「技能」放导弹');
+  assert.equal(d.beamT, 0, '不发弹幕不放大招');
+  game.drainEvents();
+  game.chat({ id: 'd' }, '技能');
+  assert.ok(game.drainEvents().some(e => e.type === 'cd' && e.kind === 'auto'), '发「技能」提示小技能是自动的');
   game.chat({ id: 'd' }, '大招'); game.step(1 / 60);
   assert.ok(d.beamT > 0, '发「大招」放光束');
   assert.ok(Math.abs(d.ultCd - 45 * (1 - d.stats.haste)) < 0.1);
@@ -382,6 +386,28 @@ test('讨伐模式：真人要发「技能」「大招」才放，大招冷却45
   d.ultCd = 1; game.chat({ id: 'd' }, '光束');
   for (let i = 0; i < 70; i++) game.step(1 / 60);
   assert.ok(d.ultCd > 40, '冷却快好时发的指令排队，好了自动补放');
+});
+
+test('讨伐模式：机甲普攻冲上去近战砍，砍完退回本航道', async () => {
+  const { spawnAlien } = await import('../src/pve.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 't', name: 'T' }, '机甲');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
+  const t = game.fighters.get('t'); t.lane = 'M'; t.x = 360; t.y = 620; t.skillCd = 99;
+  const a = spawnAlien(game, 'gunner', 400, 420); a.hp = 1e4; a.yStop = 420; a.fireCd = 999; a.skillT = 999;
+  game.drainEvents();
+  let minY = 999;
+  for (let i = 0; i < 40; i++) { game.step(1 / 60); minY = Math.min(minY, t.y); a.y = 420; }
+  assert.ok(minY < 480, `冲上去了 ${minY}`);
+  assert.ok(a.hp < 1e4, '砍到了');
+  assert.ok(game.drainEvents().some(e => e.type === 'slash'));
+  assert.equal(game.bullets.filter(b => b.owner === 't').length, 0, '近战时不打远程');
+  game.fighters.delete(a.uid);
+  for (let i = 0; i < 60 * 2; i++) game.step(1 / 60);
+  assert.ok(t.y >= 600, '退回本航道');
 });
 
 test('讨伐模式：每关限时2分钟（含虫群），超时退回一关', () => {

@@ -143,7 +143,7 @@ export function setupShip(game, f) {
   f.shieldHp = 0; f.taunt = 0; f.beamT = 0;
   f.skillCd = f.npc ? 1 + game.random() * 2 : 0; f.ultCd = f.npc ? 10 + game.random() * 20 : 0;
   f.skillReq = 0; f.ultReq = 0; f.charge = 0; f.fireCd = game.random() * 0.5;
-  f.rushT = 0; f.returning = false; f.lungeT = 0; f.spin = 0; f.recoilT = 0; f.beamCharge = 0;
+  f.rushT = 0; f.returning = false; f.lungeT = 0; f.spin = 0; f.mel = null; f.meleeCd = 0; f.recoilT = 0; f.beamCharge = 0;
   f.lane = f.lane && LANES.includes(f.lane) ? f.lane : LANES[Math.floor(game.random() * 3)];
   f.slotDx = (game.random() - 0.5) * 2 * PVE.wander.x; f.slotDy = (game.random() - 0.5) * 2 * PVE.wander.y; f.wanderT = game.random() * 3; f.wanderX = f.slotDx; f.wanderY = f.slotDy;
   f.x = laneCenter(f.lane) + f.slotDx; f.y = PVE.rows[f.cls] + f.slotDy;
@@ -193,6 +193,7 @@ export function stepShip(game, f, dt, combat) {
     if (f.npcReact == null) f.npcReact = 2 + game.random() * 4;
   }
   if (f.rushT > 0 && combat) stepRush(game, f, dt);
+  else if (f.cls === 'tank' && combat && stepMelee(game, f, dt)) { /* 近战冲锋中 */ }
   else {
   // 目标位置：航道中心 + 自己的站位；站位在本航道内慢慢随机游走
   if ((f.wanderT = (f.wanderT || 0) - dt) <= 0) {
@@ -229,14 +230,14 @@ export function stepShip(game, f, dt, combat) {
   f.muzzleT = Math.max(0, (f.muzzleT || 0) - dt);
   f.recoilT = Math.max(0, (f.recoilT || 0) - dt);
   if (!combat) return;
-  // 技能：真人要自己发「技能」「大招」，NPC 自动放
+  // 小技能自动释放（冷却10秒）；大招真人要发「大招」，NPC 自动放
   f.ultCd = Math.max(0, f.ultCd - dt);
   f.skillCd = Math.max(0, f.skillCd - dt);
   if (f.ultCd <= 0) f.ultReadyFor += dt; else f.ultReadyFor = 0;
   if (f.ultCd <= 0 && (f.npc ? wantsUlt(game, f) : f.ultReq > game.clock)) castUlt(game, f);
-  if (f.skillCd <= 0 && (f.npc || f.skillReq > game.clock)) {
-    if (castSkill(game, f)) { f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste); f.skillReq = 0; }
-    else if (f.npc) f.skillCd = 0.3;
+  if (f.skillCd <= 0) {
+    if (castSkill(game, f)) f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste);
+    else f.skillCd = 0.5;
   }
   // 点赞充满：超载炮
   if (f.charge >= 100) {
@@ -246,8 +247,9 @@ export function stepShip(game, f, dt, combat) {
     game.addBullet(f.x, f.y - 18, Math.cos(oa) * 900, Math.sin(oa) * 900, 14, od, 'blue', 'shot', f.uid, 8, { overload: true, pveScaled: true, crit });
     game.emit('overload', { uid: f.uid, x: f.x, y: f.y, team: 'blue' });
   }
-  // 普通攻击：所有职业都自动索敌开火，射速吃「攻速」
+  // 普通攻击：所有职业都自动索敌开火，射速吃「攻速」；机甲附近有怪时改成冲上去近战
   f.fireCd -= dt;
+  if (f.cls === 'tank' && (f.mel || meleeTarget(game, f))) return;
   if (f.fireCd <= 0) {
     f.fireCd = CLASSES[f.cls].fireCd / (1 + f.stats.aspd);
     const tgt = nearestEnemy(game, f.x, f.y);
@@ -337,6 +339,62 @@ export function stepBeam(game, f, dt) {
 }
 
 // ───────── 重装机甲 ─────────
+// 普攻近战：300 内有异形就冲过去砍一刀（扇形范围伤害），砍完退回本航道
+function meleeTarget(game, f) {
+  const R = PVE.melee.range;
+  let best = null, bd = R * R;
+  for (const e of game.fighters.values()) {
+    if (!e.alien || !e.alive || e.y < 70 || e.y > f.y + 40) continue;
+    const d = (e.x - f.x) ** 2 + (e.y - f.y) ** 2;
+    if (d < bd) { bd = d; best = e; }
+  }
+  return best;
+}
+function stepMelee(game, f, dt) {
+  const M = PVE.melee;
+  f.meleeCd = Math.max(0, (f.meleeCd || 0) - dt);
+  if (!f.mel) {
+    if (f.meleeCd > 0) return false;
+    const t = meleeTarget(game, f);
+    if (!t) return false;
+    f.mel = { ph: 'go', tgt: t, t: 0 }; f.returning = false;
+  }
+  const m = f.mel;
+  m.t += dt;
+  if (m.ph === 'go') {
+    const t = m.tgt;
+    if (!t.alive) { const n = meleeTarget(game, f); if (n) m.tgt = n; else { f.mel = null; f.returning = true; return false; } }
+    const tx = m.tgt.x, ty = m.tgt.y + 30, dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy);
+    const sp = M.speed * dt;
+    if (d <= sp + 6 || m.t > 0.7) {
+      f.x = Math.max(20, Math.min(W - 20, f.x + (d > 0 ? dx / d * Math.min(d, sp) : 0))); f.y += d > 0 ? dy / d * Math.min(d, sp) : 0;
+      // 砍
+      const wt = f.gear?.weapon ? f.gear.weapon.tier : -1;
+      const base = f.stats.atk * M.atkMul * f.stats.power * GEAR.barrelMult[wt >= 0 ? GEAR.barrels[wt] : 1];
+      const ang = Math.atan2(m.tgt.x - f.x, f.y - m.tgt.y);
+      let hits = 0;
+      for (const e of [...game.fighters.values()]) {
+        if (!e.alien || !e.alive) continue;
+        const ex = e.x - f.x, ey = e.y - (f.y - 24);
+        if (ex * ex + ey * ey > (M.slashR + (e.r || 10)) ** 2) continue;
+        const [d2, crit] = rollCrit(game, f, base);
+        hurt(game, e, d2, f.uid); hits++;
+        if (crit) game.emit('crit', { x: e.x, y: e.y, dmg: Math.round(d2) });
+        if (hits <= 2) game.emit('spark', { x: e.x, y: e.y, team: 'blue', big: true });
+      }
+      for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && (b.x - f.x) ** 2 + (b.y - f.y + 24) ** 2 < M.slashR * M.slashR) b.life = 0;
+      game.emit('slash', { uid: f.uid, x: f.x, y: f.y, ang, wt: Math.max(0, wt) });
+      f.mel = { ph: 'slash', t: 0, ang };
+    } else { f.vx = dx / d * M.speed; f.vy = dy / d * M.speed; f.x += f.vx * dt; f.y += f.vy * dt; }
+    return true;
+  }
+  if (m.ph === 'slash') {
+    if (m.t >= 0.22) { f.mel = null; f.meleeCd = M.cd / (1 + f.stats.aspd); f.returning = true; return false; }
+    return true;
+  }
+  return false;
+}
+
 // 小技能「冲击」：机甲前冲一拳，向前方扇形打出冲击波——伤害并击退虫群、打散敌方子弹、嘲讽3秒
 function inCone(f, x, y, reach) {
   // 把目标点转到「冲击方向朝上」的坐标系再判断扇形
@@ -501,11 +559,11 @@ function allies(game) { const a = []; for (const f of game.fighters.values()) if
 
 function castSkill(game, f) {
   if (f.cls === 'healer') {
-    const hurtList = allies(game).filter(a => a.alive && a.hp < a.maxHp - 0.5).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, 2);
+    const hurtList = allies(game).filter(a => a.alive && a.hp < a.maxHp - 0.5).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, 3);
     if (!hurtList.length) return false;
     const targets = [];
     for (const a of hurtList) {
-      const amt = heal(game, a, (22 + 0.15 * a.maxHp) * f.stats.heal * (1 + 0.15 * (f.power - 1)), f);
+      const amt = heal(game, a, (30 + 0.28 * a.maxHp) * f.stats.heal * (1 + 0.15 * (f.power - 1)), f);
       targets.push({ uid: a.uid, x: a.x, y: a.y, amount: Math.round(amt) });
     }
     game.emit('heal', { uid: f.uid, x: f.x, y: f.y, targets });
@@ -514,7 +572,7 @@ function castSkill(game, f) {
   if (f.cls === 'tank') return castImpact(game, f);
   if (f.cls === 'carrier') { launchDrones(game, f, 'attack', PVE.carrier.attackDrones); game.emit('skill', { uid: f.uid, skill: 'drones', x: f.x, y: f.y }); f.recoilT = 0.3; return true; }
   // 输出舰：集束导弹
-  const n = 6;
+  const n = 8;
   for (let i = 0; i < n; i++) {
     const a = -Math.PI / 2 + (i / (n - 1) - 0.5) * 1.6;
     { const [d, crit] = rollCrit(game, f, 2.5 * f.stats.atk * f.stats.power); game.addBullet(f.x, f.y - 10, Math.cos(a) * 260, Math.sin(a) * 260, 5, d, 'blue', 'shot', f.uid, 0, { pveScaled: true, missile: true, life: 4, crit }); }
@@ -527,7 +585,11 @@ function castSkill(game, f) {
 // 真人发「技能」「大招」：就绪立刻放；冷却快好（≤2秒）就排队，好了自动补放；否则提示剩余冷却
 export function requestSkill(game, f, kind) {
   if (f.alien || !f.alive || !f.cls) return false;
-  const cd = kind === 'ult' ? f.ultCd : f.skillCd;
+  if (kind === 'skill') {   // 小技能是自动的，发了只提示一下
+    if (game.clock - (f.autoTipAt || 0) > 1.5) { f.autoTipAt = game.clock; game.emit('cd', { uid: f.uid, kind: 'auto', left: Math.ceil(f.skillCd) }); }
+    return false;
+  }
+  const cd = f.ultCd;
   if (cd > 2) {
     if (game.clock - (f.cdTipAt || 0) > 1.5) { f.cdTipAt = game.clock; game.emit('cd', { uid: f.uid, kind, left: Math.ceil(cd) }); }
     return false;
