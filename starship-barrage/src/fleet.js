@@ -6,6 +6,19 @@ export const LANE_NAMES = { L: '左', M: '中', R: '右' };
 export function laneOf(x) { return x < PVE.lanes.M[0] ? 'L' : x < PVE.lanes.R[0] ? 'M' : 'R'; }
 export function laneCenter(l) { const [a, b] = PVE.lanes[l]; return (a + b) / 2; }
 
+// 手动技能：「技能」放小技能、「大招」放大招；也认各职业的技能名
+export function parseSkill(text) {
+  const s = String(text || '').trim().toLowerCase();
+  if (!s || s.length > 20) return null;
+  if (/大招|dz/.test(s)) return 'ult';
+  if (/技能|jn/.test(s)) return 'skill';
+  for (const c of Object.values(CLASSES)) {
+    if (c.ultWords.some(w => s.includes(w)) || s.includes(c.ult)) return 'ult';
+    if (c.skillWords.some(w => s.includes(w)) || s.includes(c.skill)) return 'skill';
+  }
+  return null;
+}
+
 export function parseClass(text) {
   const s = String(text || '').trim().toLowerCase();
   if (/^(医疗|治疗|奶|奶妈|医疗舰|换医疗|选医疗|当医疗)/.test(s)) return 'healer';
@@ -79,12 +92,13 @@ export function setupShip(game, f) {
   if (!f.cls) f.cls = f.prefCls || pickClass(game);
   f.stats = shipStats(f);
   f.maxHp = f.stats.maxHp; f.hp = f.maxHp;
-  f.shieldHp = 0; f.taunt = 0; f.beamT = 0; f.energy = 30;
-  f.skillCd = 1 + game.random() * 2; f.fireCd = game.random() * 0.5;
+  f.shieldHp = 0; f.taunt = 0; f.beamT = 0;
+  f.skillCd = f.npc ? 1 + game.random() * 2 : 0; f.ultCd = f.npc ? 10 + game.random() * 20 : 0;
+  f.skillReq = 0; f.ultReq = 0; f.charge = 0; f.fireCd = game.random() * 0.5;
   f.lane = f.lane && LANES.includes(f.lane) ? f.lane : LANES[Math.floor(game.random() * 3)];
-  f.slotDx = (game.random() - 0.5) * 150; f.slotDy = (game.random() - 0.5) * 70;
+  f.slotDx = (game.random() - 0.5) * 2 * PVE.wander.x; f.slotDy = (game.random() - 0.5) * 2 * PVE.wander.y; f.wanderT = game.random() * 3; f.wanderX = f.slotDx; f.wanderY = f.slotDy;
   f.x = laneCenter(f.lane) + f.slotDx; f.y = PVE.rows[f.cls] + f.slotDy;
-  f.vx = 0; f.vy = 0; f.hitFlash = 0; f.ultFullFor = 0; f.npcDodgeT = 0;
+  f.vx = 0; f.vy = 0; f.hitFlash = 0; f.ultReadyFor = 0; f.npcDodgeT = 0;
   f.alive = true; f.invuln = 1.5; f.respawn = 0;
 }
 
@@ -116,8 +130,16 @@ export function stepShip(game, f, dt, combat) {
     } else f.npcDodgeT = 0;
     if (f.npcReact == null) f.npcReact = 2 + game.random() * 4;
   }
-  // 目标位置：航道中心 + 自己的站位
-  let tx = laneCenter(f.lane) + f.slotDx * (f.cls === 'tank' ? 0.6 : 1);
+  // 目标位置：航道中心 + 自己的站位；站位在本航道内慢慢随机游走
+  if ((f.wanderT = (f.wanderT || 0) - dt) <= 0) {
+    f.wanderT = 2.5 + game.random() * 3;
+    f.wanderX = (game.random() - 0.5) * 2 * PVE.wander.x;
+    f.wanderY = (game.random() - 0.5) * 2 * PVE.wander.y;
+  }
+  const ws = PVE.wander.speed * dt;
+  f.slotDx += Math.max(-ws, Math.min(ws, (f.wanderX ?? f.slotDx) - f.slotDx));
+  f.slotDy += Math.max(-ws, Math.min(ws, (f.wanderY ?? f.slotDy) - f.slotDy));
+  let tx = laneCenter(f.lane) + f.slotDx;
   let ty = PVE.rows[f.cls] + f.slotDy;
   const speed = LEVEL.speed(f.level) * 1.1;
   let vx = (tx - f.x) * 3, vy = (ty - f.y) * 3;
@@ -134,13 +156,21 @@ export function stepShip(game, f, dt, combat) {
   if (!auto) f.x = Math.max(Math.min(f.x, l1 + 60), l0 - 60);
   f.y = Math.max(PVE.zone[0], Math.min(PVE.zone[1], f.y + f.vy * dt));
   if (!combat) return;
-  // 大招能量
-  f.energy = Math.min(100, f.energy + PVE.energyPerSec * dt);
-  if (f.energy >= 100) f.ultFullFor += dt; else f.ultFullFor = 0;
-  if (f.energy >= 100 && wantsUlt(game, f)) castUlt(game, f);
-  // 小技能
-  f.skillCd -= dt;
-  if (f.skillCd <= 0) { if (castSkill(game, f)) f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste); else f.skillCd = 0.3; }
+  // 技能：真人要自己发「技能」「大招」，NPC 自动放
+  f.ultCd = Math.max(0, f.ultCd - dt);
+  f.skillCd = Math.max(0, f.skillCd - dt);
+  if (f.ultCd <= 0) f.ultReadyFor += dt; else f.ultReadyFor = 0;
+  if (f.ultCd <= 0 && (f.npc ? wantsUlt(game, f) : f.ultReq > game.clock)) castUlt(game, f);
+  if (f.skillCd <= 0 && (f.npc || f.skillReq > game.clock)) {
+    if (castSkill(game, f)) { f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste); f.skillReq = 0; }
+    else if (f.npc) f.skillCd = 0.3;
+  }
+  // 点赞充满：超载炮
+  if (f.charge >= 100) {
+    f.charge = 0;
+    game.addBullet(f.x, f.y - 18, 0, -900, 14, PVE.overloadAtk * f.stats.atk, 'blue', 'shot', f.uid, 8, { overload: true, pveScaled: true });
+    game.emit('overload', { uid: f.uid, x: f.x, y: f.y, team: 'blue' });
+  }
   // 普通攻击（医疗舰要等全员满血）
   if (f.cls === 'healer' && anyHurt(game)) return;
   f.fireCd -= dt;
@@ -190,7 +220,7 @@ function castSkill(game, f) {
     if (!hurtList.length) return false;
     const targets = [];
     for (const a of hurtList) {
-      const amt = heal(game, a, (12 + 0.08 * a.maxHp) * f.stats.heal * (1 + 0.15 * (f.power - 1)), f);
+      const amt = heal(game, a, (22 + 0.15 * a.maxHp) * f.stats.heal * (1 + 0.15 * (f.power - 1)), f);
       targets.push({ uid: a.uid, x: a.x, y: a.y, amount: Math.round(amt) });
     }
     game.emit('heal', { uid: f.uid, x: f.x, y: f.y, targets });
@@ -212,9 +242,21 @@ function castSkill(game, f) {
   return true;
 }
 
+// 真人发「技能」「大招」：就绪立刻放；冷却快好（≤2秒）就排队，好了自动补放；否则提示剩余冷却
+export function requestSkill(game, f, kind) {
+  if (f.alien || !f.alive || !f.cls) return false;
+  const cd = kind === 'ult' ? f.ultCd : f.skillCd;
+  if (cd > 2) {
+    if (game.clock - (f.cdTipAt || 0) > 1.5) { f.cdTipAt = game.clock; game.emit('cd', { uid: f.uid, kind, left: Math.ceil(cd) }); }
+    return false;
+  }
+  const until = game.clock + cd + PVE.skillQueue;
+  if (kind === 'ult') f.ultReq = until; else f.skillReq = until;
+  return true;
+}
+
 function wantsUlt(game, f) {
-  if (f.wantUlt) return true;
-  if (f.ultFullFor > 15) return true;
+  if (f.ultReadyFor > 15) return true;
   if (f.cls === 'healer') {
     const a = allies(game);
     const dead = a.filter(x => !x.alive).length, low = a.filter(x => x.alive && x.hp < x.maxHp * 0.5).length;
@@ -230,8 +272,8 @@ function wantsUlt(game, f) {
 }
 
 export function castUlt(game, f) {
-  if (f.energy < 100 || !f.alive) return false;
-  f.energy = 0; f.wantUlt = false; f.ultFullFor = 0;
+  if (f.ultCd > 0 || !f.alive) return false;
+  f.ultCd = PVE.ultCooldown * (1 - f.stats.haste); f.ultReq = 0; f.ultReadyFor = 0;
   if (f.cls === 'healer') {
     let revived = 0;
     for (const a of allies(game)) {

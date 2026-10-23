@@ -25,29 +25,30 @@ export function setupFleetSide(t) {
 
 export function startPve(game) {
   const stage = currentStage(game);
-  game.pve = { stage, sub: 'wave', t: PVE.waveSeconds(stage), spawnT: 1.2 };
+  game.pve = { stage, sub: 'wave', t: PVE.waveSeconds(stage), spawnT: 1.2, left: PVE.stageSeconds };
   game.emit('announce', { text: `第${stage}关，虫群来袭！`, voice: true });
 }
 
 export function stepPve(game, dt) {
   const p = game.pve, boss = game.teams.red;
   if (!p) return;
+  p.left -= dt;
   stepZones(game, dt);
   for (let i = game.barriers.length - 1; i >= 0; i--) { game.barriers[i].t -= dt; if (game.barriers[i].t <= 0) game.barriers.splice(i, 1); }
   if (p.sub === 'wave') {
     p.t -= dt; p.spawnT -= dt;
     if (p.spawnT <= 0) { p.spawnT = Math.max(2, 3.4 - p.stage * 0.08); spawnFormation(game, false); }
     if (p.t <= 0) {
-      p.sub = 'enter'; p.t = 3;
+      p.sub = 'enter'; p.t = PVE.bossEnter;
       game.emit('banner', { team: 'red', text: `第${p.stage}关 · 异形母舰现身！`, tier: 4 });
       game.emit('announce', { text: '异形母舰现身！', voice: true });
     }
   } else if (p.sub === 'enter') {
     p.t -= dt;
     boss.y += (PVE.bossY - boss.y) * Math.min(1, dt * 2.4);
-    if (p.t <= 0) { boss.y = PVE.bossY; boss.present = true; p.sub = 'boss'; p.t = PVE.bossMinutes * 60; p.spawnT = 10; }
+    if (p.t <= 0) { boss.y = PVE.bossY; boss.present = true; p.sub = 'boss'; p.t = p.left; p.spawnT = 8; }
   } else if (p.sub === 'boss') {
-    p.t -= dt; p.spawnT -= dt;
+    p.t = p.left; p.spawnT -= dt;
     boss.x = 360 + Math.sin(game.time * 0.35) * 70;
     if (p.spawnT <= 0) { p.spawnT = Math.max(7, 11 - p.stage * 0.2); spawnFormation(game, true); }
     const pct = boss.core / boss.coreMax;
@@ -226,9 +227,9 @@ export function stepAlien(game, f, dt) {
 export function bossTimeText(game) {
   const p = game.pve;
   if (!p) return '';
-  const t = Math.max(0, Math.ceil(p.t));
-  const mm = Math.floor(t / 60), ss = String(t % 60).padStart(2, '0');
-  if (p.sub === 'wave') return `虫群来袭 · ${t}秒后母舰现身`;
-  if (p.sub === 'enter') return '异形母舰正在逼近';
-  return `母舰战剩余 ${mm}:${ss}`;
+  const t = Math.max(0, Math.ceil(p.left));
+  const left = `本关剩余 ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  if (p.sub === 'wave') return `${left} · ${Math.max(0, Math.ceil(p.t))}秒后母舰现身`;
+  if (p.sub === 'enter') return `${left} · 母舰逼近`;
+  return left;
 }

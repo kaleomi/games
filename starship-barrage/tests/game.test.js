@@ -270,6 +270,7 @@ test('讨伐模式：选战舰；医疗舰先给血量最低的两艘回血，�
   toBattle(game);
   a.hp = a.maxHp * 0.3; b.hp = b.maxHp * 0.5; c.hp = c.maxHp * 0.9;
   h.skillCd = 0; h.fireCd = 0;
+  game.chat({ id: 'h' }, '技能');
   const shotsBefore = game.bullets.filter(x => x.owner === 'h').length;
   game.step(1 / 60);
   assert.ok(a.hp > a.maxHp * 0.3 && b.hp > b.maxHp * 0.5);
@@ -313,7 +314,7 @@ test('讨伐模式：机甲大招立起屏障挡子弹，挨打和挡子弹都�
   game.chat({ id: 't', name: '坦' }, '机甲');
   toBattle(game);
   const t = game.fighters.get('t');
-  t.energy = 100; t.wantUlt = true; game.step(1 / 60);
+  game.chat({ id: 't' }, '大招'); game.step(1 / 60);
   assert.equal(game.barriers.length, 1);
   const bar = game.barriers[0];
   const before = t.merit;
@@ -340,4 +341,43 @@ test('讨伐模式：打爆母舰按贡献掉装备，自动穿戴并提升属�
   assert.ok(top.stats.atk > atk0 || top.maxHp > hp0 || top.stats.haste > 0 || top.stats.power > 1);
   const back = new Save({ storage: { getItem: () => save.exportJson(), setItem() {} } });
   assert.deepEqual(back.peek('g4').gear, p.gear);
+});
+
+test('讨伐模式：真人要发「技能」「大招」才放，大招冷却45秒；NPC自动放', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'd', name: '输出' }, '输出');
+  toBattle(game);
+  const d = game.fighters.get('d');
+  for (let i = 0; i < 60 * 8; i++) game.step(1 / 60);
+  assert.equal(game.bullets.filter(b => b.owner === 'd' && b.missile).length, 0, '不发弹幕不放技能');
+  assert.equal(d.beamT, 0);
+  game.chat({ id: 'd' }, '技能'); game.step(1 / 60);
+  assert.ok(game.bullets.some(b => b.owner === 'd' && b.missile), '发「技能」放导弹');
+  game.chat({ id: 'd' }, '大招'); game.step(1 / 60);
+  assert.ok(d.beamT > 0, '发「大招」放光束');
+  assert.ok(Math.abs(d.ultCd - 45 * (1 - d.stats.haste)) < 0.1);
+  game.drainEvents();
+  game.chat({ id: 'd' }, '大招');
+  assert.ok(game.drainEvents().some(e => e.type === 'cd' && e.kind === 'ult' && e.left >= 44), '冷却中提示剩余秒数');
+  d.ultCd = 1; game.chat({ id: 'd' }, '光束');
+  for (let i = 0; i < 70; i++) game.step(1 / 60);
+  assert.ok(d.ultCd > 40, '冷却快好时发的指令排队，好了自动补放');
+});
+
+test('讨伐模式：每关限时2分钟（含虫群），超时退回一关', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'a', name: 'A' }, '机甲');
+  toBattle(game);
+  const a = game.fighters.get('a');
+  let result = null;
+  for (let i = 0; i < 60 * 125 && !result; i++) {
+    a.hp = a.maxHp; a.alive = true;
+    game.step(1 / 60);
+    for (const e of game.drainEvents()) if (e.type === 'result') result = e;
+  }
+  assert.ok(result, '2分钟内结束');
+  assert.equal(result.clear, false); assert.equal(result.reason, 'timeout');
+  assert.ok(game.time <= 121 + 25, `用时 ${game.time}`);
 });

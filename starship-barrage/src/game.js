@@ -4,7 +4,7 @@ import {
 } from './config.js';
 import { skinFor } from './save.js';
 import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone } from './pve.js';
-import { setupShip, stepShip, stepBeam, hurt as fleetHurt, castUlt, parseClass, refreshStats, rollDrops, laneCenter } from './fleet.js';
+import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter } from './fleet.js';
 
 const TEAM_IDS = ['red', 'blue'];
 const other = t => (t === 'red' ? 'blue' : 'red');
@@ -40,6 +40,7 @@ export function parseCommand(text) {
   if (has('核心')) return { type: 'target', target: 'core' };
   if (has('炮台')) return { type: 'target', target: 'turret' };
   if (has('大招', 'dz')) return { type: 'ult' };
+  if (has('技能', 'jn')) return { type: 'skill' };
   if (/^左/.test(s)) return { type: 'lane', lane: 'L' };
   if (/^中/.test(s)) return { type: 'lane', lane: 'M' };
   if (/^右/.test(s)) return { type: 'lane', lane: 'R' };
@@ -284,6 +285,8 @@ export class Game {
   chat(user, text) {
     this.stats.chats++;
     if (this.mode === 'pve') {
+      const sk = parseSkill(text);
+      if (sk) { const f = this.join(user); if (!f) return false; f.lastActive = this.now(); if (this.phase === 'battle') requestSkill(this, f, sk); return true; }
       const cls = parseClass(text);
       if (cls) { const f = this.join(user); if (f) this.setClass(f, cls); return !!f; }
     }
@@ -303,7 +306,6 @@ export class Game {
         break;
       }
       case 'intercept': if (this.mode === 'pve') interceptZone(this, f); else this.intercept(f); break;
-      case 'ult': if (this.mode === 'pve' && this.phase === 'battle' && f.energy >= 100) castUlt(this, f); break;
       case 'mode': this.voteMode(f, cmd.mode); break;
       case 'card': this.emit('card', { uid: f.uid }); break;
       default: break;
@@ -322,8 +324,7 @@ export class Game {
     const room = Math.max(0, FIGHTER.likeChargeCapPerSec - f.likeWindow);
     const add = Math.min(room, n * FIGHTER.likeCharge);
     f.likeWindow += add;
-    if (this.mode === 'pve' && !f.alien) f.energy = Math.min(100, (f.energy || 0) + add / FIGHTER.likeCharge * PVE.energyPerLike);
-    else f.charge = Math.min(100, f.charge + add);
+    f.charge = Math.min(100, f.charge + add);
   }
 
   intercept(f) {
@@ -370,7 +371,6 @@ export class Game {
     f.powerUntil = this.clock + GIFT.powerSeconds;
     if (this.mode === 'pve' && f.maxHp) {
       f.shieldHp = Math.min(f.maxHp * 0.5, (f.shieldHp || 0) + f.maxHp * 0.1 * units);
-      f.energy = Math.min(100, (f.energy || 0) + PVE.energyPerSmallGift * units);
     } else f.shield = Math.min(GIFT.shieldMax, f.shield + units);
   }
 
@@ -508,7 +508,7 @@ export class Game {
     }
     if (this.mode === 'pve') {
       if (this.pve?.wiped) return this.endBattle('red', 'wipe');
-      if (this.pve?.sub === 'boss' && this.pve.t <= 0) return this.endBattle('red', 'timeout');
+      if (this.pve && this.pve.left <= 0) return this.endBattle('red', 'timeout');
       return;
     }
     if (this.phaseT <= 0) {

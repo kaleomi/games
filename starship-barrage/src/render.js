@@ -164,6 +164,7 @@ export class Renderer {
           break;
         }
         case 'zone': break;
+        case 'cd': { const f = g.fighters.get(e.uid); if (f) this.floaters.push({ x: f.x, y: f.y - 30, text: `${e.kind === 'ult' ? '大招' : '技能'}冷却${e.left}s`, color: '#aab4cc', t: 0, nop: true }); break; }
         case 'strike': this.shake = Math.max(this.shake, e.kind === 'cannon' ? 20 : 10); for (const l of e.lanes) this.laneFlashes.push({ lane: l, t: 0.6, kind: e.kind }); break;
         case 'loot': this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: g.teams.red.x, y0: g.teams.red.y }); this.toast(`${e.name} 获得 ${e.text}${e.equipped ? ' · 已自动装备' : ' · 分解为星核碎片'}`, null, GEAR.tiers[e.item.tier].color); if (e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `获得${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: e.item.tier >= 3 ? 4 : 2, gear: e.item }); break;
         default: break;
@@ -470,8 +471,20 @@ export class Renderer {
     x.fillStyle = 'rgba(0,0,0,.65)'; x.fillRect(f.x - bw / 2 - 1, by - 1, bw + 2, 7);
     x.fillStyle = pct > 0.6 ? '#4dff88' : pct > 0.3 ? '#ffd24a' : '#ff4d5e'; x.fillRect(f.x - bw / 2, by, bw * pct, 3.5);
     if (f.shieldHp > 0) { x.fillStyle = '#bfefff'; x.fillRect(f.x - bw / 2, by, bw * Math.min(1, f.shieldHp / f.maxHp), 1.5); }
-    x.fillStyle = f.energy >= 100 ? '#ffe28a' : 'rgba(255,226,138,.6)'; x.fillRect(f.x - bw / 2, by + 4, bw * Math.min(1, (f.energy || 0) / 100), 1.6);
-    if (f.energy >= 100) { x.strokeStyle = `rgba(255,216,107,${0.5 + 0.4 * Math.sin(g.clock * 8)})`; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 30, 0, Math.PI * 2); x.stroke(); }
+    const ultK = 1 - Math.min(1, (f.ultCd || 0) / PVE.ultCooldown);
+    x.fillStyle = ultK >= 1 ? '#ffe28a' : 'rgba(255,226,138,.55)'; x.fillRect(f.x - bw / 2, by + 4, bw * ultK, 1.6);
+    if (ultK >= 1) { x.strokeStyle = `rgba(255,216,107,${0.5 + 0.4 * Math.sin(g.clock * 8)})`; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 30, 0, Math.PI * 2); x.stroke(); }
+    if (f.charge >= 20) { x.strokeStyle = 'rgba(255,243,168,.7)'; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 25, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f.charge / 100); x.stroke(); }
+    // 真人：技能 / 大招 就绪小图标（提醒发弹幕）
+    if (!f.npc) {
+      const ids = { dps: ['missile', 'beam'], tank: ['shield', 'barrier'], healer: ['heal', 'healUlt'] }[f.cls];
+      [[ids[0], f.skillCd, CLASSES[f.cls].skillCd], [ids[1], f.ultCd, PVE.ultCooldown]].forEach(([id, cd, max], i) => {
+        const ic = this.skillIcon(id, 16), cx = f.x + bw / 2 + 10, cy = f.y + 14 + i * 17;
+        if (!ic) return;
+        x.globalAlpha = cd > 0 ? 0.35 : 1; this.blit(x, ic, cx, cy); x.globalAlpha = 1;
+        if (cd > 0) { x.strokeStyle = 'rgba(255,255,255,.75)'; x.lineWidth = 1.6; x.beginPath(); x.arc(cx, cy, 8.5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - Math.min(1, cd / max))); x.stroke(); }
+      });
+    }
     const rank = this.rankOf.get(f.uid);
     const show = !f.npc && (top.has(f.uid) || f.labelUntil > g.clock || (this.card && this.card.uid === f.uid));
     if (show) {
@@ -602,7 +615,7 @@ export class Renderer {
       const fl = this.floaters[i]; fl.t += dt;
       if (fl.t > 1) { this.floaters.splice(i, 1); continue; }
       x.globalAlpha = 1 - fl.t;
-      if (plus) this.blit(x, plus, fl.x - 14, fl.y - fl.t * 40);
+      if (plus && !fl.nop) this.blit(x, plus, fl.x - 14, fl.y - fl.t * 40);
       x.font = `800 14px ${NUM}`; x.lineWidth = 3; x.strokeStyle = 'rgba(0,30,10,.9)'; x.strokeText(fl.text, fl.x + 6, fl.y - fl.t * 40);
       x.fillStyle = fl.color; x.fillText(fl.text, fl.x + 6, fl.y - fl.t * 40);
     }
@@ -768,7 +781,7 @@ export class Renderer {
     // 指令提示轮播
     const other = pve ? '对战' : '讨伐';
     const hints = pve
-      ? ['发「输出」「机甲」「医疗」选战舰加入', '红色区域10秒后命中，发「左」「中」「右」躲开', '机甲站前排挡子弹，医疗给血最少的队友回血', '点赞充大招能量，满了自动放，也可发「大招」', '湮灭炮锁定时，全员发「拦截」削弱它', '打爆母舰掉装备，自动穿上更好的', `发「换${other}」投票切到红蓝对战`, '发「我的」查看战舰、装备和贡献']
+      ? ['发「输出」「机甲」「医疗」选战舰加入', '红色区域10秒后命中，发「左」「中」「右」躲开', '机甲站前排挡子弹，医疗给血最少的队友回血', '发「技能」放小技能，发「大招」放大招', '湮灭炮锁定时，全员发「拦截」削弱它', '点赞充能，满了打出超载炮', '打爆母舰掉装备，自动穿上更好的', `发「换${other}」投票切到红蓝对战`, '发「我的」查看战舰、装备和贡献']
       : ['发「红」「蓝」加入舰队', '发「激光」「散弹」「蓄力」换武器', '发「左」「中」「右」换编队位置', '发「核心」「炮台」选攻击目标', '点赞给自己战机充能，满了放超载炮', '对面主炮蓄力时，发「拦截」削弱它', `发「换${other}」投票切到打BOSS模式`, '发「我的」查看等级和战功'];
     if (g.clock - (this.hintAt || 0) > 5) { this.hintAt = g.clock; this.hintIdx = (this.hintIdx + 1) % hints.length; }
     x.font = `15px ${FONT}`; x.fillStyle = 'rgba(200,215,255,.75)'; x.fillText(hints[this.hintIdx % hints.length], 360, hy);
@@ -905,7 +918,7 @@ export class Renderer {
       x.fillStyle = '#c8d2ee'; x.font = `14px ${FONT}`;
       const dodge = hasAutoDodge(this.game, f) ? `自动躲弹 ${Math.ceil((f.dodgeUntil - this.game.clock) / 60)}分` : '手动躲弹';
       x.fillText(`Lv.${lv}  ${c.name}  血${Math.round(f.maxHp)} 攻${(st.atk || 0).toFixed(1)}  ${dodge}`, 180, 758);
-      x.fillText(`本局贡献 ${Math.floor(f.merit)}  大招 ${Math.floor(f.energy || 0)}%  星核碎片 ${p?.shards || 0}`, 180, 784);
+      x.fillText(`本局贡献 ${Math.floor(f.merit)}  技能${f.skillCd > 0 ? `冷却${Math.ceil(f.skillCd)}s` : '就绪'}  大招${f.ultCd > 0 ? `冷却${Math.ceil(f.ultCd)}s` : '就绪'}  碎片 ${p?.shards || 0}`, 180, 784);
       const slots = Object.keys(GEAR.slots);
       slots.forEach((s, i) => {
         const it = f.gear?.[s], cx = 196 + i * 92;
