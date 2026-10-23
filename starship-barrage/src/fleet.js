@@ -226,6 +226,7 @@ export function stepShip(game, f, dt, combat) {
   }
   }
   f.lungeT = Math.max(0, (f.lungeT || 0) - dt);
+  f.muzzleT = Math.max(0, (f.muzzleT || 0) - dt);
   f.recoilT = Math.max(0, (f.recoilT || 0) - dt);
   if (!combat) return;
   // 技能：真人要自己发「技能」「大招」，NPC 自动放
@@ -252,17 +253,37 @@ export function stepShip(game, f, dt, combat) {
     const tgt = nearestEnemy(game, f.x, f.y);
     const ang = tgt ? Math.atan2(tgt.y - (f.y - 16), tgt.x - f.x) : -Math.PI / 2;
     f.aimAngle = ang + Math.PI / 2;
-    const ca = Math.cos(ang), sa = Math.sin(ang), px = -sa, py = ca;   // 垂直方向，用来排开多发
     const base = f.stats.atk * (1 + 0.2 * (f.power - 1));
-    const shot = (off, speed, r, dmg, extra) => {
-      const [d, crit] = rollCrit(game, f, dmg);
-      game.addBullet(f.x + px * off + ca * 16, f.y - 4 + py * off + sa * 16, ca * speed, sa * speed, crit ? r * 1.4 : r, d, 'blue', 'shot', f.uid, 0, { pveScaled: true, crit, ...extra });
-    };
-    if (f.cls === 'dps') { const offs = f.power >= 3 ? [-7, 0, 7] : [-4, 4]; for (const o of offs) shot(o, 1050, 3.5, base / offs.length * 1.4); }
-    else if (f.cls === 'tank') shot(0, 760, 7, base, { orb: true });
-    else if (f.cls === 'healer') shot(0, 760, 5, base, { heal: true });
-    else shot(0, 860, 4.5, base);
+    // 主炮品质 → 炮管数、子弹外观、穿透
+    const wt = f.gear?.weapon ? f.gear.weapon.tier : -1;
+    const barrels = wt >= 0 ? GEAR.barrels[wt] : 1;
+    const pods = barrelOffsets(f.cls, barrels);
+    const twin = f.cls === 'dps';
+    const total = base * (twin ? 1.4 : 1) * GEAR.barrelMult[barrels];
+    const per = total / (pods.length * (twin ? 2 : 1));
+    const speed = { dps: 1050, tank: 760, healer: 780, carrier: 860 }[f.cls] || 860;
+    const r = { dps: 3.5, tank: 6.5, healer: 5, carrier: 4.5 }[f.cls] || 4;
+    const pierce = wt >= 0 ? GEAR.pierce[wt] : 0;
+    for (const [ox, oy] of pods) {
+      for (const tw of twin ? [-3.5, 3.5] : [0]) {
+        const sx = f.x + ox + tw, sy = f.y + oy;
+        const a = tgt ? Math.atan2(tgt.y - sy, tgt.x - sx) : -Math.PI / 2;
+        const [d, crit] = rollCrit(game, f, per);
+        game.addBullet(sx + Math.cos(a) * 10, sy + Math.sin(a) * 10, Math.cos(a) * speed, Math.sin(a) * speed, crit ? r * 1.4 : r, d, 'blue', 'shot', f.uid, pierce,
+          { pveScaled: true, crit, wt: Math.max(0, wt), orb: f.cls === 'tank', heal: f.cls === 'healer' });
+      }
+    }
+    if (barrels >= 2) f.muzzleT = 0.12;
   }
+}
+
+// 炮管位置（相对战舰中心）：1管在机头，2管在两侧炮舱，3管＝机头+两侧
+export const POD = { dps: [17, 2, -22], tank: [21, -12, -24], healer: [21, -4, -26], carrier: [25, -10, -32] };
+export function barrelOffsets(cls, n) {
+  const [px, py, ny] = POD[cls] || POD.dps;
+  if (n <= 1) return [[0, ny]];
+  if (n === 2) return [[-px, py], [px, py]];
+  return [[-px, py], [0, ny], [px, py]];
 }
 
 // 歼灭光束：自动瞄准——锁定最近的异形（打完一只自动转向下一只），没有异形就锁母舰触手炮/核心；光束会扫过路径上所有敌人

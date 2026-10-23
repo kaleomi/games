@@ -1021,6 +1021,7 @@ export class Game {
           const hitDmg = this.mode === 'pve' ? b.dmg : b.kind === 'danmaku' ? 1 : b.dmg * (b.gift || b.overload || f.alien ? 1 : this.shotFactor[b.team]);
           if (!this.hurtFighter(f, hitDmg, b.owner)) continue;
           if (b.crit) this.emit('crit', { x: f.x, y: f.y, dmg: Math.round(hitDmg) });
+          if (b.wt >= 2 && this.random() < 0.5) this.emit('hitfx', { x: b.x, y: b.y, wt: b.wt });
           if (b.pierce > 0) { b.pierce--; (b.hit ||= new Set()).add(f.uid); continue; }
           return true;
         }

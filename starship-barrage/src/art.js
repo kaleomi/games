@@ -1,7 +1,7 @@
 // 星舰弹幕战 · 矢量美术（SVG 绘制，加载后栅格化缓存到离屏画布）
 // 舰船（战机、讨伐三职业、召唤战舰）在 ships.js
 export { fighterSvg, dpsSvg, mechSvg, healerSvg, battleshipSvg, carrierSvg, droneShipSvg } from './ships.js';
-export { gearIconSvg } from './gear-art.js';
+export { gearIconSvg, gunPodSvg, boltSvg } from './gear-art.js';
 // 所有舰船统一「机头朝上」绘制，原点在中心；红方在画面上方，绘制时整体翻转。
 
 const TEAM_COLORS = {

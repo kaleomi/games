@@ -178,3 +178,30 @@ export function gearIconSvg(slot, tier, px) {
   const draw = DRAW[slot] || weapon;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-30 -30 60 60">${defs(t)}${frame(t)}<g>${draw(t)}</g></svg>`;
 }
+
+// ───────── 战舰外挂炮舱：主炮紫色以上出现在战舰两侧，颜色跟主炮品质 ─────────
+export function gunPodSvg(tier, px) {
+  const t = Math.max(0, Math.min(GEAR.tiers.length - 1, tier | 0)), c = GEAR.tiers[t].color;
+  const rings = t >= 4 ? [-9, -4, 1] : [-7, -1];
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px * 1.6}" viewBox="-10 -18 20 32">${defs(t)}
+    <path d="M-6,4 L6,4 L7.5,11 L-7.5,11 Z" fill="url(#dk)" stroke="#05070e" stroke-width=".8"/>
+    <path d="M-4.5,7 H4.5" stroke="${c}" stroke-width="1.4"/>
+    <rect x="-2.6" y="-14" width="5.2" height="19" rx="1.4" fill="url(#m)" stroke="#05070e" stroke-width=".7"/>
+    ${rings.map(y => `<ellipse cx="0" cy="${y}" rx="4" ry="1.3" fill="none" stroke="${c}" stroke-width="1.3"/>`).join('')}
+    ${t >= 4 ? `<path d="M-6,4 L6,4" stroke="url(#gd)" stroke-width="1.6"/><path d="M-7.5,9 L-9.5,3 L-6,4 Z M7.5,9 L9.5,3 L6,4 Z" fill="url(#gd)"/>` : ''}
+    <g filter="url(#bl)"><circle cy="-14.5" r="${3 + t * 0.4}" fill="${c}"/></g><circle cy="-14.5" r="${1.6 + t * 0.2}" fill="#fff"/>
+  </svg>`;
+}
+
+// ───────── 我方子弹（按主炮品质）：白针 / 蓝电浆 / 紫光球 / 橙火焰 / 金星芒 / 红雷枪 ─────────
+export function boltSvg(tier, px) {
+  const t = Math.max(0, Math.min(GEAR.tiers.length - 1, tier | 0)), c = GEAR.tiers[t].color;
+  let body;
+  if (t === 0) body = `<ellipse rx="2.4" ry="9" fill="#9fe8ff" opacity=".7" filter="url(#bl)"/><ellipse rx="1.3" ry="7.5" fill="#fff"/>`;
+  else if (t === 1) body = `<ellipse rx="4" ry="11" fill="${c}" opacity=".8" filter="url(#bl)"/><path d="M0,-10 C2.6,-5 2.6,4 0,9 C-2.6,4 -2.6,-5 0,-10 Z" fill="#cfe6ff"/><ellipse rx="1" ry="6" fill="#fff"/>`;
+  else if (t === 2) body = `<path d="M0,12 C-3,6 -2,-2 0,-4 C2,-2 3,6 0,12 Z" fill="${c}" opacity=".6" filter="url(#bl)"/><circle cy="-5" r="6" fill="${c}" opacity=".85" filter="url(#bl)"/><circle cy="-5" r="3.6" fill="#ead6ff"/><circle cy="-5" r="1.8" fill="#fff"/>`;
+  else if (t === 3) body = `<path d="M0,-12 C4,-6 5,2 2,8 C3,4 1,2 0,0 C-1,4 -2,7 -1,12 C-5,6 -5,-4 0,-12 Z" fill="${c}" filter="url(#bl)"/><path d="M0,-11 C2.6,-5 3,1 1,6 C0,3 -.5,2 -1,4 C-3,0 -2.6,-6 0,-11 Z" fill="#ffe0c4"/><ellipse cy="-6" rx="1.1" ry="4" fill="#fff"/>`;
+  else if (t === 4) body = `<ellipse cy="3" rx="2.6" ry="10" fill="${c}" opacity=".7" filter="url(#bl)"/><path d="M0,-14 L2,-8 L8,-6 L2,-4 L0,2 L-2,-4 L-8,-6 L-2,-8 Z" fill="url(#gd)" stroke="#fff" stroke-width=".5"/><circle cy="-6" r="1.8" fill="#fff"/><ellipse cy="6" rx="1" ry="5" fill="#fff4c4"/>`;
+  else body = `<path d="M0,-15 L3,-8 L1,-7 L4,0 L1.5,0 L3,8 L0,14 L-1,6 L-3.5,5 L-1.5,-1 L-4,-2 Z" fill="${c}" filter="url(#bl2)" opacity=".9"/><path d="M0,-14 L2.2,-8 L.6,-7 L2.8,-.4 L.8,-.4 L2,7 L0,12 L-.6,5.6 L-2.4,4.6 L-.8,-1 L-2.8,-2 Z" fill="#ffd0d4"/><path d="M0,-13 L1,-7 L0,-1 L1,6" fill="none" stroke="#fff" stroke-width=".9"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px * 2}" viewBox="-8 -16 16 32">${defs(t)}${body}</svg>`;
+}

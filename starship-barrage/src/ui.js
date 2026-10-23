@@ -299,7 +299,7 @@ export class UI {
           <div class="title">${logoSvg(150)}<span>星舰弹幕战</span><small>${pve ? '讨伐模式 · 全员一支舰队，对抗异形母舰' : '对战模式 · 红蓝舰队对攻'} · 观众自己当飞行员</small></div>
           ${g.phase === 'lobby' ? `<div class="count">${Math.ceil(g.phaseT)}<small>${pve ? '秒后出击' : '秒后开战'}</small></div>` : ''}
           ${join}
-          ${rulesHtml(this.settings, g.mode)}
+          ${pve ? '<div class="pvehint">玩法、战舰、装备、礼物效果都在右下角轮播 · 左下角是战力榜</div>' : rulesHtml(this.settings, g.mode)}
           ${week.length && !pve ? `<div class="week"><h2>本周战功榜</h2>${week.map((p, i) => `<div><i>${i < 3 ? medalSvg(i, 22) : i + 1}</i>${esc(p.name)}<b>${p.weekMerit}</b><em>Lv.${p.level}</em></div>`).join('')}</div>` : ''}`;
       }
     }
