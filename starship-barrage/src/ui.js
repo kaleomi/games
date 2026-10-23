@@ -49,7 +49,7 @@ export function rulesHtml(settings, mode = 'pvp') {
     <ul>
       ${pve ? `<li><b>贡献值</b>＝打伤害 + 给队友回血 + 替队友挨打，过关全员+${PVE.stageClearContrib}，<b>不显示消费金额</b></li>
       <li>打爆母舰掉装备：贡献前三必掉，其余60%；更好的自动穿上，差的分解成星核碎片 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
-      <li>等级跟着抖音账号保存，<b>等级越高，AI躲弹越灵活</b>，满${LEVEL.max}级；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
+      <li><b>经验＝获得的${pve ? '贡献值' : '战功'}</b>（讨伐战斗中实时到账、当场升级），等级跟着抖音账号保存，满${LEVEL.max}级；${pve ? '每级攻击、生命+2%' : '等级越高AI躲弹越灵活'}；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
       <li>灰色「NPC」战机是人少时的补位电脑，不是真人，不进榜单</li>
       <li>礼物效果固定、没有抽奖；理性消费，未成年人请勿打赏</li>
     </ul>
@@ -307,9 +307,9 @@ export class UI {
     if (!!showRes !== !this.resultEl.hidden) this.resultEl.hidden = !showRes;
     if (showRes && this.resKey !== res.round) {
       this.resKey = res.round;
-      const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i>${esc(m.name)}<b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
+      const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i><span>${esc(m.name)}<small class="lv">Lv.${m.level || 1}</small></span><b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
       if (res.mode === 'pve') {
-        const list = (res.mvp.blue || []).map((m, i) => `<div><i>${i < 3 ? medalSvg(i, 30) : `<span class="rk">${i + 1}</span>`}</i><span>${esc(m.name)}${m.cls ? `<small class="ct">${CLASSES[m.cls].short}</small>` : ''}</span><b>贡献 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
+        const list = (res.mvp.blue || []).map((m, i) => `<div><i>${i < 3 ? medalSvg(i, 30) : `<span class="rk">${i + 1}</span>`}</i><span>${esc(m.name)}<small class="lv">Lv.${m.level || 1}</small>${m.cls ? `<small class="ct">${CLASSES[m.cls].short}</small>` : ''}</span><b>贡献 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
         const drops = (res.drops || []).slice(0, 8).map(d => `<div class="drop">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 40)}<span>${esc(d.name)}</span><b style="color:${GEAR.tiers[d.item.tier].color}">${esc(describeItem(d.item))}</b><em>${d.equipped ? '已装备' : '分解'}</em></div>`).join('');
         this.resultEl.innerHTML = `
           <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `第${res.stage}关 讨伐成功` : '讨伐失败'}</div>

@@ -478,3 +478,25 @@ test('发「装备」弹出自己的装备卡片', () => {
   game.chat({ id: 'u' }, '装备');
   assert.ok(game.drainEvents().some(e => e.type === 'card' && e.uid === 'u' && e.gear));
 });
+
+test('经验＝贡献值：讨伐战斗中实时到账并当场升级，结算不重复算', async () => {
+  const { LEVEL } = await import('../src/config.js');
+  const { game, save } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'x', name: 'X' }, '输出');
+  toBattle(game);
+  const f = game.fighters.get('x');
+  const atk0 = f.stats.atk;
+  f.merit += LEVEL.need(1) + LEVEL.need(2) + 10;
+  game.drainEvents();
+  for (let i = 0; i < 70; i++) game.step(1 / 60);
+  const ev = game.drainEvents().filter(e => e.type === 'levelup');
+  assert.ok(ev.length >= 1 && ev[ev.length - 1].level === 3, '实时升到3级');
+  assert.equal(f.level, 3);
+  assert.ok(f.stats.atk > atk0, '升级马上加攻击');
+  const xp0 = save.peek('x').xp, lv0 = save.peek('x').level;
+  game.endBattle('red', 'wipe');
+  const p = save.peek('x');
+  assert.equal(p.level, lv0);
+  assert.ok(p.xp - xp0 <= 20 + Math.ceil(f.merit) - (LEVEL.need(1) + LEVEL.need(2) + 10) + 1, '结算只补没到账的部分');
+});

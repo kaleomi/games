@@ -76,8 +76,9 @@ export const MERIT = {          // 战功：只按战果，不按花费
 };
 
 export const LEVEL = {
-  max: 60,
-  need: lv => 100 + lv * 40,
+  max: 100,
+  // 经验 = 获得的贡献值（对战是战功）；升到下一级所需经验
+  need: lv => Math.round(200 + 60 * lv + 4 * lv * lv),
   // 等级决定AI躲弹水平
   dodgeRadius: lv => 46 + Math.min(lv, 60) * 0.9,
   speed: lv => 230 + Math.min(lv, 60) * 2.6,

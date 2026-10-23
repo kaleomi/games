@@ -149,7 +149,17 @@ export class Renderer {
         case 'gift': if (e.tier <= 1) this.giftToast(e); break;
         case 'toast': this.toast(e.text, null); break;
         case 'join': this.toast(`${e.name} 加入${TEAMS[e.team].name}`, e.team); break;
-        case 'levelup': this.toast(`${e.name} 升到 Lv.${e.level}`, null, '#ffe28a'); break;
+        case 'levelup': {
+          this.toast(`${e.name} 升到 Lv.${e.level}`, null, '#ffe28a');
+          const f = g.fighters.get(e.uid);
+          if (f && f.alive && g.mode === 'pve') {
+            this.ripples.push({ uid: e.uid, x: f.x, y: f.y, t: 0, dur: 0.9, r0: 20, r1: 90, color: '255,216,107', w: 5 });
+            this.pillars.push({ uid: e.uid, t: 0, delay: 0 });
+            this.floaters.push({ x: f.x, y: f.y - 40, text: `升级！Lv.${e.level}`, color: '#ffd86b', t: -0.2, nop: true, crit: true });
+          }
+          if (e.level % 10 === 0) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `升到 Lv.${e.level}！`, tier: 3 });
+          break;
+        }
         case 'phase': this.phaseAt = g.clock; break;
         case 'result': this.result = e; this.resultAt = g.clock; break;
         case 'card': this.card = { uid: e.uid, until: g.clock + (e.gear ? 8 : 5), gear: !!e.gear }; break;
@@ -442,7 +452,7 @@ export class Renderer {
       if (show && !f.npc) {
         const rank = this.rankOf.get(f.uid);
         const ly = f.y + (d === 1 ? -30 : 38);
-        this.label(x, f.name, f.x, ly, 13, rank != null ? '#ffe28a' : '#ffffff');
+        this.label(x, `Lv.${f.level || 1} ${f.name}`, f.x, ly, 13, rank != null ? '#ffe28a' : '#ffffff');
         const m = rank != null && this.medalArt(rank);
         if (m) { x.font = `500 13px ${FONT}`; this.blit(x, m, f.x - x.measureText(f.name).width / 2 - 11, ly - 1); }
       }
@@ -525,7 +535,7 @@ export class Renderer {
     const show = !f.npc && (top.has(f.uid) || f.labelUntil > g.clock || (this.card && this.card.uid === f.uid));
     if (show) {
       const ly = f.y - 36;
-      const text = `${f.name}·${CLASSES[f.cls].short}`;
+      const text = `Lv.${f.level || 1} ${f.name}·${CLASSES[f.cls].short}`;
       this.label(x, text, f.x, ly, 13, rank != null ? '#ffe28a' : '#ffffff');
       const m = rank != null && this.medalArt(rank);
       if (m) { x.font = `500 13px ${FONT}`; this.blit(x, m, f.x - x.measureText(text).width / 2 - 11, ly - 1); }
@@ -1031,7 +1041,8 @@ export class Renderer {
       x.font = `13px ${FONT}`; x.fillStyle = i === 0 ? '#ffe28a' : '#dfe6ff';
       const m = i < 3 && this.medalArt(i);
       if (m) this.blit(x, m, px + 18, py + 33 + i * 22); else x.fillText(`${i + 1}.`, px + 10, py + 34 + i * 22);
-      x.fillText(trim(f.name, 7), px + 32, py + 34 + i * 22);
+      x.fillText(trim(f.name, 6), px + 32, py + 34 + i * 22);
+      { const nw = x.measureText(trim(f.name, 6)).width; x.font = `11px ${NUM}`; x.fillStyle = '#8fa3c8'; x.fillText(`Lv${f.level || 1}`, px + 36 + nw, py + 35 + i * 22); x.font = `13px ${FONT}`; x.fillStyle = i === 0 ? '#ffe28a' : '#dfe6ff'; }
       x.textAlign = 'right'; x.font = `600 13px ${NUM}`; x.fillText(String(Math.floor(f.merit)), px + 176, py + 34 + i * 22); x.textAlign = 'left';
     });
   }
@@ -1140,7 +1151,7 @@ export class Renderer {
     x.fillStyle = 'rgba(6,10,26,.94)'; roundRect(x, L, T, Wd, H, 18); x.fill();
     x.strokeStyle = '#ffd23a'; x.lineWidth = 2; x.stroke();
     x.textAlign = 'left'; x.textBaseline = 'middle';
-    x.font = `700 21px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`${trim(f.name, 10)} 的装备`, L + 20, T + 28);
+    x.font = `700 21px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`Lv.${f.level || 1} ${trim(f.name, 10)} 的装备`, L + 20, T + 28);
     x.font = `13px ${FONT}`; x.fillStyle = '#aab4cc'; x.textAlign = 'right';
     x.fillText(f.cls ? CLASSES[f.cls].name : '', L + Wd - 20, T + 28); x.textAlign = 'left';
     x.font = `13px ${FONT}`; x.fillStyle = '#ffe28a';

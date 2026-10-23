@@ -177,11 +177,15 @@ export class Game {
       const roundMerit = Math.floor(f.merit + (win ? MERIT.win : 0));
       p.games++; if (win) p.wins++;
       p.kills += f.kills; p.merit += roundMerit; p.weekMerit += roundMerit;
-      const ups = this.save.addXp(p, 20 + roundMerit / 10 + (win ? 30 : 0));
+      // 经验 = 本局贡献值（对战=战功），讨伐里战斗中已经实时发过的部分不重复算
+      const gain = this.mode === 'pve' ? Math.max(0, Math.floor(f.merit) - (f.xpCounted || 0)) : roundMerit;
+      f.xpCounted = Math.floor(f.merit);
+      const ups = this.save.addXp(p, 20 + gain);
       if (ups) this.emit('levelup', { uid: f.uid, name: f.name, level: p.level });
       f.level = p.level; f.skin = skinFor(p.level);
       result.players++;
     }
+    for (const list of Object.values(result.mvp)) for (const m of list) m.level = this.fighters.get(m.uid)?.level || 1;
     if (this.save) { this.save.data.rounds++; this.save.flush(); }
     this.emit('result', result);
     if (this.mode === 'pve') this.emit('announce', { text: result.clear ? `第${result.stage}关讨伐成功！` : `讨伐失败，退回第${result.next}关`, voice: true });
@@ -237,7 +241,25 @@ export class Game {
     return f;
   }
 
+  // 讨伐：贡献值每秒实时换成经验，战斗中就能升级（升级马上加血加攻）
+  liveXp() {
+    for (const f of this.humans()) {
+      if (f.test || !this.save) continue;
+      const gain = Math.floor(f.merit) - (f.xpCounted || 0);
+      if (gain <= 0) continue;
+      const p = this.save.get(f.uid);
+      f.xpCounted = Math.floor(f.merit);
+      const ups = this.save.addXp(p, gain);
+      if (ups) {
+        f.level = p.level; f.skin = skinFor(p.level);
+        if (f.cls) refreshStats(f);
+        this.emit('levelup', { uid: f.uid, name: f.name, level: p.level, x: f.x, y: f.y, live: true });
+      }
+    }
+  }
+
   resetFighterForRound(f) {
+    f.xpCounted = 0;
     const def = TEAMS[f.team], zone = this.zoneOf(f.team);
     f.maxHp = FIGHTER.baseHp + LEVEL.hpBonus(f.level);
     f.hp = f.maxHp; f.alive = true; f.respawn = 0;
@@ -498,6 +520,7 @@ export class Game {
     this.phaseT -= dt;
     if (Math.floor(this.clock) !== Math.floor(this.clock - dt) && Math.floor(this.clock) % 2 === 0) this.syncNpcs();
     if (this.mode === 'pve') stepPve(this, dt);
+    if (this.mode === 'pve' && this.phase === 'battle' && Math.floor(this.clock) !== Math.floor(this.clock - dt)) this.liveXp();
     for (const id of TEAM_IDS) this.stepTeam(this.teams[id], dt);
     this.shotFactor = { red: FIGHTER.shotVsFighter * Math.min(1, 10 / Math.max(1, this.attackers('red'))), blue: FIGHTER.shotVsFighter * Math.min(1, 10 / Math.max(1, this.attackers('blue'))) };
     this.buildBulletGrid();
