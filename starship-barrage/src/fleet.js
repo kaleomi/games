@@ -143,7 +143,7 @@ export function setupShip(game, f) {
   f.shieldHp = 0; f.taunt = 0; f.beamT = 0;
   f.skillCd = f.npc ? 1 + game.random() * 2 : 0; f.ultCd = f.npc ? 10 + game.random() * 20 : 0;
   f.skillReq = 0; f.ultReq = 0; f.charge = 0; f.fireCd = game.random() * 0.5;
-  f.rushT = 0; f.returning = false; f.lungeT = 0; f.spin = 0; f.mel = null; f.meleeCd = 0; f.recoilT = 0; f.beamCharge = 0;
+  f.rushT = 0; f.returning = false; f.lungeT = 0; f.spin = 0; f.mel = null; f.meleeCd = 0; f.hotT = 0; f.recoilT = 0; f.beamCharge = 0;
   f.lane = f.lane && LANES.includes(f.lane) ? f.lane : LANES[Math.floor(game.random() * 3)];
   f.slotDx = (game.random() - 0.5) * 2 * PVE.wander.x; f.slotDy = (game.random() - 0.5) * 2 * PVE.wander.y; f.wanderT = game.random() * 3; f.wanderX = f.slotDx; f.wanderY = f.slotDy;
   f.x = laneCenter(f.lane) + f.slotDx; f.y = PVE.rows[f.cls] + f.slotDy;
@@ -234,6 +234,16 @@ export function stepShip(game, f, dt, combat) {
   }
   f.lungeT = Math.max(0, (f.lungeT || 0) - dt);
   f.muzzleT = Math.max(0, (f.muzzleT || 0) - dt);
+  // 生命圣光：持续5秒群体回血
+  if (f.hotT > 0 && combat) {
+    f.hotT -= dt; f.hotTick = (f.hotTick || 0) - dt;
+    const tick = f.hotTick <= 0;
+    if (tick) f.hotTick = 1;
+    let total = 0;
+    for (const a of allies(game)) if (a.alive) total += heal(game, a, a.maxHp * PVE.healUlt.perSec * f.stats.power * dt, f);
+    f.hotAcc = (f.hotAcc || 0) + total;
+    if (tick) { game.emit('healPulse', { uid: f.uid, x: f.x, y: f.y, amount: Math.round(f.hotAcc), left: Math.max(0, f.hotT) }); f.hotAcc = 0; }
+  }
   f.recoilT = Math.max(0, (f.recoilT || 0) - dt);
   if (!combat) return;
   // 小技能自动释放（冷却10秒）；大招真人要发「大招」，NPC 自动放
@@ -629,8 +639,8 @@ export function castUlt(game, f) {
     let revived = 0;
     for (const a of allies(game)) {
       if (!a.alive) { a.alive = true; a.respawn = 0; a.hp = a.maxHp * 0.5; a.invuln = 2; a.x = laneCenter(a.lane) + a.slotDx; a.y = PVE.rows[a.cls] + a.slotDy; revived++; f.merit += a.maxHp * 0.5 * PVE.contrib.heal; }
-      else heal(game, a, a.maxHp * 0.4 * f.stats.power, f);
     }
+    f.hotT = PVE.healUlt.seconds; f.hotTick = 0;   // 之后持续群体回血
     game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y, revived });
   } else if (f.cls === 'tank') {
     const T = PVE.tank;

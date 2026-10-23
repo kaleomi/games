@@ -158,7 +158,7 @@ export const PVE = {
     gunner: { hp: 300, r: 18, merit: 20 },
   },
   // 贡献值：打伤害、给队友回血、替队友挨打都算
-  contrib: { dmg: 0.1, heal: 0.55, taken: 0.6 },
+  contrib: { dmg: 0.1, heal: 0.8, taken: 0.9 },
   stageClearContrib: 200,
   autoDodgePerValue: 6,       // 自动躲弹：每1抖币礼物 6 秒（付费专属，不设上限，只在讨伐开战时扣，跟着账号存档）
   ultCooldown: 45,            // 大招冷却（秒），开局就绪
@@ -166,10 +166,11 @@ export const PVE = {
   overloadAtk: 8,
   // 重装机甲：小技能「冲击」向前方扇形冲击波（伤害+击退+打散子弹）；大招「无敌冲锋斩」无敌4秒冲进怪堆旋风斩
   // 航母：小技能放4架攻击无人机（8秒），大招「蜂群风暴」放10架护卫无人机（8秒）拦截子弹并开火
-  carrier: { droneLife: 8, attackDrones: 4, guardDrones: 10, droneShotCd: 0.35, droneShotAtk: 1.2, guardShotCd: 0.6, guardR: 46, maxPerOwner: 12 },
+  carrier: { droneLife: 8, attackDrones: 4, guardDrones: 10, droneShotCd: 0.35, droneShotAtk: 0.75, guardShotCd: 0.6, guardR: 46, maxPerOwner: 12 },
   beamCharge: 0.5,            // 歼灭光束蓄能时间
+  healUlt: { seconds: 5, perSec: 0.1 },   // 生命圣光：复活阵亡队友，之后5秒每秒给全体回10%最大血量
   // 机甲普攻：冲上去近战砍（300内有怪就冲，砍完退回本航道）
-  melee: { range: 300, speed: 950, slashR: 74, atkMul: 2.6, cd: 1.1 },
+  melee: { range: 300, speed: 950, slashR: 74, atkMul: 3.2, cd: 1.1 },
   tank: { impactAtk: 8, impactReach: 320, rushTime: 4, rushSpeed: 1100, whirlR: 125, whirlAtk: 4, whirlTick: 0.2 },             // 点赞充满放的超载炮：8倍攻击，穿透
 };
 

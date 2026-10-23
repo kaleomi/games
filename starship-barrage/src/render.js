@@ -186,7 +186,7 @@ export class Renderer {
           if (e.cls === 'healer') {
             this.flashes.push({ t: 0.35, color: '#5dff9e' });
             this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 1.2, r0: 40, r1: 900, color: '160,255,190', w: 10 });
-            for (const a of g.fighters.values()) if (!a.alien && a.team === 'blue') this.pillars.push({ uid: a.uid, t: 0, delay: Math.abs(a.x - e.x) / 1600 });
+            for (const a of g.fighters.values()) if (!a.alien && a.team === 'blue') this.pillars.push({ uid: a.uid, t: 0, delay: Math.abs(a.x - e.x) / 1600, dur: PVE.healUlt.seconds + 0.4 });
           }
           if (e.cls === 'dps') this.shake = Math.max(this.shake, 4);
           if (e.cls === 'carrier') this.flashes.push({ t: 0.25, color: '#c58bff' });
@@ -194,6 +194,12 @@ export class Renderer {
           break;
         }
         case 'zone': break;
+        case 'healPulse': {
+          this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.9, r0: 30, r1: 260, color: '160,255,190', w: 6 });
+          for (const a of g.fighters.values()) if (!a.alien && a.team === 'blue' && a.alive) { this.ripples.push({ uid: a.uid, x: a.x, y: a.y, t: -Math.abs(a.x - e.x) / 1200, dur: 0.45, r0: 8, r1: 34, color: '93,255,158', w: 3 }); }
+          this.floaters.push({ x: e.x, y: e.y - 44, text: `圣光 +${e.amount}`, color: '#9dffc4', t: 0, nop: true, crit: true });
+          break;
+        }
         case 'hitfx': { const c = hexRgb(GEAR.tiers[e.wt].color); this.ripples.push({ x: e.x, y: e.y, t: 0, dur: 0.28, r0: 3, r1: 12 + e.wt * 3, color: c, w: 2 + e.wt * 0.4 }); if (e.wt >= 4) this.burst(e.x, e.y, 0.35, null); break; }
         case 'crit': if (this.floaters.filter(q => q.crit).length < 14) this.floaters.push({ x: e.x + (Math.random() - 0.5) * 16, y: e.y - 14, text: `暴击 ${e.dmg}`, color: '#ffd23a', t: 0, nop: true, crit: true }); break;
         case 'impact': this.shocks.push({ uid: e.uid, x: e.x, y: e.y, reach: e.reach, t: 0, angle: e.angle || 0 }); this.shake = Math.max(this.shake, 6); this.burst(e.x, e.y - 30, 1.2, 'blue'); break;
@@ -751,11 +757,11 @@ export class Renderer {
     }
     for (let i = this.pillars.length - 1; i >= 0; i--) {
       const p = this.pillars[i]; p.t += dt;
-      const t = p.t - p.delay, dur = 1.1;
+      const t = p.t - p.delay, dur = p.dur || 1.1;
       if (t > dur) { this.pillars.splice(i, 1); continue; }
       if (t < 0) continue;
       const f = g.fighters.get(p.uid); if (!f) continue;
-      const k = t / dur, a = Math.sin(k * Math.PI);
+      const k = t / dur, a = p.dur ? Math.min(1, t / 0.3, (dur - t) / 0.5) * (0.75 + 0.25 * Math.sin(g.clock * 6 + p.delay * 20)) : Math.sin(k * Math.PI);
       const top = f.y - 380;
       const grd = x.createLinearGradient(f.x - 20, 0, f.x + 20, 0);
       grd.addColorStop(0, 'rgba(120,255,170,0)'); grd.addColorStop(0.5, `rgba(170,255,200,${0.32 * a})`); grd.addColorStop(1, 'rgba(120,255,170,0)');
