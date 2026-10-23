@@ -293,7 +293,7 @@ test('讨伐模式：红色区域10秒后命中，发「左/中/右」躲开就�
   const ships = ['stay', 'move', 'rich'].map(id => game.fighters.get(id));
   for (const f of ships) { f.lane = 'M'; f.x = 360; f.invuln = 0; }
   game.gift({ id: 'rich' }, { name: '小心心', price: 1, count: 20 });
-  assert.ok(game.fighters.get('rich').dodgeUntil > game.clock + 100);
+  assert.equal(game.fighters.get('rich').dodgeLeft, 120);
   game.pve.t = 999;
   for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
   const z = castZone(game, 'strike', 1, '测试');
@@ -308,20 +308,42 @@ test('讨伐模式：红色区域10秒后命中，发「左/中/右」躲开就�
   assert.ok(ships[2].hp >= hp0[2] - 1, '付费自动躲开');
 });
 
-test('讨伐模式：机甲大招立起屏障挡子弹，挨打和挡子弹都记贡献', () => {
+test('讨伐模式：机甲「冲击」击退虫群、打散子弹；「无敌冲锋斩」无敌4秒冲进怪堆旋风斩再飞回', async () => {
+  const { spawnAlien } = await import('../src/pve.js');
   const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
   game.setMode('pve');
   game.chat({ id: 't', name: '坦' }, '机甲');
   toBattle(game);
+  game.pve.spawnT = 999;
+  for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
   const t = game.fighters.get('t');
-  game.chat({ id: 't' }, '大招'); game.step(1 / 60);
-  assert.equal(game.barriers.length, 1);
-  const bar = game.barriers[0];
-  const before = t.merit;
-  game.addBullet((game.constructor && 360) && (t.lane === 'L' ? 134 : t.lane === 'M' ? 360 : 586), bar.y - 30, 0, 300, 5, 1, 'red', 'danmaku', null, 0);
-  for (let i = 0; i < 30; i++) game.step(1 / 60);
-  assert.ok(t.merit > before);
+  t.lane = 'M'; t.x = 360; t.y = 650; t.slotDx = 0; t.wanderX = 0;
+  // 冲击：正前方的虫和子弹
+  const a = spawnAlien(game, 'gunner', 360, 450);
+  game.addBullet(360, 560, 0, 0, 5, 1, 'red', 'danmaku', null, 0);
+  const y0 = a.y, hp0 = a.hp;
+  game.chat({ id: 't' }, '冲击'); game.step(1 / 60);
+  assert.ok(a.hp < hp0, '冲击造成伤害');
+  assert.ok(a.y < y0 - 10, '冲击击退');
+  assert.equal(game.bullets.filter(b => b.team === 'red').length, 0, '冲击打散子弹');
+  assert.ok(t.taunt > 0 && t.merit > 0);
+  // 无敌冲锋斩
+  const pack = [0, 1, 2, 3].map(i => spawnAlien(game, 'swarm', 150 + i * 20, 300 + (i % 2) * 20));
+  for (const p of pack) { p.hp = 1e4; p.yStop = 300; }
+  game.chat({ id: 't' }, '冲锋斩'); game.step(1 / 60);
+  assert.ok(t.rushT > 3.9 && t.invuln >= 3.9, '无敌4秒');
+  const hp1 = t.hp;
+  for (let i = 0; i < 60 * 1.5; i++) game.step(1 / 60);
+  assert.ok(Math.hypot(t.x - 180, t.y - 330) < 140, `冲到怪堆 ${t.x},${t.y}`);
+  assert.ok(pack.some(p => p.hp < 1e4), '旋风斩打到怪');
+  castZoneHit(game, t);
+  assert.equal(t.hp, hp1, '无敌期间不掉血');
+  for (let i = 0; i < 60 * 5; i++) game.step(1 / 60);
+  assert.equal(t.rushT, 0);
+  assert.ok(t.y >= 600 && !t.returning, '结束后飞回航道');
 });
+
+function castZoneHit(game, f) { game.hurtFighter ? game.hurtFighter(f, 999, null) : null; }
 
 test('讨伐模式：打爆母舰按贡献掉装备，自动穿戴并提升属性，存档保存', () => {
   const { game, save } = newGame({ settings: { npcMinPerTeam: 0 } });

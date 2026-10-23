@@ -37,7 +37,7 @@ export function rulesHtml(settings, mode = 'pvp') {
     ${pve ? classTable() : ''}
     <h2>礼物效果 <small>按单个礼物价值（抖币）</small></h2>
     <table>
-      ${pve ? `<tr><td>任意</td><td><b>自动躲弹</b>：每1抖币${PVE.autoDodgePerValue}秒，红区和子弹自动躲（不送礼要自己发「左/中/右」）</td></tr>` : ''}
+      ${pve ? `<tr><td>任意</td><td><b>自动躲弹</b>：每1抖币${PVE.autoDodgePerValue}秒，不设上限，可累积，开战时才扣，跟着账号保存；战机下方显示剩余时间（不送礼要自己发「左/中/右」）</td></tr>` : ''}
       <tr><td>${range(0)}</td><td>${pve ? `火力+1、护盾+10%血量，持续${GIFT.powerSeconds}秒` : `火力+1、护盾+1，持续${GIFT.powerSeconds}秒`}；每${GIFT.smallComboEvery}个放一组环形弹幕</td></tr>
       <tr><td>${range(1)}</td><td>弹幕阵型（螺旋 / 扇形）</td></tr>
       <tr><td>${range(2)}</td><td>激光网格或分裂弹 + 2架护卫僚机${GIFT.droneSeconds}秒</td></tr>

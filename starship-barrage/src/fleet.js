@@ -95,6 +95,7 @@ export function setupShip(game, f) {
   f.shieldHp = 0; f.taunt = 0; f.beamT = 0;
   f.skillCd = f.npc ? 1 + game.random() * 2 : 0; f.ultCd = f.npc ? 10 + game.random() * 20 : 0;
   f.skillReq = 0; f.ultReq = 0; f.charge = 0; f.fireCd = game.random() * 0.5;
+  f.rushT = 0; f.returning = false; f.lungeT = 0; f.spin = 0;
   f.lane = f.lane && LANES.includes(f.lane) ? f.lane : LANES[Math.floor(game.random() * 3)];
   f.slotDx = (game.random() - 0.5) * 2 * PVE.wander.x; f.slotDy = (game.random() - 0.5) * 2 * PVE.wander.y; f.wanderT = game.random() * 3; f.wanderX = f.slotDx; f.wanderY = f.slotDy;
   f.x = laneCenter(f.lane) + f.slotDx; f.y = PVE.rows[f.cls] + f.slotDy;
@@ -108,7 +109,16 @@ export function refreshStats(f) {
   f.maxHp = f.stats.maxHp; f.hp = Math.max(1, Math.round(f.maxHp * ratio));
 }
 
-export function hasAutoDodge(game, f) { return f.npc ? false : (f.dodgeUntil || 0) > game.clock; }
+export function hasAutoDodge(game, f) { return !f.npc && (f.dodgeLeft || 0) > 0; }
+// 自动躲弹剩余时间写回账号存档（不设上限）
+export function syncDodge(game, f) {
+  const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
+  if (p) { p.dodgeLeft = Math.max(0, Math.round(f.dodgeLeft || 0)); game.save.dirty = true; }
+}
+export function fmtDuration(sec) {
+  const t = Math.max(0, Math.ceil(sec)), h = Math.floor(t / 3600), m = Math.floor(t % 3600 / 60), s = t % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
 
 // ───────── 每帧 ─────────
 export function stepShip(game, f, dt, combat) {
@@ -117,6 +127,10 @@ export function stepShip(game, f, dt, combat) {
   f.taunt = Math.max(0, f.taunt - dt);
   if (f.power > 1 && game.clock > f.powerUntil) f.power = 1;
   if (f.drones && game.clock > f.dronesUntil) f.drones = 0;
+  if (combat && f.dodgeLeft > 0) {       // 只在讨伐开战时扣时间
+    f.dodgeLeft = Math.max(0, f.dodgeLeft - dt);
+    if ((f.dodgeSyncT = (f.dodgeSyncT || 0) - dt) <= 0 || f.dodgeLeft === 0) { f.dodgeSyncT = 5; syncDodge(game, f); }
+  }
   const auto = hasAutoDodge(game, f);
   // 躲红色区域：付费的自动躲；NPC 过几秒“反应过来”再躲；普通观众要自己发「左/中/右」
   if (combat && (auto || f.npc)) {
@@ -130,6 +144,8 @@ export function stepShip(game, f, dt, combat) {
     } else f.npcDodgeT = 0;
     if (f.npcReact == null) f.npcReact = 2 + game.random() * 4;
   }
+  if (f.rushT > 0 && combat) stepRush(game, f, dt);
+  else {
   // 目标位置：航道中心 + 自己的站位；站位在本航道内慢慢随机游走
   if ((f.wanderT = (f.wanderT || 0) - dt) <= 0) {
     f.wanderT = 2.5 + game.random() * 3;
@@ -141,7 +157,7 @@ export function stepShip(game, f, dt, combat) {
   f.slotDy += Math.max(-ws, Math.min(ws, (f.wanderY ?? f.slotDy) - f.slotDy));
   let tx = laneCenter(f.lane) + f.slotDx;
   let ty = PVE.rows[f.cls] + f.slotDy;
-  const speed = LEVEL.speed(f.level) * 1.1;
+  const speed = LEVEL.speed(f.level) * (f.returning ? 2.4 : 1.1);
   let vx = (tx - f.x) * 3, vy = (ty - f.y) * 3;
   if (combat && auto) {
     const [rx, ry] = game.threat(f, LEVEL.dodgeRadius(f.level) + 20);
@@ -153,8 +169,15 @@ export function stepShip(game, f, dt, combat) {
   f.vx += (vx - f.vx) * k; f.vy += (vy - f.vy) * k;
   const [l0, l1] = PVE.lanes[f.lane];
   f.x = Math.max(20, Math.min(W - 20, f.x + f.vx * dt));
-  if (!auto) f.x = Math.max(Math.min(f.x, l1 + 60), l0 - 60);
-  f.y = Math.max(PVE.zone[0], Math.min(PVE.zone[1], f.y + f.vy * dt));
+  if (f.returning) {                     // 冲锋斩结束，飞回本航道
+    f.y = Math.min(PVE.zone[1], f.y + f.vy * dt);
+    if (f.y >= PVE.zone[0] && f.x > l0 - 60 && f.x < l1 + 60) f.returning = false;
+  } else {
+    if (!auto) f.x = Math.max(Math.min(f.x, l1 + 60), l0 - 60);
+    f.y = Math.max(PVE.zone[0], Math.min(PVE.zone[1], f.y + f.vy * dt));
+  }
+  }
+  f.lungeT = Math.max(0, (f.lungeT || 0) - dt);
   if (!combat) return;
   // 技能：真人要自己发「技能」「大招」，NPC 自动放
   f.ultCd = Math.max(0, f.ultCd - dt);
@@ -201,6 +224,83 @@ export function stepBeam(game, f, dt) {
   }
 }
 
+// ───────── 重装机甲 ─────────
+// 小技能「冲击」：机甲前冲一拳，向前方扇形打出冲击波——伤害并击退虫群、打散敌方子弹、嘲讽3秒
+function inCone(f, x, y, reach) { const dy = f.y - y; return dy >= -10 && dy <= reach && Math.abs(x - f.x) <= 50 + dy * 0.45; }
+function castImpact(game, f) {
+  const T = PVE.tank, reach = T.impactReach * (1 + 0.15 * (f.stats.power - 1));
+  const dmg = T.impactAtk * f.stats.atk * f.stats.power;
+  f.lungeT = 0.35; f.taunt = Math.max(f.taunt, 3);
+  let hits = 0, cleared = 0;
+  for (const e of [...game.fighters.values()]) {
+    if (!e.alien || !e.alive || !inCone(f, e.x, e.y, reach)) continue;
+    hurt(game, e, dmg, f.uid); hits++;
+    if (e.alive) e.y -= 46 * (1 - (f.y - e.y) / reach);
+  }
+  for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && inCone(f, b.x, b.y, reach)) { b.life = 0; cleared++; }
+  f.merit += cleared * PVE.enemyBulletDmg * PVE.contrib.taken * 0.5;
+  game.emit('impact', { uid: f.uid, x: f.x, y: f.y, reach, hits, cleared });
+  game.emit('skill', { uid: f.uid, skill: 'impact', x: f.x, y: f.y });
+  return true;
+}
+
+// 大招「无敌冲锋斩」：无敌4秒，冲向怪最密的地方（没有就冲母舰触手炮/核心）原地旋风斩，结束后飞回航道
+function rushPoint(game, f) {
+  const al = [];
+  for (const e of game.fighters.values()) if (e.alien && e.alive && e.y > 60 && e.y < PVE.zone[1]) al.push(e);
+  let best = null, bn = -1;
+  for (const a of al) {
+    let n = 0; for (const b of al) if ((a.x - b.x) ** 2 + (a.y - b.y) ** 2 < 130 * 130) n++;
+    n -= Math.abs(a.x - f.x) / 600;    // 一样多就去近的
+    if (n > bn) { bn = n; best = a; }
+  }
+  const boss = game.teams.red;
+  if (best && (bn >= 2 || !boss.present)) return { x: best.x, y: best.y + 24 };
+  if (boss.present) {
+    const pods = (boss.turrets || []).filter(t => !t.dead);
+    if (pods.length) { pods.sort((a, b) => Math.abs(a.x - f.x) - Math.abs(b.x - f.x)); return { x: pods[0].x, y: pods[0].y + 70 }; }
+    return { x: boss.x, y: boss.y + boss.coreDy + 140 };
+  }
+  if (best) return { x: best.x, y: best.y + 24 };
+  return { x: laneCenter(f.lane), y: 420 };
+}
+function stepRush(game, f, dt) {
+  const T = PVE.tank;
+  f.rushT -= dt; f.rushRetarget -= dt;
+  if (f.rushRetarget <= 0) { f.rushRetarget = 0.7; const p = rushPoint(game, f); f.rushX = p.x; f.rushY = Math.max(110, p.y); }
+  const dx = f.rushX - f.x, dy = f.rushY - f.y, d = Math.hypot(dx, dy);
+  const sp = Math.min(T.rushSpeed, d * 7);
+  f.vx = d > 1 ? dx / d * sp : 0; f.vy = d > 1 ? dy / d * sp : 0;
+  f.x = Math.max(20, Math.min(W - 20, f.x + f.vx * dt)); f.y += f.vy * dt;
+  f.spin = (f.spin || 0) + dt * (d > 40 ? 9 : 18);
+  f.rushTick -= dt;
+  if (f.rushTick <= 0) { f.rushTick = T.whirlTick; whirlHit(game, f); }
+  if (f.rushT <= 0) { f.rushT = 0; f.returning = true; f.invuln = Math.max(f.invuln, 0.8); }
+}
+function whirlHit(game, f) {
+  const T = PVE.tank, R = T.whirlR, dmg = T.whirlAtk * f.stats.atk * f.stats.power;
+  let spark = 0;
+  for (const e of [...game.fighters.values()]) {
+    if (!e.alien || !e.alive) continue;
+    const rr = R + (e.r || 10);
+    if ((e.x - f.x) ** 2 + (e.y - f.y) ** 2 > rr * rr) continue;
+    hurt(game, e, dmg, f.uid);
+    if (spark++ < 2) game.emit('spark', { x: e.x, y: e.y, team: 'blue', big: true });
+  }
+  const boss = game.teams.red;
+  if (boss.present) {
+    for (const tu of boss.turrets || []) {
+      if (tu.dead || (tu.x - f.x) ** 2 + (tu.y - f.y) ** 2 > (R + 30) ** 2) continue;
+      tu.hp -= dmg * 1.5; f.merit += dmg * 1.5 * PVE.contrib.dmg;
+      if (spark++ < 3) game.emit('spark', { x: tu.x, y: tu.y, team: 'blue', big: true });
+      if (tu.hp <= 0) game.killTurret(boss, tu, f.uid);
+    }
+    const cy = boss.y + boss.coreDy;
+    if (Math.abs(f.x - boss.x) < boss.hitW / 2 && f.y - cy < R + 60) { game.damageFlag('red', dmg * 1.5, f.uid, 'shot'); game.emit('spark', { x: f.x, y: f.y - 50, team: 'blue', big: true }); }
+  }
+  for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && (b.x - f.x) ** 2 + (b.y - f.y) ** 2 < 90 * 90) b.life = 0;
+}
+
 function anyHurt(game) {
   for (const f of game.fighters.values()) if (!f.alien && f.team === 'blue' && (!f.alive || f.hp < f.maxHp - 0.5)) return true;
   return false;
@@ -226,12 +326,7 @@ function castSkill(game, f) {
     game.emit('heal', { uid: f.uid, x: f.x, y: f.y, targets });
     return true;
   }
-  if (f.cls === 'tank') {
-    f.shieldHp = Math.max(f.shieldHp, 0.25 * f.maxHp * f.stats.power);
-    f.taunt = 4;
-    game.emit('skill', { uid: f.uid, skill: 'shield', x: f.x, y: f.y });
-    return true;
-  }
+  if (f.cls === 'tank') return castImpact(game, f);
   // 输出舰：集束导弹
   const n = 6;
   for (let i = 0; i < n; i++) {
@@ -262,7 +357,7 @@ function wantsUlt(game, f) {
     const dead = a.filter(x => !x.alive).length, low = a.filter(x => x.alive && x.hp < x.maxHp * 0.5).length;
     return dead >= 2 || low >= Math.max(2, Math.ceil(a.length * 0.25));
   }
-  if (f.cls === 'tank') return game.zones.some(z => z.lanes.includes(f.lane) && z.warn < 3) || f.hp < f.maxHp * 0.4;
+  if (f.cls === 'tank') { let n = 0; for (const e of game.fighters.values()) if (e.alien && e.alive) n++; return n >= 5 || game.teams.red.present; }
   const boss = game.teams.red;
   const [l0, l1] = PVE.lanes[f.lane];
   if (boss.present && Math.max(l0, boss.x - boss.hitW / 2) < Math.min(l1, boss.x + boss.hitW / 2)) return true;
@@ -282,8 +377,9 @@ export function castUlt(game, f) {
     }
     game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y, revived });
   } else if (f.cls === 'tank') {
-    game.barriers.push({ lane: f.lane, y: f.y - 46, t: 6, max: 6, owner: f.uid });
-    f.shieldHp = Math.max(f.shieldHp, 0.4 * f.maxHp * f.stats.power); f.taunt = 6;
+    const T = PVE.tank;
+    f.rushT = T.rushTime; f.invuln = Math.max(f.invuln, T.rushTime); f.taunt = Math.max(f.taunt, T.rushTime);
+    f.rushRetarget = 0; f.rushTick = 0.12; f.returning = false;
     game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y, lane: f.lane });
   } else {
     f.beamT = 2.5;

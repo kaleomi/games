@@ -52,6 +52,7 @@ export class Save {
         seen: clampInt(p.seen, 0, 1e15, 0),
         cls: ['dps', 'tank', 'healer'].includes(p.cls) ? p.cls : null,
         shards: clampInt(p.shards, 0, 1e12, 0),
+        dodgeLeft: clampInt(p.dodgeLeft, 0, 1e12, 0),
         gear: validGear(p.gear),
       };
     }
@@ -73,7 +74,7 @@ export class Save {
   get(uid, name, avatar) {
     let p = this.data.players[uid];
     if (!p) {
-      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: 0, gear: {} };
+      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: 0, gear: {}, dodgeLeft: 0 };
       this.prune();
     }
     if (name) p.name = String(name).slice(0, 24);

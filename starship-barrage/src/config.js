@@ -138,17 +138,18 @@ export const PVE = {
   // 贡献值：打伤害、给队友回血、替队友挨打都算
   contrib: { dmg: 0.1, heal: 0.55, taken: 0.6 },
   stageClearContrib: 200,
-  autoDodgePerValue: 6,       // 自动躲弹：每1抖币礼物 6 秒（付费专属）
-  autoDodgeCap: 3600,
+  autoDodgePerValue: 6,       // 自动躲弹：每1抖币礼物 6 秒（付费专属，不设上限，只在讨伐开战时扣，跟着账号存档）
   ultCooldown: 45,            // 大招冷却（秒），开局就绪
   skillQueue: 1.5,            // 冷却快好时发的指令，冷却好后1.5秒内自动补放
-  overloadAtk: 8,             // 点赞充满放的超载炮：8倍攻击，穿透
+  overloadAtk: 8,
+  // 重装机甲：小技能「冲击」向前方扇形冲击波（伤害+击退+打散子弹）；大招「无敌冲锋斩」无敌4秒冲进怪堆旋风斩
+  tank: { impactAtk: 8, impactReach: 320, rushTime: 4, rushSpeed: 1100, whirlR: 125, whirlAtk: 4, whirlTick: 0.2 },             // 点赞充满放的超载炮：8倍攻击，穿透
 };
 
 // 讨伐模式的三种战舰
 export const CLASSES = {
   dps:    { name: '输出舰', short: '输出', hp: 100, atk: 10, armor: 0,    heal: 0, fireCd: 0.25, skillCd: 6,   skill: '集束导弹', ult: '歼灭光束', skillWords: ['导弹'], ultWords: ['光束'], desc: '高伤害，导弹追踪，大招沿航道发射光束' },
-  tank:   { name: '重装机甲', short: '机甲', hp: 260, atk: 5, armor: 0.35, heal: 0, fireCd: 0.5,  skillCd: 8,   skill: '能量护盾', ult: '钢铁壁垒', skillWords: ['护盾'], ultWords: ['壁垒', '屏障'], desc: '站前排挡子弹，护盾+嘲讽，大招在航道立起屏障' },
+  tank:   { name: '重装机甲', short: '机甲', hp: 260, atk: 5, armor: 0.35, heal: 0, fireCd: 0.5,  skillCd: 8,   skill: '冲击', ult: '无敌冲锋斩', skillWords: ['冲击'], ultWords: ['冲锋', '旋风斩', '冲锋斩'], desc: '站前排挡子弹；冲击波击退虫群、打散子弹；大招无敌冲进怪堆旋风斩' },
   healer: { name: '医疗舰', short: '医疗', hp: 90,  atk: 4, armor: 0.1,  heal: 1, fireCd: 0.5,  skillCd: 3,   skill: '治疗链',   ult: '生命圣光', skillWords: ['治疗链', '回血', '加血'], ultWords: ['圣光'], desc: '同时给血量最低的2艘回血，全员满血才攻击；大招全体回血并复活' },
 };
 

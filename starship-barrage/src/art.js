@@ -572,6 +572,8 @@ const SKILL_STYLE = {
   barrier:  { a: '#e6f8ff', b: '#3aa8ff', c: '#062244', ult: true },
   missile:  { a: '#ffe2c4', b: '#ff7a2e', c: '#3a1300', ult: false },
   beam:     { a: '#fff2c4', b: '#ffb43a', c: '#3a1f00', ult: true },
+  impact:   { a: '#dff4ff', b: '#3a7fd9', c: '#0a1a3a', ult: false },
+  whirl:    { a: '#fff6d0', b: '#4fb8ff', c: '#071a3a', ult: true },
 };
 export function skillIconSvg(id, px) {
   const st = SKILL_STYLE[id];
@@ -583,6 +585,10 @@ export function skillIconSvg(id, px) {
   if (id === 'barrier') { const h = (x, y) => `<path d="M${x},${y - 6} L${x + 5.2},${y - 3} L${x + 5.2},${y + 3} L${x},${y + 6} L${x - 5.2},${y + 3} L${x - 5.2},${y - 3} Z" fill="#fff" fill-opacity=".25" stroke="#fff" stroke-width="1.6"/>`; sym = h(-10.4, -4) + h(0, -4) + h(10.4, -4) + h(-5.2, 5) + h(5.2, 5) + `<path d="M-15,12 H15" stroke="#fff" stroke-width="2"/>`; }
   if (id === 'missile') { const m = (x, y, a) => `<g transform="translate(${x},${y}) rotate(${a})"><path d="M0,-10 C2.2,-7 2.4,-3 2.2,4 L-2.2,4 C-2.4,-3 -2.2,-7 0,-10 Z" fill="#fff"/><path d="M-2.2,2 L-4.2,6 L-2.2,5 Z M2.2,2 L4.2,6 L2.2,5 Z" fill="#fff"/><path d="M-1.4,5 L0,11 L1.4,5 Z" fill="#ffe08a"/></g>`; sym = m(-9, 3, -18) + m(0, -1, 0) + m(9, 3, 18); }
   if (id === 'beam') sym = `<rect x="-4.5" y="-17" width="9" height="30" rx="4.5" fill="#fff" opacity=".35"/><rect x="-2" y="-17" width="4" height="30" rx="2" fill="#fff"/><path d="M-12,13 L12,13 L8,17 L-8,17 Z" fill="#fff"/>${[[-9, -8], [9, -2], [-8, 4], [10, -12]].map(([x, y]) => `<path d="M${x},${y - 3} L${x + 1},${y} L${x},${y + 3} L${x - 1},${y} Z" fill="#fff"/>`).join('')}`;
+  if (id === 'impact') sym = `<path d="M-14,-2 Q0,-16 14,-2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M-10,-9 Q0,-20 10,-9" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".75"/>`
+    + `<path d="M-6,14 L-6,4 L-9,4 L-9,-1 C-9,-4 -6,-5 -4,-4 L-4,-5 C-4,-7 -1,-8 0,-6 C1,-8 4,-7 4,-5 C5,-7 8,-6 8,-4 L8,6 C8,10 5,14 2,14 Z" fill="#fff" stroke="${st.c}" stroke-width="1"/>`
+    + `${[[-15, 6], [15, 6], [-12, 13], [12, 13]].map(([x, y]) => `<path d="M${x},${y - 2.5} L${x + 1},${y} L${x},${y + 2.5} L${x - 1},${y} Z" fill="#fff"/>`).join('')}`;
+  if (id === 'whirl') sym = `${[0, 120, 240].map(a => `<path transform="rotate(${a})" d="M2,-3 C10,-8 15,-4 16,4 C12,-1 7,-1 3,2 Z" fill="#fff"/><path transform="rotate(${a})" d="M4,-15 A15,15 0 0 1 15,-4" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`).join('')}<circle r="4.2" fill="#fff"/><circle r="2" fill="${st.b}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-24 -24 48 48">
     <defs>
       <linearGradient id="bg" x1="0" y1="-20" x2="0" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${st.a}"/><stop offset=".45" stop-color="${st.b}"/><stop offset="1" stop-color="${st.c}"/></linearGradient>
@@ -728,4 +734,53 @@ export class ArtCache {
     }
     return e.canvas;
   }
+}
+
+// 机甲「冲击」：向前扩散的冲击波弧
+export function shockArcSvg(pxW, pxH) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" viewBox="-100 -70 200 90">
+    <defs>
+      <radialGradient id="sw" cx="0" cy="20" r="90" gradientUnits="userSpaceOnUse"><stop offset=".55" stop-color="#7fe3ff" stop-opacity="0"/><stop offset=".8" stop-color="#bff1ff" stop-opacity=".55"/><stop offset=".93" stop-color="#ffffff"/><stop offset="1" stop-color="#7fe3ff" stop-opacity="0"/></radialGradient>
+      <filter id="b"><feGaussianBlur stdDeviation="2.2"/></filter>
+    </defs>
+    <path d="M-88,10 A90,90 0 0 1 88,10 L60,14 A62,62 0 0 0 -60,14 Z" fill="url(#sw)"/>
+    <path d="M-80,4 A84,84 0 0 1 80,4" fill="none" stroke="#ffffff" stroke-width="4" filter="url(#b)" opacity=".9"/>
+    <path d="M-80,4 A84,84 0 0 1 80,4" fill="none" stroke="#ffffff" stroke-width="1.6"/>
+    <path d="M-56,8 A60,60 0 0 1 56,8" fill="none" stroke="#bff1ff" stroke-width="1.2" opacity=".6" stroke-dasharray="10 6"/>
+  </svg>`;
+}
+
+// 机甲大招「无敌冲锋斩」：双刃旋风（整体旋转绘制）
+export function whirlSvg(px) {
+  const blade = a => `<g transform="rotate(${a})">
+      <path d="M16,-3.2 L58,-1.4 L66,0 L58,1.4 L16,3.2 Z" fill="url(#bl)" stroke="#e8fbff" stroke-width=".8"/>
+      <path d="M18,0 L62,0" stroke="#fff" stroke-width="1.2"/>
+      <rect x="11" y="-5.5" width="5" height="11" rx="1.5" fill="#ffd86b" stroke="#7a5200" stroke-width=".6"/>
+    </g>`;
+  const slash = (a, r, w, o) => `<path transform="rotate(${a})" d="M${r},0 A${r},${r} 0 0 1 ${(r * Math.cos(1.9)).toFixed(1)},${(r * Math.sin(1.9)).toFixed(1)}" fill="none" stroke="url(#sl)" stroke-width="${w}" stroke-linecap="round" opacity="${o}"/>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-72 -72 144 144">
+    <defs>
+      <linearGradient id="bl" x1="16" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3aa8ff"/><stop offset=".6" stop-color="#bff1ff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+      <linearGradient id="sl" x1="-60" y1="0" x2="60" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7fe3ff" stop-opacity="0"/><stop offset=".5" stop-color="#bff1ff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+      <radialGradient id="core"><stop offset="0" stop-color="#ffffff" stop-opacity=".0"/><stop offset=".6" stop-color="#7fe3ff" stop-opacity=".08"/><stop offset=".9" stop-color="#bff1ff" stop-opacity=".35"/><stop offset="1" stop-color="#7fe3ff" stop-opacity="0"/></radialGradient>
+      <filter id="g" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5"/></filter>
+    </defs>
+    <circle r="68" fill="url(#core)"/>
+    <g filter="url(#g)">${slash(0, 62, 7, .8)}${slash(180, 62, 7, .8)}${slash(90, 50, 4, .6)}${slash(270, 50, 4, .6)}</g>
+    ${slash(0, 62, 2.4, 1)}${slash(180, 62, 2.4, 1)}${slash(90, 50, 1.6, .8)}${slash(270, 50, 1.6, .8)}
+    <g filter="url(#g)" opacity=".8">${blade(0)}${blade(180)}</g>${blade(0)}${blade(180)}
+  </svg>`;
+}
+
+// 无敌金光护体
+export function invulnAuraSvg(px) {
+  const hex = r => Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 3 * i - Math.PI / 2; return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`; }).join(' ');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-40 -40 80 80">
+    <defs><radialGradient id="a"><stop offset="0" stop-color="#fff3b0" stop-opacity=".0"/><stop offset=".55" stop-color="#ffd86b" stop-opacity=".18"/><stop offset=".85" stop-color="#ffcc4d" stop-opacity=".55"/><stop offset="1" stop-color="#ffb43a" stop-opacity="0"/></radialGradient>
+    <filter id="b"><feGaussianBlur stdDeviation="1.6"/></filter></defs>
+    <circle r="38" fill="url(#a)"/>
+    <polygon points="${hex(31)}" fill="none" stroke="#ffe8a0" stroke-width="2.6" filter="url(#b)"/>
+    <polygon points="${hex(31)}" fill="none" stroke="#fff6d6" stroke-width="1"/>
+    ${Array.from({ length: 6 }, (_, i) => `<path transform="rotate(${i * 60})" d="M0,-36 L1.8,-30 L0,-27 L-1.8,-30 Z" fill="#fff6d6"/>`).join('')}
+  </svg>`;
 }

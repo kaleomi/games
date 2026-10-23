@@ -2,9 +2,10 @@
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
 import { bossTimeText } from './pve.js';
+import { shockArcSvg, whirlSvg, invulnAuraSvg } from './art.js';
 import { healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR } from './config.js';
-import { laneCenter, hasAutoDodge } from './fleet.js';
+import { laneCenter, hasAutoDodge, fmtDuration } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
@@ -36,6 +37,7 @@ export class Renderer {
     this.shake = 0;
     this.hintIdx = 0;
     this.boardCache = { t: -1, red: [], blue: [] };
+    this.shocks = []; this.trails = new Map();
     this.reticles = []; this.healLinks = []; this.floaters = []; this.pops = []; this.laneFlashes = []; this.loots = [];
     for (let i = 0; i < 140; i++) this.stars.push({ x: Math.random() * W, y: Math.random() * H, z: 0.2 + Math.random() * 0.8 });
     this.resize();
@@ -157,13 +159,15 @@ export class Renderer {
         case 'heal': this.pops.push({ uid: e.uid, id: 'heal', t: 0 }); this.healLinks.push({ uid: e.uid, x: e.x, y: e.y, targets: e.targets, t: 0.6 }); for (const tg of e.targets) this.floaters.push({ x: tg.x, y: tg.y - 10, text: `+${tg.amount}`, color: '#7dffb0', t: 0, plus: true }); break;
         case 'skill': this.pops.push({ uid: e.uid, id: e.skill, t: 0 }); break;
         case 'ult': {
-          const id = { healer: 'healUlt', tank: 'barrier', dps: 'beam' }[e.cls];
+          const id = { healer: 'healUlt', tank: 'whirl', dps: 'beam' }[e.cls];
           this.pops.push({ uid: e.uid, id, t: 0, big: true });
           this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `释放「${CLASSES[e.cls].ult}」${e.revived ? `，复活${e.revived}人` : ''}`, tier: 3, icon: id });
           if (e.cls === 'healer') this.flashes.push({ t: 0.35, color: '#5dff9e' });
+          if (e.cls === 'tank') { this.flashes.push({ t: 0.3, color: '#ffd86b' }); this.shake = Math.max(this.shake, 8); this.ring(e.x, e.y, '#ffe8a0', 40); }
           break;
         }
         case 'zone': break;
+        case 'impact': this.shocks.push({ uid: e.uid, x: e.x, y: e.y, reach: e.reach, t: 0 }); this.shake = Math.max(this.shake, 6); this.burst(e.x, e.y - 30, 1.2, 'blue'); break;
         case 'cd': { const f = g.fighters.get(e.uid); if (f) this.floaters.push({ x: f.x, y: f.y - 30, text: `${e.kind === 'ult' ? '大招' : '技能'}冷却${e.left}s`, color: '#aab4cc', t: 0, nop: true }); break; }
         case 'strike': this.shake = Math.max(this.shake, e.kind === 'cannon' ? 20 : 10); for (const l of e.lanes) this.laneFlashes.push({ lane: l, t: 0.6, kind: e.kind }); break;
         case 'loot': this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: g.teams.red.x, y0: g.teams.red.y }); this.toast(`${e.name} 获得 ${e.text}${e.equipped ? ' · 已自动装备' : ' · 分解为星核碎片'}`, null, GEAR.tiers[e.item.tier].color); if (e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `获得${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: e.item.tier >= 3 ? 4 : 2, gear: e.item }); break;
@@ -219,7 +223,7 @@ export class Renderer {
     for (const s of g.battleships) this.drawShip(x, s);
     this.drawFighters(x);
     this.drawBullets(x);
-    if (g.mode === 'pve') this.drawPveFx(x, dt);
+    if (g.mode === 'pve') { this.drawShocks(x, dt); this.drawPveFx(x, dt); }
     this.drawParticles(x, dt);
     this.drawCannons(x);
     x.restore();
@@ -448,9 +452,17 @@ export class Renderer {
       const rd = this.sprite('radar', px => radarSvg(px), 56);
       if (rd) { x.save(); x.translate(f.x, f.y); x.rotate(g.clock * 2.2); x.globalAlpha = 0.85; this.blit(x, rd, 0, 0); x.restore(); x.globalAlpha = 1; }
     }
-    if (f.taunt > 0) { x.strokeStyle = `rgba(255,90,90,${0.35 + 0.3 * Math.sin(g.clock * 10)})`; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 34, 0, Math.PI * 2); x.stroke(); }
+    const rushing = f.cls === 'tank' && (f.rushT > 0 || f.returning);
+    if (f.taunt > 0 && !rushing) { x.strokeStyle = `rgba(255,90,90,${0.35 + 0.3 * Math.sin(g.clock * 10)})`; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 34, 0, Math.PI * 2); x.stroke(); }
+    if (f.cls === 'tank') this.drawMechFx(x, f, art, 'under');
     x.save(); x.translate(f.x, f.y);
-    if (f.invuln > 0 && Math.floor(g.clock * 12) % 2) x.globalAlpha = 0.45;
+    if (f.invuln > 0 && !rushing && Math.floor(g.clock * 12) % 2) x.globalAlpha = 0.45;
+    // 机甲动作：冲击时前冲一拳；冲锋斩时整台机甲高速旋转
+    if (f.cls === 'tank') {
+      if (f.lungeT > 0) { const k = Math.sin((1 - f.lungeT / 0.35) * Math.PI); x.translate(0, -24 * k); x.scale(1 + 0.12 * k, 1 + 0.12 * k); }
+      if (f.rushT > 0) { x.rotate(f.spin || 0); x.scale(1.15, 1.15); }
+      else if (f.returning) x.rotate(Math.atan2(f.vx, -f.vy) * 0.3);
+    }
     x.globalCompositeOperation = 'lighter';
     const fl = this.glowSprite('#7fe3ff', 2.6 + f.power * 0.7);
     x.drawImage(fl, -fl.half, 22 - fl.half + Math.random() * 3);
@@ -458,6 +470,7 @@ export class Renderer {
     if (art) this.blit(x, art, 0, 0); else { const spr = this.shipSprite('blue', 0, f.npc); x.drawImage(spr, -spr.half, -spr.half); }
     if (f.hitFlash > 0 && art) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = f.hitFlash * 4; this.blit(x, art, 0, 0); x.globalCompositeOperation = 'source-over'; }
     x.restore(); x.globalAlpha = 1;
+    if (f.cls === 'tank') this.drawMechFx(x, f, art, 'over');
     if (f.shieldHp > 0) { const sb = this.sprite('bubble', px => shieldBubbleSvg(px), 58); if (sb) { x.globalAlpha = Math.min(1, 0.4 + f.shieldHp / f.maxHp); this.blit(x, sb, f.x, f.y); x.globalAlpha = 1; } }
     const av = !f.npc && this.avatar(f.avatar);
     if (av) {
@@ -471,13 +484,19 @@ export class Renderer {
     x.fillStyle = 'rgba(0,0,0,.65)'; x.fillRect(f.x - bw / 2 - 1, by - 1, bw + 2, 7);
     x.fillStyle = pct > 0.6 ? '#4dff88' : pct > 0.3 ? '#ffd24a' : '#ff4d5e'; x.fillRect(f.x - bw / 2, by, bw * pct, 3.5);
     if (f.shieldHp > 0) { x.fillStyle = '#bfefff'; x.fillRect(f.x - bw / 2, by, bw * Math.min(1, f.shieldHp / f.maxHp), 1.5); }
+    if (hasAutoDodge(g, f)) {
+      x.font = `700 11px ${NUM}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+      const tx = `躲 ${fmtDuration(f.dodgeLeft)}`;
+      x.lineWidth = 3; x.strokeStyle = 'rgba(0,10,30,.9)'; x.strokeText(tx, f.x, by + 13);
+      x.fillStyle = '#7fe3ff'; x.fillText(tx, f.x, by + 13);
+    }
     const ultK = 1 - Math.min(1, (f.ultCd || 0) / PVE.ultCooldown);
     x.fillStyle = ultK >= 1 ? '#ffe28a' : 'rgba(255,226,138,.55)'; x.fillRect(f.x - bw / 2, by + 4, bw * ultK, 1.6);
     if (ultK >= 1) { x.strokeStyle = `rgba(255,216,107,${0.5 + 0.4 * Math.sin(g.clock * 8)})`; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 30, 0, Math.PI * 2); x.stroke(); }
     if (f.charge >= 20) { x.strokeStyle = 'rgba(255,243,168,.7)'; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 25, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f.charge / 100); x.stroke(); }
     // 真人：技能 / 大招 就绪小图标（提醒发弹幕）
     if (!f.npc) {
-      const ids = { dps: ['missile', 'beam'], tank: ['shield', 'barrier'], healer: ['heal', 'healUlt'] }[f.cls];
+      const ids = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'] }[f.cls];
       [[ids[0], f.skillCd, CLASSES[f.cls].skillCd], [ids[1], f.ultCd, PVE.ultCooldown]].forEach(([id, cd, max], i) => {
         const ic = this.skillIcon(id, 16), cx = f.x + bw / 2 + 10, cy = f.y + 14 + i * 17;
         if (!ic) return;
@@ -493,6 +512,63 @@ export class Renderer {
       this.label(x, text, f.x, ly, 13, rank != null ? '#ffe28a' : '#ffffff');
       const m = rank != null && this.medalArt(rank);
       if (m) { x.font = `500 13px ${FONT}`; this.blit(x, m, f.x - x.measureText(text).width / 2 - 11, ly - 1); }
+    }
+  }
+
+  // 机甲特效：冲锋残影、金色无敌护体、旋风刃
+  drawMechFx(x, f, art, layer) {
+    const g = this.game;
+    if (layer === 'under') {
+      let tr = this.trails.get(f.uid);
+      if (f.rushT > 0 || f.returning) {
+        if (!tr) this.trails.set(f.uid, tr = []);
+        tr.push({ x: f.x, y: f.y, a: f.spin || 0 }); if (tr.length > 9) tr.shift();
+      } else if (tr) { tr.shift(); if (!tr.length) this.trails.delete(f.uid); }
+      if (tr && art) {
+        x.save(); x.globalCompositeOperation = 'lighter';
+        tr.forEach((p, i) => { x.globalAlpha = (i / tr.length) * 0.35; x.save(); x.translate(p.x, p.y); x.rotate(p.a); this.blit(x, art, 0, 0); x.restore(); });
+        x.restore(); x.globalAlpha = 1;
+      }
+      if (f.rushT > 0) {
+        const au = this.sprite('aura', px => invulnAuraSvg(px), 84);
+        if (au) { x.save(); x.translate(f.x, f.y); x.rotate(-g.clock * 1.5); const k = 1 + 0.06 * Math.sin(g.clock * 14); x.scale(k, k); this.blit(x, au, 0, 0); x.restore(); }
+      }
+      return;
+    }
+    if (f.rushT > 0) {
+      const R = PVE.tank.whirlR, ws = this.sprite('whirl', px => whirlSvg(px), 2 * R * 72 / 68, 2 * R * 72 / 68, 1.5);
+      if (ws) {
+        const fadeIn = Math.min(1, (PVE.tank.rushTime - f.rushT) / 0.25), fadeOut = Math.min(1, f.rushT / 0.3);
+        x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.9 * fadeIn * fadeOut;
+        x.translate(f.x, f.y); x.rotate((f.spin || 0) * 1.6); this.blit(x, ws, 0, 0);
+        x.globalAlpha *= 0.45; x.rotate(0.9); x.scale(0.82, 0.82); this.blit(x, ws, 0, 0);
+        x.restore(); x.globalAlpha = 1;
+      }
+      this.label(x, `无敌 ${f.rushT.toFixed(1)}s`, f.x, f.y - 70, 14, '#ffe28a', true);
+    }
+  }
+
+  drawShocks(x, dt) {
+    const art = this.sprite('shock', (w, h) => shockArcSvg(w, h), 200, 90, 2);
+    for (let i = this.shocks.length - 1; i >= 0; i--) {
+      const s = this.shocks[i]; s.t += dt;
+      const dur = 0.45;
+      if (s.t > dur) { this.shocks.splice(i, 1); continue; }
+      const k = s.t / dur;
+      const f = this.game.fighters.get(s.uid);
+      const ox = f ? f.x : s.x, oy = (f ? f.y : s.y) - 30;
+      x.save(); x.globalCompositeOperation = 'lighter';
+      for (const [lag, al] of [[0, 1], [0.12, 0.45]]) {
+        const kk = Math.max(0, k - lag), ee = 1 - (1 - kk) ** 2;
+        const yy = oy - ee * s.reach * 0.8, ww = 90 + ee * 200;
+        x.globalAlpha = 0.85 * al * (1 - kk) ** 0.8;
+        if (art) x.drawImage(art, ox - ww / 2, yy - ww * 0.3, ww, ww * 0.45);
+      }
+      // 拳头前端的闪光
+      x.globalAlpha = Math.max(0, 1 - k * 2.5);
+      const gl = this.glowSprite('#bff1ff', 26);
+      x.drawImage(gl, ox - gl.half, oy - 6 - gl.half);
+      x.restore(); x.globalAlpha = 1;
     }
   }
 
@@ -916,7 +992,7 @@ export class Renderer {
       x.strokeStyle = TEAMS[f.team].color; x.stroke();
       const c = CLASSES[f.cls], st = f.stats || {};
       x.fillStyle = '#c8d2ee'; x.font = `14px ${FONT}`;
-      const dodge = hasAutoDodge(this.game, f) ? `自动躲弹 ${Math.ceil((f.dodgeUntil - this.game.clock) / 60)}分` : '手动躲弹';
+      const dodge = hasAutoDodge(this.game, f) ? `自动躲弹 ${fmtDuration(f.dodgeLeft)}` : '手动躲弹';
       x.fillText(`Lv.${lv}  ${c.name}  血${Math.round(f.maxHp)} 攻${(st.atk || 0).toFixed(1)}  ${dodge}`, 180, 758);
       x.fillText(`本局贡献 ${Math.floor(f.merit)}  技能${f.skillCd > 0 ? `冷却${Math.ceil(f.skillCd)}s` : '就绪'}  大招${f.ultCd > 0 ? `冷却${Math.ceil(f.ultCd)}s` : '就绪'}  碎片 ${p?.shards || 0}`, 180, 784);
       const slots = Object.keys(GEAR.slots);

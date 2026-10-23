@@ -4,6 +4,7 @@ import {
 } from './config.js';
 import { skinFor } from './save.js';
 import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone } from './pve.js';
+import { syncDodge, fmtDuration } from './fleet.js';
 import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter } from './fleet.js';
 
 const TEAM_IDS = ['red', 'blue'];
@@ -224,7 +225,7 @@ export class Game {
       weapon: ['laser', 'spread', 'charge'][Math.floor(this.random() * 3)],
       lane: ['L', 'M', 'R'][Math.floor(this.random() * 3)], target: 'core',
       lastActive: nowMs, pvpTeam: team || null,
-      gear: test ? {} : (prof.gear ||= {}), prefCls: prof.cls || null, dodgeUntil: 0,
+      gear: test ? {} : (prof.gear ||= {}), prefCls: prof.cls || null, dodgeLeft: test ? 0 : (prof.dodgeLeft || 0),
     };
     this.resetFighterForRound(f);
     this.fighters.set(uid, f);
@@ -349,9 +350,10 @@ export class Game {
     if (this.mode === 'pve') {
       const price = Number(gift.price);
       const value = (Number.isFinite(price) && price > 0 ? price : 1) * amount;
-      const had = (f.dodgeUntil || 0) > this.clock;
-      f.dodgeUntil = Math.min(this.clock + PVE.autoDodgeCap, Math.max(this.clock, f.dodgeUntil || 0) + value * PVE.autoDodgePerValue);
-      if (!had) this.emit('toast', { uid: f.uid, text: `${f.name} 开启自动躲弹 ${Math.ceil((f.dodgeUntil - this.clock) / 60)}分钟` });
+      const had = (f.dodgeLeft || 0) > 0;
+      f.dodgeLeft = (f.dodgeLeft || 0) + value * PVE.autoDodgePerValue;
+      syncDodge(this, f);
+      this.emit('toast', { uid: f.uid, text: `${f.name} ${had ? '自动躲弹延长到' : '开启自动躲弹'} ${fmtDuration(f.dodgeLeft)}` });
     }
     this.emit('gift', { uid: f.uid, name: f.name, team: f.team, gift: gift.name || '礼物', count: amount, tier });
     if (this.phase !== 'battle') {
