@@ -1070,8 +1070,11 @@ export class Renderer {
     x.font = `700 16px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText('战力榜', L + 12, T + 17);
     x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText(`在场${n}人 · 战力＝等级+装备`, L + 70, T + 18);
     if (!list.length) { x.font = `14px ${FONT}`; x.fillStyle = '#6f7894'; x.fillText('发「输出」「机甲」「医疗」「航母」上场', L + 14, T + 60); return; }
+    this.boardHits = [];
     list.forEach(({ f, cp }, i) => {
       const y = T + 34 + i * rowH + rowH / 2;
+      this.boardHits.push({ uid: f.uid, x0: L, y0: y - rowH / 2, x1: L + Wd, y1: y + rowH / 2 });
+      if (this.hoverUid === f.uid) { x.fillStyle = 'rgba(255,216,107,.12)'; x.fillRect(L + 6, y - rowH / 2 + 1, Wd - 12, rowH - 2); }
       if (i % 2 === 0) { x.fillStyle = 'rgba(255,255,255,.035)'; x.fillRect(L + 6, y - rowH / 2 + 1, Wd - 12, rowH - 2); }
       const m = i < 3 && this.medalArt(i);
       if (m) this.blit(x, m, L + 18, y); else { x.font = `700 14px ${NUM}`; x.fillStyle = '#8fa3c8'; x.textAlign = 'center'; x.fillText(String(i + 1), L + 18, y); x.textAlign = 'left'; }
@@ -1355,13 +1358,33 @@ export class Renderer {
     x.fillStyle = '#ffe28a'; x.fillRect(180, 802, 360 * Math.min(1, (p?.xp || 0) / need), 6);
   }
 
+  // 主播点击：战力榜某一行、或画面里的战舰 → 打开这个人的装备属性卡；再点任意处关闭
+  hitUid(lx, ly) {
+    for (const h of this.boardHits || []) if (lx >= h.x0 && lx <= h.x1 && ly >= h.y0 && ly <= h.y1) return h.uid;
+    let best = null, bd = 34 * 34;
+    for (const f of this.game.fighters.values()) {
+      if (f.alien || f.npc || !f.alive) continue;
+      const d = (f.x - lx) ** 2 + (f.y - ly) ** 2;
+      if (d < bd) { bd = d; best = f.uid; }
+    }
+    return best;
+  }
+  click(lx, ly) {
+    const g = this.game;
+    if (this.card && this.card.pinned && this.card.until > g.clock) { const same = this.hitUid(lx, ly) === this.card.uid; this.card = null; if (same) return true; }
+    const uid = this.hitUid(lx, ly);
+    if (!uid) return false;
+    this.card = { uid, until: g.clock + 20, gear: true, pinned: true };
+    return true;
+  }
+
   // 发「装备」：自己的6件装备，每件的主属性和副属性，加上合计属性
   drawGearCard(x) {
     const g = this.game, f = g.fighters.get(this.card.uid);
     if (!f) return;
     const st = f.stats || shipStats({ cls: f.cls || 'dps', level: f.level, gear: f.gear });
     const P = v => `${Math.round((v || 0) * 1000) / 10}%`.replace('.0%', '%');
-    const L = 96, T = 520, Wd = 528, rowH = 58, H = 108 + 6 * rowH;
+    const L = 96, T = 500, Wd = 528, rowH = 58, H = 126 + 6 * rowH;
     const k = Math.min(1, (this.card.until - g.clock) / 0.3);
     x.globalAlpha = k;
     x.fillStyle = 'rgba(6,10,26,.94)'; roundRect(x, L, T, Wd, H, 18); x.fill();
@@ -1369,7 +1392,8 @@ export class Renderer {
     x.textAlign = 'left'; x.textBaseline = 'middle';
     x.font = `700 21px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`Lv.${f.level || 1} ${trim(f.name, 10)} 的装备`, L + 20, T + 28);
     x.font = `13px ${FONT}`; x.fillStyle = '#aab4cc'; x.textAlign = 'right';
-    x.fillText(f.cls ? CLASSES[f.cls].name : '', L + Wd - 20, T + 28); x.textAlign = 'left';
+    x.fillText(`${f.cls ? CLASSES[f.cls].name : ''} · 战力 ${combatPower(f)}`, L + Wd - 20, T + 28); x.textAlign = 'left';
+    if (this.card.pinned) { x.font = `11px ${FONT}`; x.fillStyle = '#6f7894'; x.textAlign = 'center'; x.fillText(`本局贡献 ${Math.floor(f.merit)} · 主播查看中，点任意处关闭`, L + Wd / 2, T + H - 12); x.textAlign = 'left'; }
     x.font = `13px ${FONT}`; x.fillStyle = '#ffe28a';
     x.fillText(`攻击${(st.atk || 0).toFixed(1)}  生命${Math.round(st.maxHp || f.maxHp)}  防御${P(st.armor)}  攻速+${P(st.aspd)}  暴击${P(st.crit)}  爆伤${P(st.critDmg)}`, L + 20, T + 56);
     x.fillStyle = '#9fb0d0';

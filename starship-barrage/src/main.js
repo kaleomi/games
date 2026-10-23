@@ -36,6 +36,14 @@ const renderer = new Renderer(canvas, game);
 ui = new UI({ game, relay, audio, save, settings, onSettings: applySettings });
 window.addEventListener('resize', () => renderer.resize());
 window.addEventListener('pointerdown', () => audio.unlock(), { once: false });
+// 主播点战力榜的人或画面里的战舰，查看装备属性
+const toLogical = e => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * 720, (e.clientY - r.top) / r.height * 1280]; };
+canvas.addEventListener('pointerdown', e => { const [x, y] = toLogical(e); renderer.click(x, y); });
+canvas.addEventListener('pointermove', e => {
+  const [x, y] = toLogical(e);
+  const uid = renderer.hitUid(x, y);
+  renderer.hoverUid = uid; canvas.style.cursor = uid ? 'pointer' : '';
+});
 window.addEventListener('keydown', () => audio.unlock());
 
 // 同一时间只允许一个游戏页面，避免同一份礼物结算两次
