@@ -191,7 +191,7 @@ export const GEAR = {
     { id: 'purple', name: '史诗', color: '#b066ff', f: 3.5, w: 15, subs: 2 },
     { id: 'orange', name: '传说', color: '#ff8a2a', f: 6,   w: 7,  subs: 3 },
     { id: 'gold',   name: '神话', color: '#ffd23a', f: 9,   w: 1.2, subs: 4 },
-    { id: 'red',    name: '至尊', color: '#ff3b4e', f: 13,  w: 0.012, subs: 5 },
+    { id: 'red',    name: '至尊', color: '#ff3b4e', f: 13,  w: 0.017, subs: 5 },
   ],
   // 属性：main=作为主属性时每档系数，sub=作为副属性时每档系数（实际值 = 系数 × 品质倍率 f × 浮动0.85~1.15）
   stats: {
@@ -206,7 +206,7 @@ export const GEAR = {
   },
   baseCrit: 0.05, baseCritDmg: 1.5,
   // 掉率：关卡越高好装备越多（每关 +8%，算到第10关封顶）；前5关不出至尊红装
-  // 按「每天直播18小时、每小时通关约15次、每次72%拿到装备」模拟：一直在的人约30天（中位数）凑齐一身红
+  // 按「每天直播18小时、每小时通关约15次、每次72%拿到装备」模拟（含保底）：一直在的人约27天（中位数）凑齐一身红
   liftPer: 0.08, liftCap: 10, redFrom: 6,
   // 碎片：多余装备自动分解，1件=1个同色碎片；100个碎片自动合成1件高一级装备（补在最弱的部位）
   shardsPerCraft: 100,
