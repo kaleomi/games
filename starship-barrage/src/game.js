@@ -3,7 +3,7 @@ import {
   W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES,
 } from './config.js';
 import { skinFor } from './save.js';
-import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone } from './pve.js';
+import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation } from './pve.js';
 import { syncDodge, fmtDuration } from './fleet.js';
 import { nearestEnemy } from './fleet.js';
 import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter } from './fleet.js';
@@ -127,7 +127,7 @@ export class Game {
     this.time = 0;
     this.winner = null;
     this.pve = null;
-    this.zones = []; this.barriers = []; this.pveDrones = [];
+    this.zones = []; this.barriers = []; this.pveDrones = []; this.rays = []; this.gravity = null;
     this.bullets.length = 0; this.emitters.length = 0; this.hazards.length = 0; this.battleships.length = 0;
     for (const id of TEAM_IDS) this.teams[id] = this.makeTeam(id);
     const nowMs = this.now();
@@ -159,7 +159,7 @@ export class Game {
     if (this.mode === 'pve' && winner === 'blue') for (const f of this.humans()) f.merit += PVE.stageClearContrib;
     for (const id of TEAM_IDS) {
       const list = this.humans().filter(f => f.team === id).sort((a, b) => b.merit - a.merit);
-      result.mvp[id] = list.slice(0, this.mode === 'pve' ? 5 : 3).map(f => ({ uid: f.uid, name: f.name, merit: Math.floor(f.merit), kills: f.kills, cls: f.cls || null }));
+      result.mvp[id] = list.slice(0, this.mode === 'pve' ? 8 : 3).map(f => ({ uid: f.uid, name: f.name, avatar: f.avatar || '', merit: Math.floor(f.merit), kills: f.kills, cls: f.cls || null }));
     }
     if (this.mode === 'pve') {
       const stage = this.pve?.stage || currentStage(this);
@@ -167,7 +167,7 @@ export class Game {
       const next = clear ? stage + 1 : Math.max(1, stage - 1);
       if (this.save) { this.save.data.pveStage = next; this.save.data.pveBest = Math.max(this.save.data.pveBest || 0, clear ? stage : 0); this.save.dirty = true; }
       this.memStage = next;
-      Object.assign(result, { stage, clear, next });
+      Object.assign(result, { stage, clear, next, bossName: this.teams.red.bossName });
       result.drops = clear ? rollDrops(this, stage) : [];
     }
     for (const f of this.humans()) {
@@ -562,7 +562,14 @@ export class Game {
       tu.cd -= dt;
       if (tu.cd <= 0) {
         const [a, b] = FLAGSHIP.turretFire;
-        if (tu.pod) { tu.cd = 5.5 + this.random() * 3; this.spawnPattern(t.id, this.random() < 0.6 ? 'podFan' : 'podSpiral', tu.x, tu.y + 20, null); }
+        if (tu.pod && tu.podKind === 'brood') { tu.cd = 7 + this.random() * 3; spawnFormation(this, true, 'swarm', tu.x, tu.y + 24); this.emit('cast', { x: tu.x, y: tu.y }); }
+        else if (tu.pod && tu.podKind === 'prism') {
+          tu.cd = 3.5 + this.random() * 2;
+          const tg = [...this.fighters.values()].filter(f => !f.alien && f.team === 'blue' && f.alive).sort((a, b) => ((a.x - tu.x) ** 2 + (a.y - tu.y) ** 2) - ((b.x - tu.x) ** 2 + (b.y - tu.y) ** 2))[0];
+          const a = tg ? Math.atan2(tg.y - tu.y, tg.x - tu.x) : Math.PI / 2;
+          for (const k of [-0.12, 0, 0.12]) this.addBullet(tu.x, tu.y + 10, Math.cos(a + k) * 420, Math.sin(a + k) * 420, 4, 1, 'red', 'shot', null, 0, { laser: true });
+        }
+        else if (tu.pod) { tu.cd = 5.5 + this.random() * 3; this.spawnPattern(t.id, this.random() < 0.6 ? 'podFan' : 'podSpiral', tu.x, tu.y + 20, null); }
         else { tu.cd = (a + this.random() * (b - a)) * (low ? 0.75 : 1); this.spawnPattern(t.id, this.random() < 0.5 ? 'turretFan' : 'turretSpiral', tu.x, tu.y + t.def.dir * 20, null); }
       }
     }
@@ -969,12 +976,28 @@ export class Game {
     b.vx = Math.cos(a) * nsp; b.vy = Math.sin(a) * nsp;
   }
 
+  // 敌方追踪弹（虫后孢子）：慢慢拐向最近的我方战舰
+  steerHunt(b, dt) {
+    b.age = (b.age || 0) + dt;
+    if (!b.tgt || b.age - (b.tgtAt || 0) > 0.5 || !b.tgt.alive) {
+      b.tgtAt = b.age; let best = null, bd = 1e12;
+      for (const f of this.fighters.values()) { if (f.alien || f.team !== 'blue' || !f.alive) continue; const d = (f.x - b.x) ** 2 + (f.y - b.y) ** 2; if (d < bd) { bd = d; best = f; } }
+      b.tgt = best;
+    }
+    if (!b.tgt || b.age > 3.5) return;
+    const sp = Math.hypot(b.vx, b.vy) || 1, want = Math.atan2(b.tgt.y - b.y, b.tgt.x - b.x), cur = Math.atan2(b.vy, b.vx);
+    let da = want - cur; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+    const a = cur + Math.max(-1.3 * dt, Math.min(1.3 * dt, da));
+    b.vx = Math.cos(a) * sp; b.vy = Math.sin(a) * sp;
+  }
+
   stepBullets(dt, combat) {
     const arr = this.bullets;
     let w = 0;
     for (let i = 0; i < arr.length; i++) {
       const b = arr[i];
       if (b.seek) this.steerSeek(b, dt);
+      else if (b.hunt) this.steerHunt(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
       let dead = b.life <= 0 || b.y < -40 || b.y > H + 40 || b.x < -40 || b.x > W + 40;
       if (!dead && b.split > 0) {

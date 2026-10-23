@@ -139,7 +139,17 @@ export const PVE = {
     strike: { name: '母舰炮击', frac: 0.7 },
     sweep:  { name: '双线扫射', frac: 0.65 },
     cannon: { name: '湮灭炮', frac: 1.1 },   // 可被「拦截」削弱
+    pool:   { name: '酸液池', frac: 0, dps: 0.14, dot: 5 },   // 钢铁虫后：倒计时结束后变成持续5秒的酸液池，每秒掉14%血
+    spike:  { name: '晶刺', frac: 0.55 },     // 晶核巨像：左中右依次爆发
+    gaze:   { name: '深渊凝视', frac: 0.85 }, // 深渊之眼：盯着贡献最高的人那条航道
   },
+  // 四种BOSS按关卡轮换：第1关异形母舰、第2关钢铁虫后、第3关晶核巨像、第4关深渊之眼，第5关再从头
+  bosses: [
+    { id: 'mother',   name: '异形母舰', hp: 1,    pods: [[-200, 40], [200, 40], [-92, 88], [92, 88]], podKind: 'fan',   podName: '触手炮', core: ['#e7a6ff', '#c45cff'] },
+    { id: 'queen',    name: '钢铁虫后', hp: 1,    pods: [[-150, 70], [150, 70]],                     podKind: 'brood', podName: '卵囊',   core: ['#ffd08a', '#ff7a2e'] },
+    { id: 'colossus', name: '晶核巨像', hp: 1.05, pods: [[-178, 26], [178, 26], [0, 104]],           podKind: 'prism', podName: '棱晶',   core: ['#e8fdff', '#5ff0ff'] },
+    { id: 'eye',      name: '深渊之眼', hp: 1.05, pods: [[-196, 60], [196, 60], [-116, 112], [116, 112]], podKind: 'fan', podName: '眼柄', core: ['#ffd0d4', '#ff3b4e'] },
+  ],
   gunnerSkillEvery: 14,
   bossSkillEvery: [16, 13, 11],              // 三个狂暴阶段
   alien: {

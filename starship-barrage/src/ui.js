@@ -1,8 +1,8 @@
 // 设置面板、开局规则页、结算页（DOM）
 import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR } from './config.js';
-import { bossMax } from './pve.js';
+import { bossMax, bossFor } from './pve.js';
 import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, dpsSvg, carrierSvg } from './art.js';
-import { describeItem } from './fleet.js';
+import { describeItem, itemStats, statText } from './fleet.js';
 
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
 
@@ -293,10 +293,10 @@ export class UI {
         this.lobby.classList.toggle('pve', pve);
         const stage = g.teams.red.stage || this.save.data.pveStage || 1;
         const join = pve
-          ? `<div class="join"><span class="pve">${emblemSvg('blue', 30)}讨伐 第${stage}关 · 母舰血量 ${bossMax(stage)} · 已集结 ${counts.blue}人</span></div>`
+          ? `<div class="join"><span class="pve">${emblemSvg('blue', 30)}讨伐 第${stage}关 · ${bossFor(stage).name} 血量 ${bossMax(stage)} · 已集结 ${counts.blue}人</span></div>`
           : `<div class="join"><span class="red">${emblemSvg('red', 30)}发「红」加入赤焰舰队 · ${counts.red}人</span><span class="blue">${emblemSvg('blue', 30)}发「蓝」加入苍穹舰队 · ${counts.blue}人</span></div>`;
         this.lobby.innerHTML = `
-          <div class="title">${logoSvg(150)}<span>星舰弹幕战</span><small>${pve ? '讨伐模式 · 全员一支舰队，对抗异形母舰' : '对战模式 · 红蓝舰队对攻'} · 观众自己当飞行员</small></div>
+          <div class="title">${logoSvg(150)}<span>星舰弹幕战</span><small>${pve ? '讨伐模式 · 全员一支舰队，对抗异形BOSS' : '对战模式 · 红蓝舰队对攻'} · 观众自己当飞行员</small></div>
           ${g.phase === 'lobby' ? `<div class="count">${Math.ceil(g.phaseT)}<small>${pve ? '秒后出击' : '秒后开战'}</small></div>` : ''}
           ${join}
           ${pve ? '<div class="pvehint">玩法、战舰、装备、礼物效果都在右下角轮播 · 左下角是战力榜</div>' : rulesHtml(this.settings, g.mode)}
@@ -310,14 +310,21 @@ export class UI {
       this.resKey = res.round;
       const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i><span>${esc(m.name)}<small class="lv">Lv.${m.level || 1}</small></span><b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
       if (res.mode === 'pve') {
-        const list = (res.mvp.blue || []).map((m, i) => `<div><i>${i < 3 ? medalSvg(i, 30) : `<span class="rk">${i + 1}</span>`}</i><span>${esc(m.name)}<small class="lv">Lv.${m.level || 1}</small>${m.cls ? `<small class="ct">${CLASSES[m.cls].short}</small>` : ''}</span><b>贡献 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
-        const drops = (res.drops || []).slice(0, 8).map(d => `<div class="drop">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 40)}<span>${esc(d.name)}</span><b style="color:${GEAR.tiers[d.item.tier].color}">${esc(describeItem(d.item))}</b><em>${d.equipped ? '已装备' : '分解'}</em></div>`).join('');
+        const shipArt = { dps: dpsSvg, tank: mechSvg, healer: healerSvg, carrier: carrierSvg };
+        const face = m => m.avatar ? `<img class="av" src="${esc(m.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="av ship">${svgImg((shipArt[m.cls] || dpsSvg)(0, 96), 40)}</span>`;
+        const list = (res.mvp.blue || []).map((m, i) => `<div class="row"><i>${i < 3 ? medalSvg(i, 28) : `<span class="rk">${i + 1}</span>`}</i>${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span><b>${m.merit}</b></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
+        const drops = (res.drops || []).slice(0, 8).map(d => {
+          const st = itemStats(d.item), T = GEAR.tiers[d.item.tier];
+          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(GEAR.slots[d.item.slot].names[d.item.tier])}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.equipped ? '已装备' : '分解'}</em></div>`;
+        }).join('') || `<div class="empty">${res.clear ? '这关没人掉装备' : '讨伐失败，没有掉落'}</div>`;
         this.resultEl.innerHTML = `
           <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `第${res.stage}关 讨伐成功` : '讨伐失败'}</div>
-          <div class="reason">${res.clear ? `异形母舰被击毁 · 下一局挑战第${res.next}关` : `${res.reason === 'timeout' ? `${PVE.stageSeconds / 60}分钟内没打爆母舰` : '舰队全员阵亡'} · 退回第${res.next}关`}</div>
-          <div class="mvps"><div class="mvp blue wide"><h3>${emblemSvg('blue', 26)}本关贡献榜</h3>${list}</div></div>
-          ${drops ? `<div class="drops"><h3>装备掉落</h3>${drops}</div>` : ''}
-          <div class="next">经验已结算 · 下一局马上开始</div>`;
+          <div class="reason">${res.clear ? `${res.bossName || '异形母舰'}被击毁 · 下一局挑战第${res.next}关` : `${res.reason === 'timeout' ? `${PVE.stageSeconds / 60}分钟内没打爆${res.bossName || 'BOSS'}` : '舰队全员阵亡'} · 退回第${res.next}关`}</div>
+          <div class="pvecols">
+            <div class="col"><h3>${emblemSvg('blue', 24)}本关贡献榜</h3>${list}</div>
+            <div class="col loot"><h3>装备掉落</h3>${drops}</div>
+          </div>
+          <div class="next">经验已结算 · 下一关马上开始</div>`;
       } else {
         this.resultEl.innerHTML = `
           <div class="win ${res.winner || ''}">${res.winner ? `${TEAMS[res.winner].name} 获胜` : '平局'}</div>

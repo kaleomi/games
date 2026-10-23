@@ -187,6 +187,11 @@ export function stepShip(game, f, dt, combat) {
       if (auto || (f.npcDodgeT += dt) > f.npcReact) {
         const safe = LANES.filter(l => !danger[l]).sort((a, b) => Math.abs(laneCenter(a) - f.x) - Math.abs(laneCenter(b) - f.x));
         if (safe.length) f.lane = safe[0];
+        else {   // 三条都有（晶刺依次爆发）：去最晚命中的那条
+          const soon = l => Math.min(...game.zones.filter(z => z.lanes.includes(l)).map(z => z.active ? -1 : z.warn));
+          const best = [...LANES].sort((a, b) => soon(b) - soon(a))[0];
+          if (soon(f.lane) < 3.5 && soon(best) > soon(f.lane) + 1) f.lane = best;
+        }
         f.npcDodgeT = 0; f.npcReact = 2 + game.random() * 4;
       }
     } else f.npcDodgeT = 0;
@@ -206,6 +211,7 @@ export function stepShip(game, f, dt, combat) {
   f.slotDy += Math.max(-ws, Math.min(ws, (f.wanderY ?? f.slotDy) - f.slotDy));
   let tx = laneCenter(f.lane) + f.slotDx;
   let ty = PVE.rows[f.cls] + f.slotDy;
+  if (game.gravity) { const gk = 0.55; tx += (game.gravity.x - tx) * gk; ty -= 60 * gk; }   // 深渊之眼引力漩涡：往中间、往上吸
   const speed = LEVEL.speed(f.level) * (f.returning ? 2.4 : 1.1);
   let vx = (tx - f.x) * 3, vy = (ty - f.y) * 3;
   if (combat && auto) {
@@ -222,7 +228,7 @@ export function stepShip(game, f, dt, combat) {
     f.y = Math.min(PVE.zone[1], f.y + f.vy * dt);
     if (f.y >= PVE.zone[0] && f.x > l0 - 60 && f.x < l1 + 60) f.returning = false;
   } else {
-    if (!auto) f.x = Math.max(Math.min(f.x, l1 + 60), l0 - 60);
+    if (!auto && !game.gravity) f.x = Math.max(Math.min(f.x, l1 + 60), l0 - 60);
     f.y = Math.max(PVE.zone[0], Math.min(PVE.zone[1], f.y + f.vy * dt));
   }
   }

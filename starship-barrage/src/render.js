@@ -1,7 +1,8 @@
 // 星舰弹幕战 · 画面
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
-import { bossTimeText } from './pve.js';
+import { bossTimeText, rayHits } from './pve.js';
+import { queenSvg, colossusSvg, eyeSvg, bossPodSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR } from './config.js';
@@ -127,8 +128,14 @@ export class Renderer {
   droneArt(team) { return this.art.get(`dr|${team}`, px => droneSvg(team, px), 24, 24, 3); }
   medalArt(rank) { return this.art.get(`md|${rank}`, px => medalSvg(rank, px), 18, 19.5, 4); }
   alienArt(kind) { const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
-  podArt(dead) { return this.art.get(`pod|${dead ? 1 : 0}`, px => podSvg(px, dead), 58, 58, 3); }
-  bossArt() { return this.art.get('boss', (w, h) => bossSvg(w, h), BOSS_VIEW.w, BOSS_VIEW.h, 2); }
+  podArt(dead, id = 'mother') {
+    if (id === 'mother') return this.art.get(`pod|${dead ? 1 : 0}`, px => podSvg(px, dead), 58, 58, 3);
+    return this.art.get(`pod|${id}|${dead ? 1 : 0}`, px => bossPodSvg(id, px, dead), 58, 58, 3);
+  }
+  bossArt(id = 'mother') {
+    const make = { mother: bossSvg, queen: queenSvg, colossus: colossusSvg, eye: eyeSvg }[id] || bossSvg;
+    return this.art.get(`boss|${id}`, (w, h) => make(w, h), BOSS_VIEW.w, BOSS_VIEW.h, 2);
+  }
   sprite(key, make, w, h = w, res = 3) { return this.art.get(key, make, w, h, res); }
   skillIcon(id, size = 30) { return this.sprite(`sk|${id}|${size}`, px => skillIconSvg(id, px), size, size, 3); }
   gearIcon(slot, tier, size = 30) { return this.sprite(`gi|${slot}|${tier}|${size}`, px => gearIconSvg(slot, tier, px), size, size, 3); }
@@ -155,7 +162,7 @@ export class Renderer {
           if (f && f.alive && g.mode === 'pve') {
             this.ripples.push({ uid: e.uid, x: f.x, y: f.y, t: 0, dur: 0.9, r0: 20, r1: 90, color: '255,216,107', w: 5 });
             this.pillars.push({ uid: e.uid, t: 0, delay: 0 });
-            this.floaters.push({ x: f.x, y: f.y - 40, text: `升级！Lv.${e.level}`, color: '#ffd86b', t: -0.2, nop: true, crit: true });
+            this.floaters.push({ x: f.x, y: f.y - 40, text: `升级！Lv.${e.level} 攻击生命+2%`, color: '#ffd86b', t: -0.2, nop: true, crit: true });
           }
           if (e.level % 10 === 0) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `升到 Lv.${e.level}！`, tier: 3 });
           break;
@@ -193,7 +200,7 @@ export class Renderer {
         case 'cd': { const f = g.fighters.get(e.uid); if (f) this.floaters.push({ x: f.x, y: f.y - 30, text: e.kind === 'auto' ? `小技能自动放 · ${e.left}s` : `大招冷却${e.left}s`, color: '#aab4cc', t: 0, nop: true }); break; }
         case 'slash': this.slashes.push({ uid: e.uid, x: e.x, y: e.y, ang: e.ang, wt: e.wt, t: 0, flip: (this.slashFlip = !this.slashFlip) }); this.shake = Math.max(this.shake, 2.5); break;
         case 'strike': this.shake = Math.max(this.shake, e.kind === 'cannon' ? 20 : 10); for (const l of e.lanes) this.laneFlashes.push({ lane: l, t: 0.6, kind: e.kind }); break;
-        case 'loot': this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: g.teams.red.x, y0: g.teams.red.y }); this.toast(`${e.name} 获得 ${e.text}${e.equipped ? ' · 已自动装备' : ' · 分解为星核碎片'}`, null, GEAR.tiers[e.item.tier].color); if (e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `获得${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: e.item.tier >= 3 ? 4 : 2, gear: e.item }); break;
+        case 'loot': this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: g.teams.red.x, y0: Math.max(120, g.teams.red.y) }); this.toast(`${e.name} 获得 ${e.text}${e.equipped ? ' · 已自动装备' : ' · 分解为星核碎片'}`, null, GEAR.tiers[e.item.tier].color); if (e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `获得${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: e.item.tier >= 3 ? 4 : 2, gear: e.item }); break;
         default: break;
       }
     }
@@ -345,7 +352,7 @@ export class Renderer {
 
   drawBoss(x, t) {
     if (t.y < -160 || (t.core <= 0 && this.game.phase === 'result')) return;
-    const art = this.bossArt();
+    const art = this.bossArt(t.bossId);
     const g = this.game;
     if (art) {
       x.drawImage(art, t.x + BOSS_VIEW.left, t.y + BOSS_VIEW.top, BOSS_VIEW.w, BOSS_VIEW.h);
@@ -357,11 +364,46 @@ export class Renderer {
     const cy = t.y + t.coreDy, pct = t.core / t.coreMax, pulse = 0.7 + Math.sin(g.clock * (3 + t.rage)) * 0.3;
     x.globalCompositeOperation = 'lighter';
     const cg = x.createRadialGradient(t.x, cy, 0, t.x, cy, 54);
-    cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.2, t.rage >= 3 ? '#ff6a3a' : '#e7a6ff'); cg.addColorStop(0.55, t.rage >= 2 ? '#8dff5a' : '#c45cff'); cg.addColorStop(1, 'rgba(0,0,0,0)');
+    const cc = (PVE.bosses.find(b => b.id === t.bossId) || PVE.bosses[0]).core;
+    cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.2, t.rage >= 3 ? '#ff6a3a' : cc[0]); cg.addColorStop(0.55, t.rage >= 2 && t.bossId === 'mother' ? '#8dff5a' : cc[1]); cg.addColorStop(1, 'rgba(0,0,0,0)');
     x.globalAlpha = Math.min(1, 0.4 + 0.6 * pct * pulse + t.hitFlash);
     x.fillStyle = cg; x.beginPath(); x.arc(t.x, cy, 54, 0, Math.PI * 2); x.fill();
     x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
-    this.drawTurrets(x, t, dead => this.podArt(dead));
+    this.drawTurrets(x, t, dead => this.podArt(dead, t.bossId));
+    this.drawBossFx(x, t);
+  }
+
+  // BOSS 专属特效：棱光射线、引力漩涡、深渊凝视的瞄准线
+  drawBossFx(x, t) {
+    const g = this.game;
+    const ox = t.x, oy = t.y + t.coreDy;
+    for (const r of g.rays || []) {
+      x.save(); x.translate(ox, oy); x.rotate(-r.ang);
+      if (r.warn > 0) {
+        x.globalAlpha = 0.5 + 0.5 * Math.sin(g.clock * 30); x.strokeStyle = '#ff4d5e'; x.lineWidth = 2; x.setLineDash([12, 8]);
+        x.beginPath(); x.moveTo(0, 40); x.lineTo(0, 1500); x.stroke(); x.setLineDash([]);
+      } else {
+        x.globalCompositeOperation = 'lighter';
+        const gr = x.createLinearGradient(-22, 0, 22, 0); gr.addColorStop(0, 'rgba(95,240,255,0)'); gr.addColorStop(0.35, 'rgba(95,240,255,.8)'); gr.addColorStop(0.5, '#ffffff'); gr.addColorStop(0.65, 'rgba(95,240,255,.8)'); gr.addColorStop(1, 'rgba(95,240,255,0)');
+        x.globalAlpha = 0.85 + Math.random() * 0.15; x.fillStyle = gr; x.fillRect(-22, 30, 44, 1500);
+      }
+      x.restore(); x.globalAlpha = 1;
+    }
+    if (g.gravity) {
+      const k = g.gravity.t / g.gravity.max;
+      x.save(); x.globalCompositeOperation = 'lighter'; x.translate(t.x, 760);
+      for (let i = 0; i < 3; i++) { x.rotate(g.clock * 1.6 + i * 2.1); x.globalAlpha = 0.25 * k; x.strokeStyle = '#ff3b4e'; x.lineWidth = 6; x.beginPath(); x.arc(0, 0, 120 + i * 70, 0, Math.PI * 1.2); x.stroke(); }
+      x.restore(); x.globalAlpha = 1;
+    }
+    for (const z of g.zones) {
+      if (z.kind !== 'gaze') continue;
+      const f = z.target && g.fighters.get(z.target);
+      const tx = f && f.alive && f.lane === z.lanes[0] ? f.x : laneCenter(z.lanes[0]), ty = f && f.alive ? f.y : 800;
+      x.save(); x.globalAlpha = 0.35 + 0.3 * Math.sin(g.clock * 12); x.strokeStyle = '#ff3b4e'; x.lineWidth = 3;
+      x.beginPath(); x.moveTo(ox, oy); x.lineTo(tx, ty); x.stroke();
+      const rt = this.sprite('ret', px => reticleSvg(px), 64); if (rt) { x.translate(tx, ty); x.rotate(g.clock * 2); x.globalAlpha = 0.8; this.blit(x, rt, 0, 0); }
+      x.restore(); x.globalAlpha = 1;
+    }
   }
 
   drawHazards(x) {
@@ -757,6 +799,19 @@ export class Renderer {
     const glyph = this.sprite('zg', px => zoneGlyphSvg(px), 56);
     const y0 = 64, y1 = BOTTOM_Y - 6;   // 红区整条航道都标出来（顶栏下到底部面板上）
     for (const z of g.zones) {
+      if (z.active) {   // 酸液池：持续伤害中
+        for (const l of z.lanes) {
+          const [a, b] = PVE.lanes[l];
+          x.save(); x.globalAlpha = 0.35 + 0.1 * Math.sin(g.clock * 6);
+          const gr = x.createLinearGradient(a, 0, b, 0); gr.addColorStop(0, 'rgba(141,255,90,.15)'); gr.addColorStop(0.5, 'rgba(141,255,90,.55)'); gr.addColorStop(1, 'rgba(141,255,90,.15)');
+          x.fillStyle = gr; x.fillRect(a, y0, b - a, y1 - y0);
+          x.globalAlpha = 0.8;
+          for (let i = 0; i < 8; i++) { const bx = a + ((i * 53 + g.clock * 20) % (b - a)), by = y1 - ((g.clock * 60 + i * 97) % (y1 - y0)); const gl = this.glowSprite('#8dff5a', 4); x.drawImage(gl, bx - gl.half, by - gl.half); }
+          x.restore();
+          this.label(x, `酸液池 ${Math.ceil(z.left)}s`, (a + b) / 2, (y0 + y1) / 2, 18, '#c8ffb0', true);
+        }
+        continue;
+      }
       const urgent = z.warn < 3;
       const blink = urgent ? 0.55 + 0.45 * Math.sin(g.clock * 20) : 0.75 + 0.25 * Math.sin(g.clock * 5);
       for (const l of z.lanes) {
@@ -787,7 +842,7 @@ export class Renderer {
       const [a, b] = PVE.lanes[f.lane];
       x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = f.t / 0.6;
       const gr = x.createLinearGradient(a, 0, b, 0);
-      const c = f.kind === 'cannon' ? '#8dff5a' : f.kind === 'acid' ? '#9dff3a' : '#ff4d5e';
+      const c = f.kind === 'cannon' || f.kind === 'pool' || f.kind === 'acid' ? '#8dff5a' : f.kind === 'spike' ? '#5ff0ff' : f.kind === 'gaze' ? '#ff3b4e' : '#ff4d5e';
       gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.5, c); gr.addColorStop(1, 'rgba(0,0,0,0)');
       x.fillStyle = gr; x.fillRect(a, 0, b - a, H);
       x.fillStyle = '#ffffff'; x.globalAlpha = (f.t / 0.6) * 0.5; x.fillRect((a + b) / 2 - 12, 0, 24, H);
@@ -902,6 +957,13 @@ export class Renderer {
     for (const b of g.bullets) {
       const pal = PALETTE[b.team];
       if (b.wt != null && b.team === 'blue') { this.drawBolt(x, b, k, ox, oy); continue; }
+      if (b.spore || b.shard) {
+        x.setTransform(k, 0, 0, k, ox, oy);
+        const gl = this.glowSprite(b.spore ? '#ff8a3a' : '#5ff0ff', b.spore ? 5 + Math.sin(g.clock * 10 + b.x) : 3.2);
+        x.drawImage(gl, b.x - gl.half, b.y - gl.half);
+        if (b.shard) { x.strokeStyle = '#e8fdff'; x.lineWidth = 2; x.beginPath(); x.moveTo(b.x, b.y - 8); x.lineTo(b.x, b.y + 4); x.stroke(); }
+        continue;
+      }
       if (b.laser) {
         x.setTransform(k, 0, 0, k, ox, oy);
         x.strokeStyle = pal.laser; x.lineWidth = 2.4;
@@ -1181,7 +1243,7 @@ export class Renderer {
         x.font = `700 13px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(d.name, px + 42, py - 8);
         x.font = `12px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(GEAR.stats[d.stat].label, px + 42, py + 10);
       });
-      x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('主炮紫色2管、金色3管；品质越高副属性越多 · 发「装备」看自己的', cx, y0 + 168);
+      x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('主炮紫色2管、金色3管 · 品质越高副属性越多', cx, y0 + 168);
     } else if (name === '礼物效果') {
       const rng = i => (i < 4 ? `${t[i]}–${t[i + 1] - 1}` : `${t[i]}+`);
       const rows = [['任意', '自动躲弹：每1抖币6秒，不设上限'], [rng(0), '火力+1、护盾+10%'], [rng(1), '弹幕阵型'], [rng(2), '激光网格 + 2架护卫僚机'], [rng(3), '召唤战舰50秒，写着你的名字'], [rng(4), '主炮轰掉母舰10%血量']];
@@ -1211,7 +1273,7 @@ export class Renderer {
     x.font = `900 26px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(`第${stage}关`, 75, 24);
     x.font = `11px ${FONT}`; x.fillStyle = '#c8a860'; x.fillText(`最高通关 第${g.save?.data?.pveBest || 0}关`, 75, 46);
     const pct = t.coreMax ? t.core / t.coreMax : 1;
-    x.textAlign = 'left'; x.font = `700 14px ${FONT}`; x.fillStyle = '#d79bff'; x.fillText('异形母舰', 162, 15);
+    x.textAlign = 'left'; x.font = `700 14px ${FONT}`; x.fillStyle = '#d79bff'; x.fillText(t.bossName || '异形母舰', 162, 15);
     x.font = `12px ${FONT}`; x.fillStyle = '#aab4cc';
     const sub = g.phase !== 'battle' ? (g.phase === 'lobby' ? `${Math.ceil(g.phaseT)}秒后出击` : '结算中') : !p ? '' : p.sub === 'wave' ? `虫群来袭 · ${Math.ceil(p.t)}秒后母舰现身` : p.sub === 'enter' ? '母舰逼近！' : t.cannon?.state === 'charging' ? '湮灭炮蓄力中，发「拦截」' : `母舰血量 ${Math.ceil(pct * 100)}%`;
     x.fillText(sub, 232, 15);

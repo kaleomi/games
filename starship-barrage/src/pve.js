@@ -3,17 +3,19 @@ import { W, H, PVE } from './config.js';
 import { LANES, LANE_NAMES, laneCenter, hurt, stepDrones } from './fleet.js';
 
 export function currentStage(game) { return Math.max(1, game.save?.data?.pveStage || game.memStage || 1); }
-export function bossMax(stage) { return Math.round(PVE.bossHp * PVE.bossGrowth ** (stage - 1)); }
+export function bossFor(stage) { return PVE.bosses[(Math.max(1, stage) - 1) % PVE.bosses.length]; }
+export function bossMax(stage) { return Math.round(PVE.bossHp * PVE.bossGrowth ** (stage - 1) * bossFor(stage).hp); }
 
 // 把红方换成异形母舰
 export function setupBoss(game, t) {
   const stage = currentStage(game);
-  t.boss = true; t.stage = stage;
+  const B = bossFor(stage);
+  t.boss = true; t.stage = stage; t.bossId = B.id; t.bossName = B.name; t.podName = B.podName;
   t.core = t.coreMax = bossMax(stage);
   t.shield = t.shieldMax = 0;
   t.x = 360; t.y = -170; t.present = false; t.coreDy = PVE.coreDy; t.hitW = PVE.bossHitW;
   const podHp = Math.round(PVE.podHp * (1 + 0.12 * (stage - 1)));
-  t.turrets = PVE.podOffsets.map(([dx, dy]) => ({ dx, dy, x: t.x + dx, y: t.y + dy, hp: podHp, max: podHp, dead: false, respawn: 0, cd: 3 + game.random() * 3, pod: true }));
+  t.turrets = B.pods.map(([dx, dy]) => ({ dx, dy, x: t.x + dx, y: t.y + dy, hp: podHp, max: podHp, dead: false, respawn: 0, cd: 3 + game.random() * 3, pod: true, podKind: B.podKind }));
   t.patT = 4; t.skillT = 8; t.rage = 1;
 }
 
@@ -41,8 +43,8 @@ export function stepPve(game, dt) {
     if (p.spawnT <= 0) { p.spawnT = PVE.waves.every(p.stage); spawnFormation(game, false); if (game.random() < PVE.waves.double(p.stage)) spawnFormation(game, false); }
     if (p.t <= 0) {
       p.sub = 'enter'; p.t = PVE.bossEnter;
-      game.emit('banner', { team: 'red', text: `第${p.stage}关 · 异形母舰现身！`, tier: 4 });
-      game.emit('announce', { text: '异形母舰现身！', voice: true });
+      game.emit('banner', { team: 'red', text: `第${p.stage}关 · ${boss.bossName}现身！`, tier: 4 });
+      game.emit('announce', { text: `${boss.bossName}现身！`, voice: true });
     }
   } else if (p.sub === 'enter') {
     p.t -= dt;
@@ -56,22 +58,12 @@ export function stepPve(game, dt) {
     const rage = pct > 0.66 ? 1 : pct > 0.33 ? 2 : 3;
     if (rage > boss.rage) {
       boss.rage = rage;
-      game.emit('banner', { team: 'red', text: rage === 2 ? '母舰受创，开始双线扫射！' : '母舰狂暴！湮灭炮准备', tier: 3 });
+      game.emit('banner', { team: 'red', text: RAGE_TEXT[boss.bossId][rage - 2], tier: 3 });
     }
-    boss.patT -= dt;
-    if (boss.patT <= 0) {
-      boss.patT = rage === 1 ? 6 : rage === 2 ? 5 : 4.5;
-      game.spawnPattern('red', 'bossRing', boss.x, boss.y + boss.coreDy + 60, null);
-    }
-    boss.skillT -= dt;
-    if (boss.skillT <= 0) {
-      boss.skillT = PVE.bossSkillEvery[rage - 1];
-      const r = game.random();
-      if (rage === 3 && r < 0.45) castZone(game, 'cannon', 1, '异形母舰');
-      else if (rage >= 2 && r < 0.75) castZone(game, 'sweep', 2, '异形母舰');
-      else castZone(game, 'strike', 1, '异形母舰');
-    }
+    BOSS_AI[boss.bossId](game, boss, dt, rage);
   }
+  stepRays(game, dt);
+  if (game.gravity) { game.gravity.t -= dt; if (game.gravity.t <= 0) game.gravity = null; }
   for (const tu of boss.turrets) { tu.x = boss.x + tu.dx; tu.y = boss.y + tu.dy; }
   // 全队同时阵亡 = 失败
   let ships = 0, alive = 0;
@@ -79,18 +71,122 @@ export function stepPve(game, dt) {
   if (ships > 0 && alive === 0 && p.sub !== 'enter') p.wiped = true;
 }
 
+// ───────── 四种 BOSS 的出招 ─────────
+const RAGE_TEXT = {
+  mother: ['母舰受创，开始双线扫射！', '母舰狂暴！湮灭炮准备'],
+  queen: ['虫后受创，酸液池翻倍！', '虫后狂暴！虫潮倾巢而出'],
+  colossus: ['巨像受创，棱光射线加速！', '巨像狂暴！晶刺连环爆发'],
+  eye: ['深渊之眼睁开了第二层瞳孔！', '深渊之眼狂暴！引力漩涡'],
+};
+const cd = (boss, key, dt, every) => { boss[key] = (boss[key] ?? every * 0.6) - dt; if (boss[key] > 0) return false; boss[key] = every; return true; };
+const BOSS_AI = {
+  // 异形母舰：环形弹幕 + 红区（炮击 / 双线扫射 / 湮灭炮）
+  mother(game, boss, dt, rage) {
+    if (cd(boss, 'patT', dt, [6, 5, 4.5][rage - 1])) game.spawnPattern('red', 'bossRing', boss.x, boss.y + boss.coreDy + 60, null);
+    if (cd(boss, 'skillT', dt, PVE.bossSkillEvery[rage - 1])) {
+      const r = game.random();
+      if (rage === 3 && r < 0.45) castZone(game, 'cannon', 1, boss.bossName);
+      else if (rage >= 2 && r < 0.75) castZone(game, 'sweep', 2, boss.bossName);
+      else castZone(game, 'strike', 1, boss.bossName);
+    }
+  },
+  // 钢铁虫后：追踪孢子 + 酸液池（持续伤害）+ 召唤虫潮；卵囊会孵小虫
+  queen(game, boss, dt, rage) {
+    if (cd(boss, 'patT', dt, [5.5, 4.8, 4][rage - 1])) {
+      const n = 4 + rage * 2;
+      for (let i = 0; i < n; i++) { const a = Math.PI / 2 + (i - (n - 1) / 2) * 0.28; game.addBullet(boss.x + Math.cos(a) * 60, boss.y + 80, Math.cos(a) * 170, Math.sin(a) * 170, 7, 1.4, 'red', 'danmaku', null, 0, { hunt: true, life: 6, hue: 2, spore: true }); }
+      game.emit('cast', { x: boss.x, y: boss.y + 80 });
+    }
+    if (cd(boss, 'skillT', dt, PVE.bossSkillEvery[rage - 1])) {
+      const r = game.random();
+      if (rage === 3 && r < 0.4) { spawnFormation(game, false, 'diver', boss.x, boss.y + 90); spawnFormation(game, false, 'swarm', boss.x, boss.y + 90); game.emit('banner', { team: 'red', text: `${boss.bossName}「虫潮」！`, tier: 3 }); }
+      else castZone(game, 'pool', rage >= 2 ? 2 : 1, boss.bossName);
+    }
+  },
+  // 晶核巨像：碎晶雨 + 旋转棱光射线 + 晶刺（左中右依次爆发）；棱晶会打高速激光
+  colossus(game, boss, dt, rage) {
+    if (cd(boss, 'patT', dt, [5, 4.4, 3.8][rage - 1])) {
+      const n = 8 + rage * 3;
+      for (let i = 0; i < n; i++) game.addBullet(40 + game.random() * 640, 70 - game.random() * 120, (game.random() - 0.5) * 30, 230 + game.random() * 60, 6, 1, 'red', 'danmaku', null, 0, { hue: 3, shard: true });
+    }
+    if (cd(boss, 'skillT', dt, PVE.bossSkillEvery[rage - 1] + 1)) {
+      if (game.random() < 0.5 || rage === 1) castRays(game, boss, 2 + rage);
+      else castCascade(game, boss, rage);
+    }
+  },
+  // 深渊之眼：瞳孔弹幕 + 深渊凝视（锁贡献最高的人那条航道）+ 引力漩涡（把战舰往中间吸并放螺旋弹幕）
+  eye(game, boss, dt, rage) {
+    if (cd(boss, 'patT', dt, [5, 4.4, 3.8][rage - 1])) game.spawnPattern('red', rage >= 2 ? 'bossFlower' : 'bossRing', boss.x, boss.y + boss.coreDy + 40, null);
+    if (cd(boss, 'skillT', dt, PVE.bossSkillEvery[rage - 1])) {
+      if (rage === 3 && game.random() < 0.45 && !game.gravity) {
+        game.gravity = { t: 4.5, max: 4.5, x: boss.x };
+        game.spawnPattern('red', 'podSpiral', boss.x, boss.y + boss.coreDy + 40, null);
+        game.emit('banner', { team: 'red', text: `${boss.bossName}「引力漩涡」！战舰被吸向中间`, tier: 4 });
+      } else castGaze(game, boss);
+    }
+  },
+};
+
+// 深渊凝视：盯住贡献最高的真人所在航道
+function castGaze(game, boss) {
+  let top = null;
+  for (const f of game.fighters.values()) if (!f.alien && !f.npc && f.alive && f.team === 'blue' && (!top || f.merit > top.merit)) top = f;
+  if (top && !game.zones.some(z => z.lanes.includes(top.lane))) {
+    const z = castZone(game, 'gaze', 1, boss.bossName, [top.lane]);
+    if (z) { z.target = top.uid; game.emit('toast', { text: `深渊之眼盯上了 ${top.name}！` }); return; }
+  }
+  castZone(game, 'gaze', 1, boss.bossName);
+}
+// 晶刺：左→中→右（或反过来）依次爆发，跟着跑就能躲
+function castCascade(game, boss, rage) {
+  if (game.zones.length) return;
+  const order = game.random() < 0.5 ? ['L', 'M', 'R'] : ['R', 'M', 'L'];
+  const gap = rage === 3 ? 2.2 : 3;
+  order.forEach((l, i) => {
+    const def = PVE.zones.spike, w = 6 + i * gap;
+    game.zones.push({ id: ++game.zoneSeq, kind: 'spike', name: def.name, frac: def.frac, lanes: [l], warn: w, max: w, caster: boss.bossName, intercept: 0 });
+  });
+  game.emit('banner', { team: 'red', text: `${boss.bossName}「晶刺」${order.map(l => LANE_NAMES[l]).join('→')}依次爆发！看准了躲`, tier: 3 });
+  game.emit('announce', { text: '晶刺连环爆发，快躲', voice: true });
+}
+// 棱光射线：从核心射出几条会旋转的射线，先闪1.2秒预警
+function castRays(game, boss, n) {
+  game.rays = game.rays || [];
+  const dir = game.random() < 0.5 ? 1 : -1;
+  for (let i = 0; i < n; i++) game.rays.push({ ang: -0.9 + (1.8 * i) / Math.max(1, n - 1) + (game.random() - 0.5) * 0.2, spd: dir * (0.32 + 0.06 * boss.rage), warn: 1.4, t: 3.2 });
+  game.emit('banner', { team: 'red', text: `${boss.bossName}「棱光射线」！`, tier: 3 });
+}
+export function rayHits(boss, ray, x, y, w = 16) {
+  const ox = boss.x, oy = boss.y + boss.coreDy, dx = Math.sin(ray.ang), dy = Math.cos(ray.ang);
+  const px = x - ox, py = y - oy, along = px * dx + py * dy;
+  return along > 0 && Math.abs(px * dy - py * dx) < w;
+}
+function stepRays(game, dt) {
+  const boss = game.teams.red;
+  if (!game.rays?.length) return;
+  for (let i = game.rays.length - 1; i >= 0; i--) {
+    const r = game.rays[i];
+    if (!boss.present) { game.rays.splice(i, 1); continue; }
+    if (r.warn > 0) { r.warn -= dt; continue; }
+    r.t -= dt; r.ang += r.spd * dt;
+    if (r.t <= 0) { game.rays.splice(i, 1); continue; }
+    for (const f of game.fighters.values()) if (!f.alien && f.team === 'blue' && f.alive && rayHits(boss, r, f.x, f.y)) hurt(game, f, f.maxHp * 0.3 * dt, null);
+  }
+}
+
 // ───────── 红色区域技能 ─────────
 // 选人最多的航道；同时最多覆盖两条航道，永远留一条安全的
-export function castZone(game, kind, laneCount, caster) {
+export function castZone(game, kind, laneCount, caster, force = null) {
   const used = new Set(game.zones.flatMap(z => z.lanes));
   const free = LANES.filter(l => !used.has(l));
   const room = Math.min(laneCount, free.length - (used.size === 0 ? 1 : 0), 2 - used.size);
   if (room <= 0) return null;
   const count = { L: 0, M: 0, R: 0 };
   for (const f of game.fighters.values()) if (!f.alien && f.team === 'blue' && f.alive) count[f.lane]++;
-  const pick = free.sort((a, b) => count[b] - count[a] + (game.random() - 0.5) * 2).slice(0, room);
+  const pick = force ? force.filter(l => free.includes(l)).slice(0, room) : free.sort((a, b) => count[b] - count[a] + (game.random() - 0.5) * 2).slice(0, room);
+  if (!pick.length) return null;
   const def = PVE.zones[kind];
-  const z = { id: ++game.zoneSeq, kind, name: def.name, frac: def.frac, lanes: pick, warn: PVE.zoneWarn, max: PVE.zoneWarn, caster, intercept: 0 };
+  const z = { id: ++game.zoneSeq, kind, name: def.name, frac: def.frac, lanes: pick, warn: PVE.zoneWarn, max: PVE.zoneWarn, caster, intercept: 0, dot: def.dot || 0, dps: def.dps || 0 };
   game.zones.push(z);
   const where = pick.map(l => LANE_NAMES[l]).join('、');
   const safe = LANES.filter(l => !pick.includes(l) && !used.has(l)).map(l => LANE_NAMES[l]).join('、');
@@ -105,6 +201,13 @@ function stepZones(game, dt) {
     const z = game.zones[i];
     z.warn -= dt;
     if (z.warn > 0) continue;
+    if (z.dot) {   // 酸液池：持续伤害
+      if (!z.active) { z.active = true; z.left = z.dot; game.emit('strike', { kind: z.kind, lanes: z.lanes, hit: 0, intercept: 0 }); }
+      z.left -= dt;
+      for (const f of game.fighters.values()) if (!f.alien && f.team === 'blue' && f.alive && z.lanes.includes(f.lane)) hurt(game, f, f.maxHp * z.dps * dt, null);
+      if (z.left <= 0) game.zones.splice(i, 1);
+      continue;
+    }
     game.zones.splice(i, 1);
     const stage = game.pve?.stage || 1;
     const mult = (1 - Math.min(0.6, z.intercept)) * (1 + 0.04 * (stage - 1));
@@ -131,15 +234,19 @@ export function interceptZone(game, f) {
 }
 
 // ───────── 异形 ─────────
-export function spawnFormation(game, light) {
+export function spawnFormation(game, light, forceKind = null, ox = null, oy = null) {
   const p = game.pve;
   const fleet = game.countTeam('blue');
   let alive = 0; for (const f of game.fighters.values()) if (f.alien && f.alive) alive++;
   const room = PVE.waves.maxAlive(p.stage) - alive;
   if (room <= 0) return;
   const n = Math.min(room, Math.max(2, Math.min(PVE.waves.sizeCap, PVE.waves.size(p.stage) + Math.floor(fleet / 6)) >> (light ? 1 : 0)));
-  const r = game.random();
+  const r = forceKind ? 1 : game.random();
   const gunnerP = Math.min(0.32, 0.14 + p.stage * 0.02);
+  if (forceKind) {   // 虫后召唤 / 卵囊孵化：从指定位置散开
+    for (let i = 0; i < n; i++) { const a = spawnAlien(game, forceKind, ox + (i - (n - 1) / 2) * 30, oy); if (a) { a.vy = 120; a.yStop = Math.max(a.yStop, oy + 60); } }
+    return;
+  }
   if (r < gunnerP) {
     const k = Math.min(room, PVE.waves.gunners(p.stage) - (game.random() < 0.4 ? 1 : 0) || 1);
     for (let i = 0; i < k; i++) spawnAlien(game, 'gunner', 180 + game.random() * 360, -40 - i * 60);
