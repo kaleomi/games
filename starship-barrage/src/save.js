@@ -1,6 +1,6 @@
 // 玩家存档：按抖音用户ID保存等级、经验、战功、胜场、涂装。
 // 存在主播这台电脑的浏览器 localStorage 里；可导出/导入 JSON。
-import { LEVEL, SKINS } from './config.js';
+import { GEAR, LEVEL, SKINS } from './config.js';
 
 const KEY = 'starship-barrage-save-v1';
 const MAX_PROFILES = 20000;
@@ -123,15 +123,16 @@ export class Save {
   clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0, mode: this.data.mode || 'pvp', pveStage: 1, pveBest: 0 }; this.dirty = true; this.flush(); }
 }
 
-const GEAR_SLOTS = ['weapon', 'armor', 'engine', 'core'];
+// 装备存档校验（旧版只有主炮/装甲/引擎/核心且没有副属性，照样能读）
 function validGear(g) {
   const out = {};
   if (!g || typeof g !== 'object') return out;
-  for (const slot of GEAR_SLOTS) {
+  for (const slot of Object.keys(GEAR.slots)) {
     const it = g[slot];
     if (!it || typeof it !== 'object') continue;
-    const tier = clampInt(it.tier, 0, 4, 0), roll = Number(it.roll);
-    out[slot] = { tier, roll: Number.isFinite(roll) ? Math.max(0.5, Math.min(1.5, roll)) : 1, name: String(it.name || '').slice(0, 20) };
+    const tier = clampInt(it.tier, 0, GEAR.tiers.length - 1, 0), roll = Number(it.roll);
+    const subs = Array.isArray(it.subs) ? it.subs.filter(x => x && GEAR.stats[x.stat] && Number.isFinite(Number(x.v))).slice(0, 5).map(x => ({ stat: x.stat, v: Math.max(0, Math.min(2, Number(x.v))) })) : [];
+    out[slot] = { slot, tier, roll: Number.isFinite(roll) ? Math.max(0.5, Math.min(1.5, roll)) : 1, name: GEAR.slots[slot].names[tier], subs };
   }
   return out;
 }

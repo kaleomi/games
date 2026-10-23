@@ -5,6 +5,7 @@ import {
 import { skinFor } from './save.js';
 import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone } from './pve.js';
 import { syncDodge, fmtDuration } from './fleet.js';
+import { nearestEnemy } from './fleet.js';
 import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter } from './fleet.js';
 
 const TEAM_IDS = ['red', 'blue'];
@@ -45,6 +46,7 @@ export function parseCommand(text) {
   if (/^左/.test(s)) return { type: 'lane', lane: 'L' };
   if (/^中/.test(s)) return { type: 'lane', lane: 'M' };
   if (/^右/.test(s)) return { type: 'lane', lane: 'R' };
+  if (has('装备', '背包', 'zb')) return { type: 'gear' };
   if (has('我的', '查询', '战绩')) return { type: 'card' };
   if (has('加入', '参战', '起飞')) return { type: 'join' };
   return null;
@@ -309,6 +311,7 @@ export class Game {
       case 'intercept': if (this.mode === 'pve') interceptZone(this, f); else this.intercept(f); break;
       case 'mode': this.voteMode(f, cmd.mode); break;
       case 'card': this.emit('card', { uid: f.uid }); break;
+      case 'gear': this.emit('card', { uid: f.uid, gear: true }); break;
       default: break;
     }
     return true;
@@ -789,6 +792,7 @@ export class Game {
     if (this.bullets.length >= LIMITS.bullets) return null;
     const b = { x, y, vx, vy, r, dmg, team, kind, owner, pierce: pierce || 0, life: 6, split: 0, hue: 0, laser: false, orb: false, overload: false, gift: false, hit: null };
     if (extra) Object.assign(b, extra);
+    if (this.mode === 'pve' && team === 'blue') { b.seek = true; if (b.life > 3.5 && !b.missile) b.life = 3.5; }
     if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * ((this.pve?.stage || 1) - 1)) : PVE.giftDmg;
     this.bullets.push(b);
     return b;
@@ -924,31 +928,21 @@ export class Game {
     }
   }
 
-  // 输出舰集束导弹：追踪最近的异形，没有就追母舰核心/触手炮
-  steerMissile(b, dt) {
+  // 讨伐模式我方子弹全部自动索敌：导弹转向快，普攻/礼物弹幕/无人机弹柔和追踪（飞成弧线，不再是直线）
+  steerSeek(b, dt) {
     b.age = (b.age || 0) + dt;
-    if (b.age < 0.25) return;
-    if (!b.tgt || b.age - (b.tgtAt || 0) > 0.4) {
+    const turn = b.missile ? 6 : b.kind === 'danmaku' ? 2.2 : 3.4;
+    if (b.missile && b.age < 0.25) return;
+    if (!b.tgt || b.age - (b.tgtAt || 0) > 0.35 || (b.tgt.alien && !b.tgt.alive) || b.tgt.dead) {
       b.tgtAt = b.age;
-      let best = null, bd = 1e12;
-      for (const f of this.fighters.values()) {
-        if (!f.alien || !f.alive) continue;
-        const d = (f.x - b.x) ** 2 + (f.y - b.y) ** 2;
-        if (d < bd) { bd = d; best = { x: f.x, y: f.y, uid: f.uid }; }
-      }
-      const boss = this.teams.red;
-      if (!best && boss.present) {
-        best = { x: boss.x, y: boss.y + PVE.coreDy };
-        for (const pod of boss.turrets || []) if (pod.alive) { const d = (pod.x - b.x) ** 2 + (pod.y - b.y) ** 2; if (d < bd) { bd = d; best = { x: pod.x, y: pod.y }; } }
-      }
-      b.tgt = best;
+      b.tgt = nearestEnemy(this, b.x, b.y);
     }
-    if (b.tgt?.uid) { const f = this.fighters.get(b.tgt.uid); if (f && f.alive) { b.tgt.x = f.x; b.tgt.y = f.y; } }
-    if (!b.tgt) return;
-    const sp = Math.hypot(b.vx, b.vy) || 1, nsp = Math.min(620, sp + 500 * dt);
-    const want = Math.atan2(b.tgt.y - b.y, b.tgt.x - b.x), cur = Math.atan2(b.vy, b.vx);
+    const t = b.tgt;
+    if (!t) return;
+    const sp = Math.hypot(b.vx, b.vy) || 1, nsp = b.missile ? Math.min(620, sp + 500 * dt) : sp;
+    const want = Math.atan2(t.y - b.y, t.x - b.x), cur = Math.atan2(b.vy, b.vx);
     let da = want - cur; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
-    const a = cur + Math.max(-6 * dt, Math.min(6 * dt, da));
+    const a = cur + Math.max(-turn * dt, Math.min(turn * dt, da));
     b.vx = Math.cos(a) * nsp; b.vy = Math.sin(a) * nsp;
   }
 
@@ -957,7 +951,7 @@ export class Game {
     let w = 0;
     for (let i = 0; i < arr.length; i++) {
       const b = arr[i];
-      if (b.missile) this.steerMissile(b, dt);
+      if (b.seek) this.steerSeek(b, dt);
       b.x += b.vx * dt; b.y += b.vy * dt; b.life -= dt;
       let dead = b.life <= 0 || b.y < -40 || b.y > H + 40 || b.x < -40 || b.x > W + 40;
       if (!dead && b.split > 0) {
@@ -1003,6 +997,7 @@ export class Game {
           if (b.hit && b.hit.has(f.uid)) continue;
           const hitDmg = this.mode === 'pve' ? b.dmg : b.kind === 'danmaku' ? 1 : b.dmg * (b.gift || b.overload || f.alien ? 1 : this.shotFactor[b.team]);
           if (!this.hurtFighter(f, hitDmg, b.owner)) continue;
+          if (b.crit) this.emit('crit', { x: f.x, y: f.y, dmg: Math.round(hitDmg) });
           if (b.pierce > 0) { b.pierce--; (b.hit ||= new Set()).add(f.uid); continue; }
           return true;
         }
@@ -1027,6 +1022,7 @@ export class Game {
         if (dx * dx + dy * dy < (26 + b.r) ** 2) {
           const dmg = this.mode === 'pve' ? b.dmg * (b.kind === 'danmaku' ? 0.4 : 1) : (b.kind === 'danmaku' ? 0.5 : b.dmg);
           tu.hp -= dmg;
+          if (b.crit) this.emit('crit', { x: tu.x, y: tu.y, dmg: Math.round(dmg) });
           if (this.mode === 'pve') { const o = this.fighters.get(b.owner); if (o && !o.alien) o.merit += dmg * PVE.contrib.dmg; }
           if (tu.hp <= 0) this.killTurret(t, tu, b.owner);
           return true;
@@ -1034,6 +1030,7 @@ export class Game {
       }
       if (Math.abs(b.x - t.x) < t.hitW / 2 && Math.abs(b.y - fy) < (t.boss ? 50 : 40)) {
         this.damageFlag(enemyId, b.dmg, b.owner, b.kind, b.gift);
+        if (b.crit) this.emit('crit', { x: b.x, y: b.y, dmg: Math.round(b.dmg) });
         if (b.overload) this.emit('spark', { x: b.x, y: b.y, team: b.team, big: true });
         return true;
       }

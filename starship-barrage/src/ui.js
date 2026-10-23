@@ -44,10 +44,11 @@ export function rulesHtml(settings, mode = 'pvp') {
       <tr><td>${range(3)}</td><td>召唤战舰${GIFT.battleshipSeconds}秒，舰体写着你的名字</td></tr>
       <tr><td>${range(4)}</td><td>${pve ? `旗舰主炮：轰掉母舰${Math.round(PVE.playerCannonDamage * 100)}%血量，母舰没出现时先蓄满等着` : `旗舰主炮：蓄力${GIFT.cannonCharge}秒，对面发「拦截」最多削弱${Math.round(GIFT.interceptCap * 100)}%`}</td></tr>
     </table>
+    ${pve ? gearTable() : ''}
     <h2>榜单与成长</h2>
     <ul>
       ${pve ? `<li><b>贡献值</b>＝打伤害 + 给队友回血 + 替队友挨打，过关全员+${PVE.stageClearContrib}，<b>不显示消费金额</b></li>
-      <li>打爆母舰掉装备：贡献前三必掉，其余${60}%；更好的自动穿上，差的分解成星核碎片。品质：${GEAR.tiers.map(t => `<span style="color:${t.color}">${t.name}</span>`).join(' · ')}</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
+      <li>打爆母舰掉装备：贡献前三必掉，其余60%；更好的自动穿上，差的分解成星核碎片 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
       <li>等级跟着抖音账号保存，<b>等级越高，AI躲弹越灵活</b>，满${LEVEL.max}级；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
       <li>灰色「NPC」战机是人少时的补位电脑，不是真人，不进榜单</li>
       <li>礼物效果固定、没有抽奖；理性消费，未成年人请勿打赏</li>
@@ -76,6 +77,17 @@ function classTable() {
         </div>
       </div>`).join('')}
     </div>`;
+}
+
+function gearTable() {
+  const S = GEAR.stats, T = GEAR.tiers;
+  const rows = Object.entries(GEAR.slots).map(([id, sl]) => `
+      <div class="gslot"><div class="gicons">${T.map((t, i) => svgImg(gearIconSvg(id, i, 72), 30)).join('')}</div>
+        <b>${sl.name}</b><small>${S[sl.stat].label} +${Math.round(S[sl.stat].main * 100)}%~${Math.round(S[sl.stat].main * T[T.length - 1].f * 115)}%</small></div>`).join('');
+  return `<h2>装备 <small>打爆母舰掉落，自动穿戴更好的</small></h2>
+    <div class="gtiers">${T.map(t => `<span style="color:${t.color};border-color:${t.color}">${t.name}${t.subs ? `·${t.subs}条副属性` : ''}</span>`).join('')}</div>
+    <div class="gear">${rows}</div>
+    <div class="gnote">副属性随机：攻击、防御、生命、攻速、暴击率、暴击伤害、技能急速、技能强度。基础暴击率5%、暴击伤害150%；防御上限75%</div>`;
 }
 
 export class UI {
@@ -298,7 +310,7 @@ export class UI {
       const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i>${esc(m.name)}<b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
       if (res.mode === 'pve') {
         const list = (res.mvp.blue || []).map((m, i) => `<div><i>${i < 3 ? medalSvg(i, 30) : `<span class="rk">${i + 1}</span>`}</i><span>${esc(m.name)}${m.cls ? `<small class="ct">${CLASSES[m.cls].short}</small>` : ''}</span><b>贡献 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
-        const drops = (res.drops || []).slice(0, 8).map(d => `<div class="drop">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 64), 30)}<span>${esc(d.name)}</span><b style="color:${GEAR.tiers[d.item.tier].color}">${esc(describeItem(d.item))}</b><em>${d.equipped ? '已装备' : '分解'}</em></div>`).join('');
+        const drops = (res.drops || []).slice(0, 8).map(d => `<div class="drop">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 40)}<span>${esc(d.name)}</span><b style="color:${GEAR.tiers[d.item.tier].color}">${esc(describeItem(d.item))}</b><em>${d.equipped ? '已装备' : '分解'}</em></div>`).join('');
         this.resultEl.innerHTML = `
           <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `第${res.stage}关 讨伐成功` : '讨伐失败'}</div>
           <div class="reason">${res.clear ? `异形母舰被击毁 · 下一局挑战第${res.next}关` : `${res.reason === 'timeout' ? `${PVE.stageSeconds / 60}分钟内没打爆母舰` : '舰队全员阵亡'} · 退回第${res.next}关`}</div>

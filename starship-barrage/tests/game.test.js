@@ -257,7 +257,7 @@ test('讨伐模式整局能打完，异形会被击落且不进榜单', () => {
   assert.ok(game.humans().some(f => f.kills > 0));
 });
 
-test('讨伐模式：选战舰；医疗舰先给血量最低的两艘回血，全员满血才攻击', () => {
+test('讨伐模式：选战舰；医疗舰先给血量最低的两艘回血，平时也会自动索敌开火', () => {
   const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
   game.setMode('pve');
   game.chat({ id: 'h', name: '奶妈' }, '医疗');
@@ -275,11 +275,8 @@ test('讨伐模式：选战舰；医疗舰先给血量最低的两艘回血，�
   game.step(1 / 60);
   assert.ok(a.hp > a.maxHp * 0.3 && b.hp > b.maxHp * 0.5);
   assert.equal(c.hp, c.maxHp * 0.9);
-  assert.equal(game.bullets.filter(x => x.owner === 'h').length, shotsBefore);
   assert.ok(h.merit > 0);
-  for (const f of [a, b, c, h]) f.hp = f.maxHp;
-  h.fireCd = 0; game.step(1 / 60);
-  assert.ok(game.bullets.some(x => x.owner === 'h'));
+  assert.ok(game.bullets.filter(x => x.owner === 'h').length > shotsBefore, '有人受伤时医疗舰照样开火');
 });
 
 test('讨伐模式：红色区域10秒后命中，发「左/中/右」躲开就没事；付费自动躲弹会自己躲', async () => {
@@ -360,7 +357,7 @@ test('讨伐模式：打爆母舰按贡献掉装备，自动穿戴并提升属�
   const top = game.fighters.get('g4');
   const p = save.peek('g4');
   assert.ok(Object.keys(p.gear).length >= 1, '第一名必掉并穿上');
-  assert.ok(top.stats.atk > atk0 || top.maxHp > hp0 || top.stats.haste > 0 || top.stats.power > 1);
+  assert.ok(top.stats.atk > atk0 || top.maxHp > hp0 || top.stats.armor > 0 || top.stats.aspd > 0 || top.stats.crit > 0.05 || top.stats.critDmg > 1.5);
   const back = new Save({ storage: { getItem: () => save.exportJson(), setItem() {} } });
   assert.deepEqual(back.peek('g4').gear, p.gear);
 });
@@ -435,4 +432,49 @@ test('讨伐模式：航母放无人机打怪，大招护卫蜂群拦截子弹�
   for (let i = 0; i < 60 * 2; i++) { game.step(1 / 60); d.x = 360; }
   assert.ok(d.beamAngle > 0.3, `光束转向右边 ${d.beamAngle}`);
   assert.ok(hp0 - a.hp > 100, '光束打到右路的怪');
+});
+
+test('装备：6个部位主属性+按品质的副属性，评分高的自动穿；暴击、攻速、防御生效；普攻自动索敌', async () => {
+  const { rollItem, gearScore, shipStats, describeItem, nearestEnemy } = await import('../src/fleet.js');
+  const { spawnAlien } = await import('../src/pve.js');
+  let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const seen = new Set();
+  for (let i = 0; i < 400; i++) {
+    const it = rollItem(rnd, 8);
+    seen.add(it.slot);
+    assert.equal(it.subs.length, [0, 1, 2, 3, 4, 5][it.tier], '品质决定副属性条数');
+    assert.ok(!it.subs.some(x => x.stat === ({ weapon: 'atk', armor: 'def', engine: 'aspd', scope: 'crit', core: 'critDmg', generator: 'hp' })[it.slot]), '副属性不和主属性重复');
+    assert.ok(describeItem(it).includes('+'));
+  }
+  assert.equal(seen.size, 6);
+  const lo = { slot: 'scope', tier: 0, roll: 1, subs: [] }, hi = { slot: 'scope', tier: 3, roll: 1, subs: [{ stat: 'atk', v: 0.16 }] };
+  assert.ok(gearScore(hi) > gearScore(lo));
+  const st = shipStats({ cls: 'dps', level: 1, gear: { scope: hi, armor: { slot: 'armor', tier: 4, roll: 1, subs: [] }, engine: { slot: 'engine', tier: 2, roll: 1, subs: [] } } });
+  assert.ok(Math.abs(st.crit - (0.05 + 0.24)) < 1e-6, '暴击率 = 5% + 主属性');
+  assert.ok(Math.abs(st.armor - 0.27) < 1e-6, '防御');
+  assert.ok(Math.abs(st.aspd - 0.175) < 1e-6, '攻速');
+  // 自动索敌：怪在右边，机甲（中路）的普攻往右飞
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 't', name: 'T' }, '机甲');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
+  const t = game.fighters.get('t'); t.lane = 'M'; t.x = 360; t.y = 650;
+  const a = spawnAlien(game, 'gunner', 640, 300); a.hp = 1e4; a.yStop = 300;
+  assert.equal(nearestEnemy(game, 360, 650), a);
+  t.fireCd = 0; game.step(1 / 60);
+  const b = game.bullets.find(x => x.owner === 't');
+  assert.ok(b && b.vx > 100 && b.seek, '普攻朝怪的方向飞并追踪');
+  for (let i = 0; i < 60 * 3; i++) { game.step(1 / 60); t.x = 360; }
+  assert.ok(a.hp < 1e4, '打中了');
+});
+
+test('发「装备」弹出自己的装备卡片', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'u', name: 'U' }, '输出');
+  game.drainEvents();
+  game.chat({ id: 'u' }, '装备');
+  assert.ok(game.drainEvents().some(e => e.type === 'card' && e.uid === 'u' && e.gear));
 });

@@ -104,7 +104,7 @@ export const PVE = {
   lanes: { L: [24, 244], M: [250, 470], R: [476, 696] },
   wander: { x: 80, y: 40, speed: 30 },   // 战机在自己航道内慢慢随机游走（像素、像素/秒）
   alienZone: [140, 520],
-  bossHp: 20000,
+  bossHp: 16000,
   bossGrowth: 1.18,           // 每关母舰血量 ×1.18
   bossY: 140,
   bossHitW: 220,
@@ -157,20 +157,37 @@ export const CLASSES = {
   healer: { name: '医疗舰', short: '医疗', hp: 90,  atk: 4, armor: 0.1,  heal: 1, fireCd: 0.5,  skillCd: 3,   skill: '治疗链',   ult: '生命圣光', skillWords: ['治疗链', '回血', '加血'], ultWords: ['圣光'], desc: '同时给血量最低的2艘回血，全员满血才攻击；大招全体回血并复活' },
 };
 
-// 装备：打爆母舰随机掉落，自动穿戴更好的
+// 装备：打爆母舰随机掉落，自动穿戴更好的。6个部位各有主属性；品质越高随机副属性越多（精良1条 … 至尊5条）
 export const GEAR = {
+  // 品质：白 → 蓝 → 紫 → 橙 → 金 → 红
   tiers: [
-    { id: 'common',    name: '普通', color: '#c9d1e2', f: 1,  w: 50 },
-    { id: 'rare',      name: '精良', color: '#4fa3ff', f: 2,  w: 30 },
-    { id: 'legendary', name: '传说', color: '#ffc94d', f: 4,  w: 14 },
-    { id: 'ultimate',  name: '极品', color: '#ff4d5e', f: 8,  w: 5 },
-    { id: 'chaos',     name: '七彩', color: '#c58bff', f: 12, w: 1 },
+    { id: 'white',  name: '普通', color: '#e8edf5', f: 1,   w: 46, subs: 0 },
+    { id: 'blue',   name: '精良', color: '#4fa3ff', f: 2,   w: 28, subs: 1 },
+    { id: 'purple', name: '史诗', color: '#b066ff', f: 3.5, w: 15, subs: 2 },
+    { id: 'orange', name: '传说', color: '#ff8a2a', f: 6,   w: 7,  subs: 3 },
+    { id: 'gold',   name: '神话', color: '#ffd23a', f: 9,   w: 3,  subs: 4 },
+    { id: 'red',    name: '至尊', color: '#ff3b4e', f: 13,  w: 1,  subs: 5 },
   ],
+  // 属性：main=作为主属性时每档系数，sub=作为副属性时每档系数（实际值 = 系数 × 品质倍率 f × 浮动0.85~1.15）
+  stats: {
+    atk:     { label: '攻击',     main: 0.06,  sub: 0.02 },
+    def:     { label: '防御',     main: 0.03,  sub: 0.01 },    // 受到伤害减免，和战舰自带减伤相加，上限75%
+    hp:      { label: '生命',     main: 0.07,  sub: 0.025 },
+    aspd:    { label: '攻速',     main: 0.05,  sub: 0.02 },    // 普攻射速，上限+100%
+    crit:    { label: '暴击率',   main: 0.04,  sub: 0.015 },   // 基础5%，上限80%
+    critDmg: { label: '暴击伤害', main: 0.15,  sub: 0.05 },    // 基础150%
+    haste:   { label: '技能急速', main: 0,     sub: 0.015 },   // 技能和大招冷却缩短，上限40%
+    power:   { label: '技能强度', main: 0,     sub: 0.03 },
+  },
+  baseCrit: 0.05, baseCritDmg: 1.5,
+  caps: { def: 0.75, aspd: 1, crit: 0.8, haste: 0.4 },
   slots: {
-    weapon: { name: '主炮', stat: 'atk',   per: 0.06,  label: '攻击', names: ['脉冲炮管', '等离子炮管', '星陨炮管', '湮灭炮管', '七彩奇点炮'] },
-    armor:  { name: '装甲', stat: 'hp',    per: 0.06,  label: '血量', names: ['合金装甲', '纳米装甲', '星辉装甲', '虚空装甲', '七彩星核甲'] },
-    engine: { name: '引擎', stat: 'haste', per: 0.025, label: '技能急速', names: ['离子引擎', '曲速引擎', '星环引擎', '跃迁引擎', '七彩永动引擎'] },
-    core:   { name: '核心', stat: 'power', per: 0.05,  label: '技能强度', names: ['能量核心', '聚变核心', '星辰核心', '神格核心', '七彩创世核心'] },
+    weapon:    { name: '主炮',       stat: 'atk',     names: ['脉冲炮管', '等离子炮管', '星陨炮管', '湮灭炮管', '神威主炮', '天罚神炮'] },
+    armor:     { name: '装甲',       stat: 'def',     names: ['合金装甲', '纳米装甲', '星辉装甲', '虚空装甲', '神铸装甲', '龙鳞神甲'] },
+    engine:    { name: '引擎',       stat: 'aspd',    names: ['离子引擎', '曲速引擎', '星环引擎', '跃迁引擎', '神行引擎', '永动神擎'] },
+    scope:     { name: '瞄准器',     stat: 'crit',    names: ['光学瞄具', '量子瞄具', '鹰眼瞄具', '神谕瞄具', '天眼瞄具', '破虚之眼'] },
+    core:      { name: '核心',       stat: 'critDmg', names: ['能量核心', '聚变核心', '星辰核心', '神格核心', '创世核心', '混沌核心'] },
+    generator: { name: '护盾发生器', stat: 'hp',      names: ['力场发生器', '护盾矩阵', '星盾发生器', '永恒壁垒', '神域发生器', '不灭圣域'] },
   },
 };
 

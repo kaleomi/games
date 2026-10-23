@@ -1,6 +1,7 @@
 // 星舰弹幕战 · 矢量美术（SVG 绘制，加载后栅格化缓存到离屏画布）
 // 舰船（战机、讨伐三职业、召唤战舰）在 ships.js
 export { fighterSvg, dpsSvg, mechSvg, healerSvg, battleshipSvg, carrierSvg, droneShipSvg } from './ships.js';
+export { gearIconSvg } from './gear-art.js';
 // 所有舰船统一「机头朝上」绘制，原点在中心；红方在画面上方，绘制时整体翻转。
 
 const TEAM_COLORS = {
@@ -523,26 +524,6 @@ export function zoneGlyphSvg(px) {
     <path d="M0,-26 L26,20 L-26,20 Z" fill="#ff1f3a" filter="url(#b)" opacity=".8"/>
     <path d="M0,-26 L26,20 L-26,20 Z" fill="#2a0008" fill-opacity=".75" stroke="#ff4d5e" stroke-width="3" stroke-linejoin="round"/>
     <rect x="-3" y="-11" width="6" height="18" rx="2" fill="#fff"/><circle cy="13" r="3.2" fill="#fff"/>
-  </svg>`;
-}
-
-export function gearIconSvg(slot, tier, px) {
-  const T = ['#c9d1e2', '#4fa3ff', '#ffc94d', '#ff4d5e', 'rainbow'][tier] || '#c9d1e2';
-  const rim = T === 'rainbow' ? 'url(#rb)' : T;
-  let sym = '';
-  if (slot === 'weapon') sym = `<rect x="-3.5" y="-15" width="7" height="22" rx="1.6" fill="url(#m)" stroke="#0a0d16" stroke-width=".8"/><rect x="-6.5" y="4" width="13" height="9" rx="2" fill="url(#m)" stroke="#0a0d16" stroke-width=".8"/><rect x="-4.5" y="-8" width="9" height="2.4" fill="${rim}"/><circle cy="-15" r="3" fill="#fff" opacity=".85"/>`;
-  if (slot === 'armor') sym = `<path d="M0,-14 L12,-9 L11,4 C9,10 4,13 0,15 C-4,13 -9,10 -11,4 L-12,-9 Z" fill="url(#m)" stroke="#0a0d16" stroke-width=".9"/><path d="M0,-9 L7,-6 L6.4,3 C5,7 2.4,9 0,10 Z" fill="${rim}" opacity=".8"/>`;
-  if (slot === 'engine') sym = `<path d="M-8,-12 L8,-12 L10,2 L-10,2 Z" fill="url(#m)" stroke="#0a0d16" stroke-width=".9"/><rect x="-9" y="2" width="18" height="4" rx="1" fill="#2a2f3d"/><path d="M-6,6 Q0,18 6,6 Z" fill="#7fe3ff"/><path d="M-3,6 Q0,13 3,6 Z" fill="#fff"/><path d="M-6,-7 H6" stroke="${rim}" stroke-width="2"/>`;
-  if (slot === 'core') sym = `<path d="M0,-14 L10,-4 L6,12 L-6,12 L-10,-4 Z" fill="${rim}" opacity=".35"/><path d="M0,-14 L10,-4 L6,12 L-6,12 L-10,-4 Z M0,-14 L0,12 M-10,-4 L10,-4" fill="none" stroke="#fff" stroke-width="1.2"/><circle r="4" fill="#fff"/>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-24 -24 48 48">
-    <defs>
-      <linearGradient id="rb" x1="-20" y1="-20" x2="20" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff5f6d"/><stop offset=".25" stop-color="#ffc371"/><stop offset=".5" stop-color="#5fffb0"/><stop offset=".75" stop-color="#5fb8ff"/><stop offset="1" stop-color="#c57bff"/></linearGradient>
-      <radialGradient id="bg" cx="-6" cy="-8" r="30" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#2c3550"/><stop offset="1" stop-color="#0b0f1c"/></radialGradient>
-      <linearGradient id="m" x1="-8" y1="0" x2="8" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6a7390"/><stop offset=".5" stop-color="#eef2fb"/><stop offset="1" stop-color="#5a6380"/></linearGradient>
-    </defs>
-    <rect x="-21" y="-21" width="42" height="42" rx="9" fill="url(#bg)" stroke="${rim}" stroke-width="3"/>
-    <rect x="-17" y="-17" width="34" height="34" rx="6" fill="none" stroke="${rim}" stroke-opacity=".35" stroke-width="1"/>
-    ${sym}
   </svg>`;
 }
 

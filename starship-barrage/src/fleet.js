@@ -29,20 +29,26 @@ export function parseClass(text) {
 }
 
 // ───────── 装备 ─────────
-export function gearScore(item) {
-  if (!item) return 0;
-  const tier = GEAR.tiers[item.tier] || GEAR.tiers[0];
-  return tier.f * (item.roll || 1);
+// 物品：{ slot, tier, roll, name, subs: [{ stat, v }] }；主属性值 = 主系数 × 品质倍率 × roll
+export function itemMain(item) {
+  const sl = GEAR.slots[item.slot], t = GEAR.tiers[item.tier] || GEAR.tiers[0];
+  return { stat: sl.stat, v: GEAR.stats[sl.stat].main * t.f * (item.roll || 1) };
 }
-export function gearValue(slot, item) {
-  if (!item) return 0;
-  return GEAR.slots[slot].per * gearScore(item);
+export function itemStats(item) {
+  if (!item || !GEAR.slots[item.slot]) return [];
+  return [itemMain(item), ...(item.subs || [])];
+}
+// 装备评分：每条属性按「同档主属性」折算成分数，用来决定是否自动穿上
+export function gearScore(item) {
+  if (!item || !GEAR.slots[item.slot]) return 0;
+  let sc = 0;
+  for (const { stat, v } of itemStats(item)) { const st = GEAR.stats[stat]; if (st) sc += v / (st.main || st.sub * 3); }
+  return sc;
 }
 export function gearBonus(gear) {
-  const b = { atk: 0, hp: 0, haste: 0, power: 0 };
+  const b = Object.fromEntries(Object.keys(GEAR.stats).map(k => [k, 0]));
   if (!gear) return b;
-  for (const slot of Object.keys(GEAR.slots)) b[GEAR.slots[slot].stat] += gearValue(slot, gear[slot]);
-  b.haste = Math.min(0.4, b.haste);
+  for (const slot of Object.keys(GEAR.slots)) if (gear[slot]) for (const { stat, v } of itemStats({ ...gear[slot], slot })) if (stat in b) b[stat] += v;
   return b;
 }
 export function rollItem(random, stage, bonusRolls = 0) {
@@ -57,27 +63,61 @@ export function rollItem(random, stage, bonusRolls = 0) {
     for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r <= 0) { tier = i; break; } }
     best = Math.max(best, tier);
   }
+  const T = GEAR.tiers[best];
   const roll = Math.round((0.85 + random() * 0.3) * 100) / 100;
-  return { slot, tier: best, roll, name: GEAR.slots[slot].names[best] };
+  // 副属性：不和主属性重复，彼此不重复
+  const pool = Object.keys(GEAR.stats).filter(k => k !== GEAR.slots[slot].stat);
+  const subs = [];
+  for (let i = 0; i < T.subs && pool.length; i++) {
+    const stat = pool.splice(Math.floor(random() * pool.length), 1)[0];
+    subs.push({ stat, v: Math.round(GEAR.stats[stat].sub * T.f * (0.85 + random() * 0.3) * 1000) / 1000 });
+  }
+  return { slot, tier: best, roll, name: GEAR.slots[slot].names[best], subs };
 }
+const pct = v => `${Math.round(v * 1000) / 10}%`.replace('.0%', '%');
+export function statText({ stat, v }) { return `${GEAR.stats[stat].label}+${pct(v)}`; }
 export function describeItem(item) {
-  const s = GEAR.slots[item.slot];
-  return `${GEAR.tiers[item.tier].name}·${item.name} ${s.label}+${Math.round(gearValue(item.slot, item) * 100)}%`;
+  return `${GEAR.tiers[item.tier].name}·${item.name} ${itemStats(item).map(statText).join(' ')}`;
 }
 
 // ───────── 属性 ─────────
 export function shipStats(f) {
   const c = CLASSES[f.cls] || CLASSES.dps;
   const lv = 1 + 0.02 * Math.max(0, (f.level || 1) - 1);
-  const g = gearBonus(f.gear);
+  const g = gearBonus(f.gear), cap = GEAR.caps;
   return {
     maxHp: Math.round(c.hp * lv * (1 + g.hp)),
     atk: c.atk * lv * (1 + g.atk),
-    armor: c.armor,
+    armor: Math.min(cap.def, c.armor + g.def),
     heal: (c.heal || 0) * lv * (1 + g.power),
     power: 1 + g.power,
-    haste: g.haste,
+    haste: Math.min(cap.haste, g.haste),
+    aspd: Math.min(cap.aspd, g.aspd),
+    crit: Math.min(cap.crit, GEAR.baseCrit + g.crit),
+    critDmg: GEAR.baseCritDmg + g.critDmg,
   };
+}
+// 暴击：返回 [伤害, 是否暴击]；持续伤害（光束、旋风）用期望值，免得数字乱跳
+export function rollCrit(game, f, dmg) {
+  const st = f.stats; if (!st) return [dmg, false];
+  if (game.random() < st.crit) return [dmg * st.critDmg, true];
+  return [dmg, false];
+}
+export function critAvg(f) { const st = f.stats; return st ? 1 + st.crit * (st.critDmg - 1) : 1; }
+// 自动索敌：附近（260内）有异形先打异形；母舰在场就打母舰核心；否则打最近的异形
+export function nearestEnemy(game, x, y, maxD = 1e9, near = 260) {
+  let best = null, bd = maxD * maxD;
+  for (const e of game.fighters.values()) {
+    if (!e.alien || !e.alive || e.y < 20) continue;
+    const d = (e.x - x) ** 2 + (e.y - y) ** 2;
+    if (d < bd) { bd = d; best = e; }
+  }
+  const boss = game.teams.red;
+  if (boss.present && (!best || bd > near * near)) {
+    const core = { x: boss.x, y: boss.y + boss.coreDy, core: true };
+    if ((core.x - x) ** 2 + (core.y - y) ** 2 <= maxD * maxD) return core;
+  }
+  return best;
 }
 
 export function pickClass(game) {
@@ -194,20 +234,28 @@ export function stepShip(game, f, dt, combat) {
   // 点赞充满：超载炮
   if (f.charge >= 100) {
     f.charge = 0;
-    game.addBullet(f.x, f.y - 18, 0, -900, 14, PVE.overloadAtk * f.stats.atk, 'blue', 'shot', f.uid, 8, { overload: true, pveScaled: true });
+    const tg = nearestEnemy(game, f.x, f.y), oa = tg ? Math.atan2(tg.y - f.y, tg.x - f.x) : -Math.PI / 2;
+    const [od, crit] = rollCrit(game, f, PVE.overloadAtk * f.stats.atk);
+    game.addBullet(f.x, f.y - 18, Math.cos(oa) * 900, Math.sin(oa) * 900, 14, od, 'blue', 'shot', f.uid, 8, { overload: true, pveScaled: true, crit });
     game.emit('overload', { uid: f.uid, x: f.x, y: f.y, team: 'blue' });
   }
-  // 普通攻击（医疗舰要等全员满血）
-  if (f.cls === 'healer' && anyHurt(game)) return;
+  // 普通攻击：所有职业都自动索敌开火，射速吃「攻速」
   f.fireCd -= dt;
   if (f.fireCd <= 0) {
-    f.fireCd = CLASSES[f.cls].fireCd * (1 - f.stats.haste * 0.5);
-    const dmg = f.stats.atk * (1 + 0.2 * (f.power - 1));
-    if (f.cls === 'dps') {
-      for (const off of f.power >= 3 ? [-7, 0, 7] : [-4, 4]) game.addBullet(f.x + off, f.y - 16, 0, -1050, 3.5, dmg / (f.power >= 3 ? 3 : 2) * 1.4, 'blue', 'shot', f.uid, 0, { pveScaled: true });
-    } else {
-      game.addBullet(f.x, f.y - 18, 0, -760, f.cls === 'tank' ? 7 : 5, dmg, 'blue', 'shot', f.uid, 0, { pveScaled: true, orb: f.cls === 'tank', heal: f.cls === 'healer' });
-    }
+    f.fireCd = CLASSES[f.cls].fireCd / (1 + f.stats.aspd);
+    const tgt = nearestEnemy(game, f.x, f.y);
+    const ang = tgt ? Math.atan2(tgt.y - (f.y - 16), tgt.x - f.x) : -Math.PI / 2;
+    f.aimAngle = ang + Math.PI / 2;
+    const ca = Math.cos(ang), sa = Math.sin(ang), px = -sa, py = ca;   // 垂直方向，用来排开多发
+    const base = f.stats.atk * (1 + 0.2 * (f.power - 1));
+    const shot = (off, speed, r, dmg, extra) => {
+      const [d, crit] = rollCrit(game, f, dmg);
+      game.addBullet(f.x + px * off + ca * 16, f.y - 4 + py * off + sa * 16, ca * speed, sa * speed, crit ? r * 1.4 : r, d, 'blue', 'shot', f.uid, 0, { pveScaled: true, crit, ...extra });
+    };
+    if (f.cls === 'dps') { const offs = f.power >= 3 ? [-7, 0, 7] : [-4, 4]; for (const o of offs) shot(o, 1050, 3.5, base / offs.length * 1.4); }
+    else if (f.cls === 'tank') shot(0, 760, 7, base, { orb: true });
+    else if (f.cls === 'healer') shot(0, 760, 5, base, { heal: true });
+    else shot(0, 860, 4.5, base);
   }
 }
 
@@ -246,7 +294,7 @@ export function stepBeam(game, f, dt) {
   if (f.beamCharge > 0) { f.beamCharge -= dt; return; }   // 先蓄能，再发射
   f.beamT -= dt;
   if (f.beamT <= 0) { f.beamT = 0; f.beamAngle = 0; f.beamTgt = null; }
-  const dps = 12 * f.stats.atk * f.stats.power;
+  const dps = 12 * f.stats.atk * f.stats.power * critAvg(f);
   for (const e of [...game.fighters.values()]) {
     if (!e.alien || !e.alive || !beamHits(f, e.x, e.y, e.r || 10)) continue;
     hurt(game, e, dps * dt, f.uid);
@@ -263,20 +311,30 @@ export function stepBeam(game, f, dt) {
 
 // ───────── 重装机甲 ─────────
 // 小技能「冲击」：机甲前冲一拳，向前方扇形打出冲击波——伤害并击退虫群、打散敌方子弹、嘲讽3秒
-function inCone(f, x, y, reach) { const dy = f.y - y; return dy >= -10 && dy <= reach && Math.abs(x - f.x) <= 50 + dy * 0.45; }
+function inCone(f, x, y, reach) {
+  // 把目标点转到「冲击方向朝上」的坐标系再判断扇形
+  const a = f.impactAngle || 0, dx = x - f.x, dy = y - f.y;
+  const lx = dx * Math.cos(a) + dy * Math.sin(a), ly = -dx * Math.sin(a) + dy * Math.cos(a);
+  const up = -ly;
+  return up >= -10 && up <= reach && Math.abs(lx) <= 50 + up * 0.45;
+}
 function castImpact(game, f) {
   const T = PVE.tank, reach = T.impactReach * (1 + 0.15 * (f.stats.power - 1));
-  const dmg = T.impactAtk * f.stats.atk * f.stats.power;
+  const [dmg, crit] = rollCrit(game, f, T.impactAtk * f.stats.atk * f.stats.power);
+  // 自动索敌：朝最近的敌人打（最多偏 60°）
+  const tg = nearestEnemy(game, f.x, f.y, reach + 80);
+  f.impactAngle = tg ? Math.max(-1.05, Math.min(1.05, Math.atan2(tg.x - f.x, f.y - tg.y))) : 0;
   f.lungeT = 0.35; f.taunt = Math.max(f.taunt, 3);
   let hits = 0, cleared = 0;
   for (const e of [...game.fighters.values()]) {
     if (!e.alien || !e.alive || !inCone(f, e.x, e.y, reach)) continue;
     hurt(game, e, dmg, f.uid); hits++;
-    if (e.alive) e.y -= 46 * (1 - (f.y - e.y) / reach);
+    if (crit) game.emit('crit', { x: e.x, y: e.y, dmg: Math.round(dmg) });
+    if (e.alive) { const k = 46 * (1 - Math.hypot(e.x - f.x, e.y - f.y) / reach); e.x += Math.sin(f.impactAngle) * k; e.y -= Math.cos(f.impactAngle) * k; }
   }
   for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && inCone(f, b.x, b.y, reach)) { b.life = 0; cleared++; }
   f.merit += cleared * PVE.enemyBulletDmg * PVE.contrib.taken * 0.5;
-  game.emit('impact', { uid: f.uid, x: f.x, y: f.y, reach, hits, cleared });
+  game.emit('impact', { uid: f.uid, x: f.x, y: f.y, reach, hits, cleared, angle: f.impactAngle });
   game.emit('skill', { uid: f.uid, skill: 'impact', x: f.x, y: f.y });
   return true;
 }
@@ -315,7 +373,7 @@ function stepRush(game, f, dt) {
   if (f.rushT <= 0) { f.rushT = 0; f.returning = true; f.invuln = Math.max(f.invuln, 0.8); }
 }
 function whirlHit(game, f) {
-  const T = PVE.tank, R = T.whirlR, dmg = T.whirlAtk * f.stats.atk * f.stats.power;
+  const T = PVE.tank, R = T.whirlR, dmg = T.whirlAtk * f.stats.atk * f.stats.power * critAvg(f);
   let spark = 0;
   for (const e of [...game.fighters.values()]) {
     if (!e.alien || !e.alive) continue;
@@ -400,15 +458,11 @@ export function stepDrones(game, dt) {
     if (d.cd <= 0 && tgt) {
       d.cd = d.kind === 'attack' ? C.droneShotCd : C.guardShotCd;
       const a = Math.atan2(tgt.y - d.y, tgt.x - d.x);
-      game.addBullet(d.x, d.y - 6, Math.cos(a) * 760, Math.sin(a) * 760, 3, C.droneShotAtk * atk * pw, 'blue', 'shot', o.uid, 0, { pveScaled: true, laser: true, life: 2 });
+      const [dd, crit] = rollCrit(game, o, C.droneShotAtk * atk * pw); game.addBullet(d.x, d.y - 6, Math.cos(a) * 760, Math.sin(a) * 760, 3, dd, 'blue', 'shot', o.uid, 0, { pveScaled: true, laser: true, life: 2, crit });
     }
   }
 }
 
-function anyHurt(game) {
-  for (const f of game.fighters.values()) if (!f.alien && f.team === 'blue' && (!f.alive || f.hp < f.maxHp - 0.5)) return true;
-  return false;
-}
 
 export function laneDanger(game) {
   const d = { L: 0, M: 0, R: 0 };
@@ -436,7 +490,7 @@ function castSkill(game, f) {
   const n = 6;
   for (let i = 0; i < n; i++) {
     const a = -Math.PI / 2 + (i / (n - 1) - 0.5) * 1.6;
-    game.addBullet(f.x, f.y - 10, Math.cos(a) * 260, Math.sin(a) * 260, 5, 2.5 * f.stats.atk * f.stats.power, 'blue', 'shot', f.uid, 0, { pveScaled: true, missile: true, life: 4 });
+    { const [d, crit] = rollCrit(game, f, 2.5 * f.stats.atk * f.stats.power); game.addBullet(f.x, f.y - 10, Math.cos(a) * 260, Math.sin(a) * 260, 5, d, 'blue', 'shot', f.uid, 0, { pveScaled: true, missile: true, life: 4, crit }); }
   }
   f.recoilT = 0.3;
   game.emit('skill', { uid: f.uid, skill: 'missile', x: f.x, y: f.y });
@@ -537,8 +591,8 @@ export function rollDrops(game, stage) {
     const item = rollItem(game.random, stage, rank === 0 ? 1 : 0);
     const gear = f.gear || (f.gear = {});
     const cur = gear[item.slot];
-    const equipped = gearScore(item) > gearScore(cur);
-    if (equipped) { gear[item.slot] = { tier: item.tier, roll: item.roll, name: item.name }; refreshStats(f); }
+    const equipped = gearScore(item) > gearScore(cur && { ...cur, slot: item.slot });
+    if (equipped) { gear[item.slot] = { slot: item.slot, tier: item.tier, roll: item.roll, name: item.name, subs: item.subs.map(x => ({ ...x })) }; refreshStats(f); }
     else {
       const p = game.save?.peek(f.uid);
       if (p && !f.test) { p.shards = (p.shards || 0) + GEAR.tiers[item.tier].f * 10; game.save.dirty = true; }
