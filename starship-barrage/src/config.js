@@ -100,7 +100,7 @@ export const LIMITS = { bullets: 3200, particles: 1600, fighters: 400 };
 // 讨伐模式（PvE）：全员一支舰队（没有要塞），先清虫群，再打异形母舰；打爆进下一关，全队阵亡或超时退回一关
 export const PVE = {
   zone: [600, 1200],          // 我方战机活动区
-  rows: { tank: 650, dps: 840, healer: 1030 },   // 机甲在前排，输出居中，医疗在后排
+  rows: { tank: 650, dps: 820, carrier: 930, healer: 1040 },   // 机甲在前排，输出居中，航母和医疗在后排
   lanes: { L: [24, 244], M: [250, 470], R: [476, 696] },
   wander: { x: 80, y: 40, speed: 30 },   // 战机在自己航道内慢慢随机游走（像素、像素/秒）
   alienZone: [140, 520],
@@ -143,6 +143,9 @@ export const PVE = {
   skillQueue: 1.5,            // 冷却快好时发的指令，冷却好后1.5秒内自动补放
   overloadAtk: 8,
   // 重装机甲：小技能「冲击」向前方扇形冲击波（伤害+击退+打散子弹）；大招「无敌冲锋斩」无敌4秒冲进怪堆旋风斩
+  // 航母：小技能放4架攻击无人机（8秒），大招「蜂群风暴」放10架护卫无人机（8秒）拦截子弹并开火
+  carrier: { droneLife: 8, attackDrones: 4, guardDrones: 10, droneShotCd: 0.35, droneShotAtk: 1.2, guardShotCd: 0.6, guardR: 46, maxPerOwner: 12 },
+  beamCharge: 0.5,            // 歼灭光束蓄能时间
   tank: { impactAtk: 8, impactReach: 320, rushTime: 4, rushSpeed: 1100, whirlR: 125, whirlAtk: 4, whirlTick: 0.2 },             // 点赞充满放的超载炮：8倍攻击，穿透
 };
 
@@ -150,6 +153,7 @@ export const PVE = {
 export const CLASSES = {
   dps:    { name: '输出舰', short: '输出', hp: 100, atk: 10, armor: 0,    heal: 0, fireCd: 0.25, skillCd: 6,   skill: '集束导弹', ult: '歼灭光束', skillWords: ['导弹'], ultWords: ['光束'], desc: '高伤害，导弹追踪，大招沿航道发射光束' },
   tank:   { name: '重装机甲', short: '机甲', hp: 260, atk: 5, armor: 0.35, heal: 0, fireCd: 0.5,  skillCd: 8,   skill: '冲击', ult: '无敌冲锋斩', skillWords: ['冲击'], ultWords: ['冲锋', '旋风斩', '冲锋斩'], desc: '站前排挡子弹；冲击波击退虫群、打散子弹；大招无敌冲进怪堆旋风斩' },
+  carrier: { name: '蜂巢航母', short: '航母', hp: 150, atk: 6, armor: 0.15, heal: 0, fireCd: 0.5, skillCd: 8, skill: '无人机', ult: '蜂群风暴', skillWords: ['无人机', '放飞机'], ultWords: ['蜂群', '风暴'], desc: '放无人机追着怪打；大招放出护卫蜂群拦截子弹' },
   healer: { name: '医疗舰', short: '医疗', hp: 90,  atk: 4, armor: 0.1,  heal: 1, fireCd: 0.5,  skillCd: 3,   skill: '治疗链',   ult: '生命圣光', skillWords: ['治疗链', '回血', '加血'], ultWords: ['圣光'], desc: '同时给血量最低的2艘回血，全员满血才攻击；大招全体回血并复活' },
 };
 

@@ -1,7 +1,7 @@
 // 设置面板、开局规则页、结算页（DOM）
 import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR } from './config.js';
 import { bossMax } from './pve.js';
-import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, fighterSvg } from './art.js';
+import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, dpsSvg, carrierSvg } from './art.js';
 import { describeItem } from './fleet.js';
 
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
@@ -19,7 +19,7 @@ export function rulesHtml(settings, mode = 'pvp') {
   const range = i => i < 4 ? `${t[i]}–${t[i + 1] - 1}` : `${t[i]}+`;
   const pve = mode === 'pve';
   const how = pve ? `
-      <li>发 <b>输出 / 机甲 / 医疗</b> 选战舰加入（发「加入」默认补缺的职业），战舰<b>自动开火</b></li>
+      <li>发 <b>输出 / 机甲 / 医疗 / 航母</b> 选战舰加入（发「加入」默认补缺的职业），战舰<b>自动开火</b></li>
       <li>发 <b>技能</b> 放小技能，发 <b>大招</b> 放大招（冷却${PVE.ultCooldown}秒）；战机旁的小图标亮了就是好了</li>
       <li>异形放技能时航道会出现<b>红色区域，10秒倒计时</b>：发 <b>左 / 中 / 右</b> 换航道躲开（总有一条是安全的）</li>
       <li><b>点赞</b>充能，满了打出超载炮 · 母舰「湮灭炮」锁定时全员发 <b>拦截</b> 削弱</li>
@@ -58,14 +58,15 @@ export function rulesHtml(settings, mode = 'pvp') {
 const svgImg = (svg, size) => `<img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" width="${size}" height="${size}" alt="">`;
 
 function classTable() {
-  const art = { dps: fighterSvg('blue', 'charge', 2, false, 120), tank: mechSvg(2, 120), healer: healerSvg(2, 120) };
-  const icons = { dps: ['missile', 'beam'], tank: ['shield', 'barrier'], healer: ['heal', 'healUlt'] };
+  const art = { dps: dpsSvg(0, 120), tank: mechSvg(0, 120), healer: healerSvg(0, 120), carrier: carrierSvg(0, 120) };
+  const icons = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'], carrier: ['drones', 'swarm'] };
   const skillText = {
-    dps: ['6枚追踪导弹', '沿航道光束2.5秒'],
-    tank: ['护盾+嘲讽，吸引火力', '航道屏障挡子弹6秒'],
+    dps: ['6枚追踪导弹', '自动瞄准光束2.5秒'],
+    tank: ['冲击波击退、打散子弹', '无敌4秒冲进怪堆旋风斩'],
     healer: ['给血量最低的2艘回血', '全体回血40%，复活阵亡'],
+    carrier: ['放4架无人机追着怪打', '10架护卫蜂群拦截子弹'],
   };
-  return `<h2>三种战舰 <small>发名字切换，存档记住</small></h2>
+  return `<h2>四种战舰 <small>发名字切换，存档记住</small></h2>
     <div class="classes">${Object.entries(CLASSES).map(([id, c]) => `
       <div class="cls ${id}">
         <div class="art">${svgImg(art[id], 54)}</div>
@@ -108,7 +109,8 @@ export class UI {
   buildPanel() {
     const s = this.settings;
     this.panel.innerHTML = `
-      <header><b>星舰弹幕战 · 主播设置</b><button data-act="close">收起</button></header>
+      <header><b>星舰弹幕战 · 主播设置</b><span><button data-act="save" class="primary">保存设置</button> <button data-act="close">收起</button></span></header>
+      <div class="note autosave">改完会自动保存并马上生效（输入框改完点别处即可）。<span id="save-note"></span></div>
       <section>
         <h3>连接熙梦</h3>
         <div class="row">端口 <input id="cfg-port" type="number" min="1024" max="65535" value="${s.port}">
@@ -122,8 +124,9 @@ export class UI {
         <div class="row wrap"><button data-act="mode-pvp">切到对战（红蓝对攻）</button><button data-act="mode-pve">切到讨伐（打母舰）</button><button data-act="stage-reset">讨伐回到第1关</button></div>
         <div class="note">观众也能随时发「换讨伐」「换对战」投票切换，在场一半人同意就换（和暴力摩托一样）。</div>
         <h3>对局</h3>
-        <div class="row">每局上限 <input id="cfg-minutes" type="number" min="3" max="30" value="${s.battleMinutes}"> 分钟</div>
-        <div class="row">人少时每队补位NPC到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMinPerTeam}"> 架</div>
+        <div class="row">对战每局上限 <input id="cfg-minutes" type="number" min="3" max="30" value="${s.battleMinutes}"> 分钟</div>
+        <div class="row">人少时补位NPC到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMinPerTeam}"> 架</div>
+        <div class="note">真人不够这个数时，自动补灰色NPC战机凑数（对战每队各补；讨伐只补我方舰队）；真人越多NPC越少，填0就不补。NPC不进榜单。</div>
         <div class="row"><label><input id="cfg-tts" type="checkbox" ${s.tts ? 'checked' : ''}> 语音播报</label>
           <label><input id="cfg-sfx" type="checkbox" ${s.sfx ? 'checked' : ''}> 音效</label></div>
       </section>
@@ -132,7 +135,7 @@ export class UI {
         <div class="row tiers">${[1, 2, 3, 4].map(i => `${i + 1}档起 <input data-tier="${i}" type="number" min="1" value="${s.tiers[i]}">`).join(' ')}</div>
         <div class="row">按礼物名指定档位（每行「礼物名=档位」，优先于价值）：</div>
         <textarea id="cfg-names" rows="3" placeholder="小心心=1&#10;墨镜=3">${esc(Object.entries(s.giftTierByName).map(([k, v]) => `${k}=${v}`).join('\n'))}</textarea>
-        <div class="row"><button data-act="save">保存设置</button><span id="save-note" class="note"></span></div>
+
       </section>
       <section>
         <h3>测试（只在没连熙梦时可用）</h3>
@@ -155,6 +158,12 @@ export class UI {
       <section><div class="row"><button data-act="rules">显示 / 隐藏规则页</button></div>
         <div class="note">按 F2 打开或收起本面板。直播时把面板收起再采集画面。</div></section>`;
     this.panel.addEventListener('click', e => { const b = e.target.closest('button'); if (b) this.action(b.dataset.act, b); });
+    // 设置项改完自动保存生效，不用找保存按钮
+    this.panel.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.matches('#cfg-port, #cfg-auto, #cfg-minutes, #cfg-npc, #cfg-tts, #cfg-sfx, input[data-tier], #cfg-names')) return;
+      try { this.readSettings(); this.onSettings(); this.note(el.id === 'cfg-npc' ? `已保存：人少时补位NPC到${this.settings.npcMinPerTeam}架` : '已自动保存'); } catch (err) { this.note(err.message); }
+    });
     document.getElementById('import-file').addEventListener('change', e => this.importFile(e.target.files[0]));
   }
 

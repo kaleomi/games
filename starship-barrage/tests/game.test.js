@@ -403,3 +403,36 @@ test('讨伐模式：每关限时2分钟（含虫群），超时退回一关', (
   assert.equal(result.clear, false); assert.equal(result.reason, 'timeout');
   assert.ok(game.time <= 121 + 25, `用时 ${game.time}`);
 });
+
+test('讨伐模式：航母放无人机打怪，大招护卫蜂群拦截子弹；输出舰光束自动瞄准别的航道的怪', async () => {
+  const { spawnAlien } = await import('../src/pve.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'c', name: '航' }, '航母');
+  game.chat({ id: 'd', name: '输' }, '输出');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
+  const c = game.fighters.get('c'), d = game.fighters.get('d');
+  assert.equal(c.cls, 'carrier');
+  const a = spawnAlien(game, 'gunner', 600, 300); a.hp = 1e4; a.yStop = 300; a.fireCd = 999; a.skillT = 999;
+  game.chat({ id: 'c' }, '无人机'); game.step(1 / 60);
+  assert.equal(game.pveDrones.filter(x => x.kind === 'attack').length, 4);
+  for (let i = 0; i < 60 * 3; i++) game.step(1 / 60);
+  assert.ok(a.hp < 1e4, '无人机打到怪');
+  game.chat({ id: 'c' }, '蜂群'); game.step(1 / 60);
+  assert.equal(game.pveDrones.filter(x => x.kind === 'guard').length, 10);
+  for (let i = 0; i < 60; i++) game.step(1 / 60);
+  const g0 = game.pveDrones.find(x => x.kind === 'guard');
+  game.addBullet(g0.x, g0.y - 20, 0, 200, 5, 1, 'red', 'danmaku', null, 0);
+  const m0 = c.merit;
+  for (let i = 0; i < 10; i++) game.step(1 / 60);
+  assert.ok(c.merit > m0, '护卫无人机拦截子弹记贡献');
+  // 输出舰在中路，怪在右路：光束转过去打
+  d.lane = 'M'; d.x = 360;
+  const hp0 = a.hp;
+  game.chat({ id: 'd' }, '大招');
+  for (let i = 0; i < 60 * 2; i++) { game.step(1 / 60); d.x = 360; }
+  assert.ok(d.beamAngle > 0.3, `光束转向右边 ${d.beamAngle}`);
+  assert.ok(hp0 - a.hp > 100, '光束打到右路的怪');
+});

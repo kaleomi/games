@@ -1,6 +1,6 @@
 // 讨伐模式（PvE）：虫群 → 异形母舰。没有我方要塞，战舰血量就是全队的命。
 import { W, H, PVE } from './config.js';
-import { LANES, LANE_NAMES, laneCenter, hurt } from './fleet.js';
+import { LANES, LANE_NAMES, laneCenter, hurt, stepDrones } from './fleet.js';
 
 export function currentStage(game) { return Math.max(1, game.save?.data?.pveStage || game.memStage || 1); }
 export function bossMax(stage) { return Math.round(PVE.bossHp * PVE.bossGrowth ** (stage - 1)); }
@@ -34,6 +34,7 @@ export function stepPve(game, dt) {
   if (!p) return;
   p.left -= dt;
   stepZones(game, dt);
+  stepDrones(game, dt);
   for (let i = game.barriers.length - 1; i >= 0; i--) { game.barriers[i].t -= dt; if (game.barriers[i].t <= 0) game.barriers.splice(i, 1); }
   if (p.sub === 'wave') {
     p.t -= dt; p.spawnT -= dt;

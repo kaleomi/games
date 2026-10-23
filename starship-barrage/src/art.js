@@ -1,4 +1,6 @@
 // 星舰弹幕战 · 矢量美术（SVG 绘制，加载后栅格化缓存到离屏画布）
+// 舰船（战机、讨伐三职业、召唤战舰）在 ships.js
+export { fighterSvg, dpsSvg, mechSvg, healerSvg, battleshipSvg, carrierSvg, droneShipSvg } from './ships.js';
 // 所有舰船统一「机头朝上」绘制，原点在中心；红方在画面上方，绘制时整体翻转。
 
 const TEAM_COLORS = {
@@ -57,126 +59,6 @@ function sparkles() {
   return `<g opacity=".95">${star(-18, 10, 2.2)}${star(16, 6, 1.6)}${star(3, -2, 1.4)}${star(-6, 14, 1.2)}${star(22, 14, 1.4)}</g>`;
 }
 
-// ───────── 战机：激光=游隼截击机，散弹=重炮艇，蓄力=长矛电磁炮 ─────────
-export function fighterSvg(team, weapon, skin, npc, px) {
-  const s = skinStyle(team, skin, npc);
-  let wings, body, extras, nozzles, silhouette;
-  if (weapon === 'spread') {
-    const wing = 'M-7,-7 L-29,7 L-30,13 L-21,16 L-8,12 Z';
-    const rear = 'M-7,11 L-19,19 L-17,23 L-7,19 Z';
-    const fus = 'M0,-25 C4.4,-21 7.2,-13 8.2,-3 L9.4,13 L6.6,22 L-6.6,22 L-9.4,13 L-8.2,-3 C-7.2,-13 -4.4,-21 0,-25 Z';
-    silhouette = mirror(wing) + mirror(rear) + `<path d="${fus}"/>`;
-    wings = both(wing, `fill="url(#wing)" stroke="${s.trim}" stroke-width=".8"`) + both(rear, `fill="url(#wing)" stroke="${s.trim}" stroke-width=".7"`) +
-      both('M-10,2 L-26,9 L-26,11.5 L-11,6 Z', `fill="${s.stripe}"`) +
-      both('M-14,-2 L-17,12 M-21,2 L-23,13', 'stroke="#000" stroke-opacity=".35" stroke-width=".5" fill="none"');
-    extras =
-      // 翼下散弹炮舱（三管）
-      both('M-23,-8 h5 a1.2,1.2 0 0 1 1.2,1.2 v13 h-7.4 v-13 a1.2,1.2 0 0 1 1.2,-1.2 Z', `fill="#2b3142" stroke="${s.trim}" stroke-width=".6"`) +
-      both('M-22.6,-10.5 h1.4 v3 h-1.4 Z M-20.7,-11.5 h1.4 v4 h-1.4 Z M-18.8,-10.5 h1.4 v3 h-1.4 Z', 'fill="#c7cfdf"') +
-      both('M-20,-11.8 m-1.6,0 a1.6,1.6 0 1 0 3.2,0 a1.6,1.6 0 1 0 -3.2,0', `fill="${s.c.glow}" opacity=".9" filter="url(#soft)"`);
-    body = `<path d="${fus}" fill="url(#hull)" stroke="${s.trim}" stroke-width=".9"/><path d="${fus}" fill="url(#hullSide)"/>
-      <path d="M-4,-4 L-4,18 M4,-4 L4,18 M-7,7 L7,7 M-6,14 L6,14" stroke="#000" stroke-opacity=".3" stroke-width=".5" fill="none"/>
-      <path d="M0,-18 C3.4,-15 4,-10 3.6,-5 L-3.6,-5 C-4,-10 -3.4,-15 0,-18 Z" fill="url(#canopy)" stroke="#0a0f1c" stroke-width=".5"/>
-      <path d="M-1.4,-15.5 C-.6,-13.5 -.7,-10.5 -1.3,-8" stroke="#fff" stroke-opacity=".85" stroke-width=".8" fill="none" stroke-linecap="round"/>
-      <path d="M-2.6,-24 L0,-21 L2.6,-24" stroke="${s.stripe}" stroke-width="1.2" fill="none"/>`;
-    nozzles = [-5, 0, 5].map(x => `<rect x="${x - 1.7}" y="21" width="3.4" height="2.6" rx=".6" fill="#2a2f3d"/><ellipse cx="${x}" cy="25" rx="2.4" ry="3.6" fill="url(#nozzle)"/>`).join('');
-  } else if (weapon === 'charge') {
-    const wing = 'M-5,7 L-25,-7 L-28,-4 L-15,14 L-6,17 Z';
-    const fus = 'M0,-15 C4.2,-12 6.2,-5 6.2,4 L5.2,18 L3.2,23 L-3.2,23 L-5.2,18 L-6.2,4 C-6.2,-5 -4.2,-12 0,-15 Z';
-    silhouette = mirror(wing) + `<path d="${fus}"/><rect x="-2" y="-31" width="4" height="20"/>`;
-    wings = both(wing, `fill="url(#wing)" stroke="${s.trim}" stroke-width=".8"`) +
-      both('M-8,6 L-23,-4 L-24.5,-2.5 L-10,9.5 Z', `fill="${s.stripe}"`) +
-      both('M-12,3 L-16,13 M-18,-1 L-21,6', 'stroke="#000" stroke-opacity=".35" stroke-width=".5" fill="none"');
-    extras =
-      // 电磁轨道炮
-      `<rect x="-2.2" y="-31" width="4.4" height="21" rx="1" fill="#3a4152" stroke="${s.trim}" stroke-width=".6"/>
-       <rect x="-.7" y="-31" width="1.4" height="20" fill="${s.c.glow}" opacity=".85"/>
-       ${[-27, -22, -17].map(y => `<ellipse cx="0" cy="${y}" rx="3.4" ry="1.1" fill="none" stroke="${s.c.glow}" stroke-width="1"/>`).join('')}
-       <circle cx="0" cy="-31" r="2.6" fill="url(#nozzle)"/>` +
-      // 储能舱
-      both('M-11,6 m-3.2,0 a3.2,3.2 0 1 0 6.4,0 a3.2,3.2 0 1 0 -6.4,0', `fill="#22283a" stroke="${s.trim}" stroke-width=".6"`) +
-      both('M-11,6 m-1.8,0 a1.8,1.8 0 1 0 3.6,0 a1.8,1.8 0 1 0 -3.6,0', `fill="${s.c.glow}" filter="url(#soft)"`);
-    body = `<path d="${fus}" fill="url(#hull)" stroke="${s.trim}" stroke-width=".9"/><path d="${fus}" fill="url(#hullSide)"/>
-      <path d="M-3,0 L-3,18 M3,0 L3,18 M-5,10 L5,10" stroke="#000" stroke-opacity=".3" stroke-width=".5" fill="none"/>
-      <path d="M0,-10 C2.6,-8 3.2,-3.5 2.8,1 L-2.8,1 C-3.2,-3.5 -2.6,-8 0,-10 Z" fill="url(#canopy)" stroke="#0a0f1c" stroke-width=".5"/>
-      <path d="M-1,-8 C-.4,-6.4 -.5,-4 -.9,-1.8" stroke="#fff" stroke-opacity=".85" stroke-width=".7" fill="none" stroke-linecap="round"/>`;
-    nozzles = `<rect x="-2.4" y="22" width="4.8" height="2.4" rx=".6" fill="#2a2f3d"/><ellipse cx="0" cy="26" rx="3" ry="4.4" fill="url(#nozzle)"/>`;
-  } else {
-    const wing = 'M-4,-4 L-26,13 L-26,18 L-9,15.5 L-6,10 Z';
-    const canard = 'M-4,-13 L-10.5,-7.5 L-10.5,-5.5 L-4,-7.5 Z';
-    const fin = 'M4.6,9 L9.5,18.5 L5,18.5 Z';
-    const fus = 'M0,-30 C2.6,-24 4.6,-16 5.4,-6 L6.4,12 L4.6,21 L-4.6,21 L-6.4,12 L-5.4,-6 C-4.6,-16 -2.6,-24 0,-30 Z';
-    silhouette = mirror(wing) + mirror(canard) + `<path d="${fus}"/>`;
-    wings = both(wing, `fill="url(#wing)" stroke="${s.trim}" stroke-width=".8"`) +
-      both('M-9,6.5 L-23.5,15.4 L-23.5,17 L-10,10 Z', `fill="${s.stripe}"`) +
-      both('M-11,4 L-14,15 M-17,9 L-19,16', 'stroke="#000" stroke-opacity=".35" stroke-width=".5" fill="none"') +
-      both(canard, `fill="url(#wing)" stroke="${s.trim}" stroke-width=".6"`) +
-      both(fin, `fill="${s.stripe}" stroke="${s.trim}" stroke-width=".5"`);
-    extras =
-      // 翼尖激光炮
-      both('M-27.2,1 h2.4 a.8,.8 0 0 1 .8,.8 v12 h-4 v-12 a.8,.8 0 0 1 .8,-.8 Z', `fill="#c6cfe2" stroke="${s.trim}" stroke-width=".5"`) +
-      both('M-26,1 m-1.5,0 a1.5,1.5 0 1 0 3,0 a1.5,1.5 0 1 0 -3,0', `fill="${s.c.glow}" filter="url(#soft)"`);
-    body = `<path d="${fus}" fill="url(#hull)" stroke="${s.trim}" stroke-width=".9"/><path d="${fus}" fill="url(#hullSide)"/>
-      <path d="M-2.8,-3 L-2.8,17 M2.8,-3 L2.8,17 M-5.2,5 L5.2,5 M-5.6,12 L5.6,12" stroke="#000" stroke-opacity=".3" stroke-width=".5" fill="none"/>
-      <path d="M0,-21 C2.4,-18 3,-13 2.6,-8 L-2.6,-8 C-3,-13 -2.4,-18 0,-21 Z" fill="url(#canopy)" stroke="#0a0f1c" stroke-width=".5"/>
-      <path d="M-1,-18.5 C-.3,-16.5 -.4,-13.5 -.9,-11" stroke="#fff" stroke-opacity=".85" stroke-width=".75" fill="none" stroke-linecap="round"/>
-      <path d="M0,-29 L0,-24" stroke="${s.stripe}" stroke-width="1.4"/>`;
-    nozzles = [-2.5, 2.5].map(x => `<rect x="${x - 1.6}" y="20.4" width="3.2" height="2.6" rx=".6" fill="#2a2f3d"/><ellipse cx="${x}" cy="24.4" rx="2.2" ry="3.4" fill="url(#nozzle)"/>`).join('');
-  }
-  const aura = s.aura ? `<g fill="none" stroke="${s.aura}" stroke-width="3.2" opacity=".85" filter="url(#blur)">${silhouette}</g>` : '';
-  const goldEdge = s.gold ? `<g fill="none" stroke="#ffe08a" stroke-width=".6" opacity=".9">${silhouette}</g>` : '';
-  const nav = `<circle cx="-24" cy="16.5" r="1" fill="#ff5a5a"/><circle cx="24" cy="16.5" r="1" fill="#5aff9b"/>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-34 -34 68 68">${defs(s)}
-    ${aura}${nozzles}${wings}${extras}${body}${goldEdge}${s.sparkle ? sparkles() : ''}${weapon === 'laser' ? nav : ''}</svg>`;
-}
-
-// ───────── 召唤战舰（礼物战舰，带金边） ─────────
-export function battleshipSvg(team, pxW, pxH) {
-  const c = TEAM_COLORS[team];
-  const lights = (pts) => pts.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.1" fill="${c.glow}"/>`).join('');
-  const hull = 'M0,-58 L9,-46 L15,-22 L21,8 L24,34 L17,48 L-17,48 L-24,34 L-21,8 L-15,-22 L-9,-46 Z';
-  const spon = 'M-15,-2 L-58,14 L-72,26 L-70,34 L-50,34 L-18,30 Z';
-  const turret = (y, r) => `<g transform="translate(0,${y})">
-      <rect x="-3.2" y="${-r - 9}" width="2.2" height="${r + 5}" rx=".6" fill="#c9d1e2" stroke="#0a0e18" stroke-width=".4"/>
-      <rect x="1" y="${-r - 9}" width="2.2" height="${r + 5}" rx=".6" fill="#c9d1e2" stroke="#0a0e18" stroke-width=".4"/>
-      <circle r="${r}" fill="url(#dome)" stroke="#ffd86b" stroke-width=".8"/>
-      <circle r="${r * .35}" fill="${c.glow}" opacity=".9"/></g>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" viewBox="-80 -64 160 128">
-  <defs>
-    <linearGradient id="h" x1="0" y1="-58" x2="0" y2="48" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff6dc"/><stop offset=".2" stop-color="${c.light}"/><stop offset=".55" stop-color="${c.base}"/><stop offset="1" stop-color="${c.deep}"/></linearGradient>
-    <linearGradient id="hs" x1="-24" y1="0" x2="24" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".3" stop-color="#000" stop-opacity="0"/><stop offset=".55" stop-color="#fff" stop-opacity=".22"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></linearGradient>
-    <linearGradient id="deck" x1="0" y1="-50" x2="0" y2="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3d4560"/><stop offset="1" stop-color="#151a28"/></linearGradient>
-    <linearGradient id="sp" x1="0" y1="-4" x2="0" y2="34" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${c.metal[0]}"/><stop offset="1" stop-color="${c.metal[2]}"/></linearGradient>
-    <radialGradient id="dome" cx="-1.5" cy="-1.5" r="8" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e9eef8"/><stop offset=".5" stop-color="#5b6680"/><stop offset="1" stop-color="#1a1f2d"/></radialGradient>
-    <radialGradient id="noz"><stop offset="0" stop-color="#fff"/><stop offset=".35" stop-color="${c.glow}"/><stop offset="1" stop-color="${c.glow}" stop-opacity="0"/></radialGradient>
-    <filter id="b" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.5"/></filter>
-  </defs>
-  <g opacity=".75" filter="url(#b)"><path d="${hull}" fill="none" stroke="#ffd86b" stroke-width="4"/></g>
-  ${[-22, 0, 22].map(x => `<ellipse cx="${x}" cy="56" rx="${x ? 5 : 7}" ry="${x ? 9 : 12}" fill="url(#noz)"/>`).join('')}
-  ${both(spon, 'fill="url(#sp)" stroke="#ffd86b" stroke-width="1"')}
-  ${both('M-24,10 L-60,22 L-62,25 L-24,15 Z', `fill="${c.base}"`)}
-  ${both('M-38,18 h10 v8 h-10 Z M-52,22 h9 v7 h-9 Z', 'fill="#1b2030" stroke="#0a0d16" stroke-width=".6"')}
-  ${both('M-36,19.5 h2 v5 h-2 Z M-32,19.5 h2 v5 h-2 Z M-50,23.5 h2 v4 h-2 Z M-46,23.5 h2 v4 h-2 Z', `fill="${c.glow}" opacity=".85"`)}
-  ${both('M-66,26 m-2,0 a2,2 0 1 0 4,0 a2,2 0 1 0 -4,0', `fill="${c.glow}"`)}
-  <path d="${hull}" fill="url(#h)" stroke="#ffd86b" stroke-width="1.4"/>
-  <path d="${hull}" fill="url(#hs)"/>
-  <path d="M0,-50 L7,-40 L11,-18 L15,12 L-15,12 L-11,-18 L-7,-40 Z" fill="url(#deck)" stroke="#0a0e18" stroke-width=".7"/>
-  <path d="M-12,-10 L12,-10 M-14,4 L14,4 M0,-48 L0,12" stroke="#000" stroke-opacity=".35" stroke-width=".6"/>
-  <path d="M-6,-54 L0,-47 L6,-54" fill="none" stroke="#ffd86b" stroke-width="1.6"/>
-  ${both('M-9,-40 L-16,-16 L-14,-16 L-7.5,-38 Z', `fill="${c.base}" opacity=".9"`)}
-  ${turret(-26, 6.2)}${turret(-2, 6.8)}
-  <g transform="translate(0,26)">
-    <path d="M-12,-8 L12,-8 L15,12 L-15,12 Z" fill="#232a3c" stroke="#ffd86b" stroke-width="1"/>
-    <rect x="-9" y="-4" width="18" height="3" fill="${c.glow}" opacity=".9"/>
-    <rect x="-7" y="2" width="14" height="2" fill="${c.glow}" opacity=".6"/>
-    <path d="M-4,-8 L-3,-16 L3,-16 L4,-8" fill="#2f3850" stroke="#0a0e18" stroke-width=".6"/>
-    <line x1="0" y1="-16" x2="0" y2="-24" stroke="#c9d1e2" stroke-width="1"/><circle cx="0" cy="-24" r="1.4" fill="#ff6060"/>
-  </g>
-  ${lights([[-18, 20], [-19.5, 28], [-20.5, 36], [18, 20], [19.5, 28], [20.5, 36], [-12, -30], [12, -30], [-14, -20], [14, -20]])}
-  ${[-22, 0, 22].map(x => `<rect x="${x - 4.5}" y="46" width="9" height="5" rx="1.2" fill="#2a2f3d" stroke="#0a0e18" stroke-width=".5"/>`).join('')}
-</svg>`;
-}
-
 // ───────── 旗舰（宇宙要塞），赤焰棱角、苍穹流线 ─────────
 export function flagshipSvg(team, pxW, pxH) {
   const c = TEAM_COLORS[team];
@@ -209,8 +91,8 @@ export function flagshipSvg(team, pxW, pxH) {
     .map(([x, y, w, h]) => `<rect x="${x - w / 2}" y="${y}" width="${w}" height="${h}" rx="1.5" fill="url(#arm)" stroke="#05070d" stroke-width=".8"/><rect x="${x - w / 2 + 2}" y="${y + 2}" width="${w - 4}" height="1.4" fill="#fff" opacity=".18"/>`).join('');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" viewBox="-320 -100 640 200">
   <defs>
-    <linearGradient id="met" x1="0" y1="-72" x2="0" y2="80" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6a7594"/><stop offset=".35" stop-color="${c.metal[0]}"/><stop offset=".75" stop-color="${c.metal[1]}"/><stop offset="1" stop-color="${c.metal[2]}"/></linearGradient>
-    <linearGradient id="arm" x1="0" y1="-60" x2="0" y2="62" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7a86a6"/><stop offset=".45" stop-color="#363e58"/><stop offset="1" stop-color="#141826"/></linearGradient>
+    <linearGradient id="met" x1="0" y1="-72" x2="0" y2="80" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${red ? '#f7e4e8' : '#e6eefa'}"/><stop offset=".3" stop-color="${red ? '#c897a2' : '#93a9cc'}"/><stop offset=".7" stop-color="${red ? '#5a2c38' : '#33466a'}"/><stop offset="1" stop-color="${c.metal[2]}"/></linearGradient>
+    <linearGradient id="arm" x1="0" y1="-60" x2="0" y2="62" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${red ? '#fff0f2' : '#f2f7ff'}"/><stop offset=".45" stop-color="${red ? '#b98591' : '#8aa0c4'}"/><stop offset="1" stop-color="${red ? '#3a1820' : '#1e2a44'}"/></linearGradient>
     <linearGradient id="pad" x1="0" y1="-16" x2="0" y2="24" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#68738f"/><stop offset="1" stop-color="#1a1f2e"/></linearGradient>
     <linearGradient id="spine" x1="0" y1="-24" x2="0" y2="62" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#58627f"/><stop offset="1" stop-color="#171b2a"/></linearGradient>
     <linearGradient id="shine" x1="-250" y1="0" x2="250" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#000" stop-opacity=".55"/><stop offset=".3" stop-color="#fff" stop-opacity=".04"/><stop offset=".5" stop-color="#fff" stop-opacity=".16"/><stop offset=".7" stop-color="#fff" stop-opacity=".04"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></linearGradient>
@@ -246,6 +128,8 @@ export function flagshipSvg(team, pxW, pxH) {
   ${greebles}
   ${hazard}
   ${windows(-196, 14, 6, 8)}${windows(150, 14, 6, 8)}
+  ${both('M-236,58 L-206,24 L-150,10 L-140,22 L-196,36 L-222,64 Z', `fill="${c.base}" opacity=".85" stroke="#05070d" stroke-width="1"`)}
+  ${both('M-150,10 L-140,22', `stroke="#fff" stroke-opacity=".6" stroke-width="1.2"`)}
   <path d="${lead}" fill="none" stroke="${c.glow}" stroke-width="5" stroke-opacity=".55" filter="url(#soft)"/>
   <path d="${lead}" fill="none" stroke="#ffffff" stroke-width="1.2" stroke-opacity=".7"/>
   ${pad(-170)}${pad(170)}
@@ -511,59 +395,6 @@ export function bossSvg(pxW, pxH) {
 }
 
 // ───────── 讨伐模式战舰：医疗舰、重装机甲（机头朝上） ─────────
-export function healerSvg(skin, px) {
-  const s = skinStyle('blue', skin, false);
-  const G = '#5dff9e';
-  const hull = 'M0,-27 C10,-27 15,-17 15,-5 L14,13 C12,20 6,24 0,24 C-6,24 -12,20 -14,13 L-15,-5 C-15,-17 -10,-27 0,-27 Z';
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-34 -34 68 68">${defs(s)}
-    <defs><radialGradient id="hg"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="${G}"/><stop offset="1" stop-color="${G}" stop-opacity="0"/></radialGradient></defs>
-    ${[-6, 6].map(x => `<rect x="${x - 2.2}" y="22" width="4.4" height="3" rx=".8" fill="#2a2f3d"/><ellipse cx="${x}" cy="27" rx="2.6" ry="4" fill="url(#nozzle)"/>`).join('')}
-    ${both('M-14,0 L-22,0 L-22,6 L-14,8 Z', `fill="url(#wing)" stroke="${s.trim}" stroke-width=".6"`)}
-    ${both('M-30,-10 C-30,-14 -18,-14 -18,-10 L-18,16 C-18,20 -30,20 -30,16 Z', `fill="url(#wing)" stroke="${s.trim}" stroke-width=".8"`)}
-    ${both('M-28,-6 L-20,-6 M-28,4 L-20,4 M-28,12 L-20,12', `stroke="${s.stripe}" stroke-width="1.2"`)}
-    ${both('M-24,-13 m-4.4,0 a4.4,4.4 0 1 0 8.8,0 a4.4,4.4 0 1 0 -8.8,0', 'fill="url(#hg)"')}
-    ${both('M-24,-13 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0', `fill="none" stroke="${G}" stroke-width="1.2"`)}
-    <path d="${hull}" fill="url(#hull)" stroke="${s.trim}" stroke-width=".9"/><path d="${hull}" fill="url(#hullSide)"/>
-    <path d="M-10,6 L10,6 M-11,13 L11,13 M-9,-14 L9,-14" stroke="#000" stroke-opacity=".28" stroke-width=".6"/>
-    <circle cy="-4" r="11" fill="url(#hg)" opacity=".75" filter="url(#soft)"/>
-    <path d="M-2.8,-13 h5.6 v6.2 h6.2 v5.6 h-6.2 v6.2 h-5.6 v-6.2 h-6.2 v-5.6 h6.2 Z" fill="${G}" stroke="#0a3a1e" stroke-width=".8"/>
-    <path d="M-1.2,-11.4 h2.4 v6.2 h6.2 v2.4 h-6.2 v6.2 h-2.4 v-6.2 h-6.2 v-2.4 h6.2 Z" fill="#ffffff" opacity=".85"/>
-    <path d="M0,-25 C3,-24 4.4,-21 4.2,-18 L-4.2,-18 C-4.4,-21 -3,-24 0,-25 Z" fill="url(#canopy)" stroke="#0a0f1c" stroke-width=".5"/>
-    ${s.sparkle ? sparkles() : ''}${s.aura ? `<g fill="none" stroke="${s.aura}" stroke-width="2.6" opacity=".8" filter="url(#blur)"><path d="${hull}"/></g>` : ''}
-  </svg>`;
-}
-
-export function mechSvg(skin, px) {
-  const s = skinStyle('blue', skin, false);
-  const hex = (x, y, r) => `<path d="M${x},${y - r} L${x + r * .87},${y - r / 2} L${x + r * .87},${y + r / 2} L${x},${y + r} L${x - r * .87},${y + r / 2} L${x - r * .87},${y - r / 2} Z"/>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-36 -36 72 72">${defs(s)}
-    <defs>
-      <linearGradient id="sh" x1="-32" y1="-28" x2="-10" y2="-4" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e8f6ff"/><stop offset=".4" stop-color="${s.c.light}"/><stop offset="1" stop-color="${s.c.deep}"/></linearGradient>
-      <radialGradient id="vis"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="${s.c.glow}"/><stop offset="1" stop-color="${s.c.glow}" stop-opacity="0"/></radialGradient>
-    </defs>
-    ${[-8, 8].map(x => `<ellipse cx="${x}" cy="26" rx="3.2" ry="5" fill="url(#nozzle)"/>`).join('')}
-    <rect x="-13" y="6" width="26" height="17" rx="4" fill="url(#wing)" stroke="${s.trim}" stroke-width=".9"/>
-    ${[-8, 8].map(x => `<rect x="${x - 3}" y="18" width="6" height="5" rx="1" fill="#2a2f3d"/>`).join('')}
-    <path d="M-15,-9 L15,-9 L17,9 L-17,9 Z" fill="url(#hull)" stroke="${s.trim}" stroke-width="1"/>
-    <path d="M-15,-9 L15,-9 L17,9 L-17,9 Z" fill="url(#hullSide)"/>
-    <path d="M-10,-2 L10,-2 M-11,4 L11,4 M0,-9 L0,9" stroke="#000" stroke-opacity=".3" stroke-width=".7"/>
-    <rect x="-6" y="-1" width="12" height="4" rx="1" fill="${s.stripe}"/>
-    ${both('M-25,-4 m-9,0 a9,9 0 1 0 18,0 a9,9 0 1 0 -18,0', `fill="url(#wing)" stroke="${s.trim}" stroke-width="1"`)}
-    ${both('M-31,-7 L-19,-7 L-19,-2 L-31,-2 Z', `fill="${s.stripe}" opacity=".9"`)}
-    <rect x="19" y="-30" width="6" height="24" rx="1.6" fill="#c6cfe2" stroke="${s.trim}" stroke-width=".8"/>
-    <rect x="18" y="-14" width="8" height="4" fill="${s.stripe}"/>
-    <circle cx="22" cy="-30" r="3" fill="url(#nozzle)"/>
-    <path d="M-34,-22 L-14,-30 L-8,-14 L-12,-4 L-28,-2 Z" fill="url(#sh)" stroke="${s.trim}" stroke-width="1.1"/>
-    <g fill="none" stroke="${s.c.glow}" stroke-width=".7" opacity=".8">${hex(-24, -17, 4)}${hex(-17, -20, 4)}${hex(-20, -11, 4)}</g>
-    <path d="M-32,-21 L-14,-28" stroke="#fff" stroke-opacity=".8" stroke-width="1.2"/>
-    <rect x="-6" y="-19" width="12" height="11" rx="4" fill="url(#hull)" stroke="${s.trim}" stroke-width=".9"/>
-    <rect x="-5" y="-16" width="10" height="3" rx="1.5" fill="url(#vis)"/>
-    <rect x="-4" y="-15.4" width="8" height="1.6" rx=".8" fill="#fff"/>
-    ${s.gold ? `<path d="M-15,-9 L15,-9 L17,9 L-17,9 Z" fill="none" stroke="#ffe08a" stroke-width=".7"/>` : ''}
-    ${s.sparkle ? sparkles() : ''}${s.aura ? `<g fill="none" stroke="${s.aura}" stroke-width="3" opacity=".8" filter="url(#blur)"><path d="M-15,-9 L15,-9 L17,9 L-17,9 Z"/><circle cx="-25" cy="-4" r="9"/><circle cx="25" cy="-4" r="9"/></g>` : ''}
-  </svg>`;
-}
-
 // ───────── 技能图标（徽章） ─────────
 const SKILL_STYLE = {
   heal:     { a: '#c9ffe0', b: '#1fb86a', c: '#063a20', ult: false },
@@ -574,6 +405,8 @@ const SKILL_STYLE = {
   beam:     { a: '#fff2c4', b: '#ffb43a', c: '#3a1f00', ult: true },
   impact:   { a: '#dff4ff', b: '#3a7fd9', c: '#0a1a3a', ult: false },
   whirl:    { a: '#fff6d0', b: '#4fb8ff', c: '#071a3a', ult: true },
+  drones:   { a: '#f0dcff', b: '#9a4dff', c: '#24063a', ult: false },
+  swarm:    { a: '#fbeaff', b: '#b066ff', c: '#24063a', ult: true },
 };
 export function skillIconSvg(id, px) {
   const st = SKILL_STYLE[id];
@@ -588,6 +421,9 @@ export function skillIconSvg(id, px) {
   if (id === 'impact') sym = `<path d="M-14,-2 Q0,-16 14,-2" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><path d="M-10,-9 Q0,-20 10,-9" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".75"/>`
     + `<path d="M-6,14 L-6,4 L-9,4 L-9,-1 C-9,-4 -6,-5 -4,-4 L-4,-5 C-4,-7 -1,-8 0,-6 C1,-8 4,-7 4,-5 C5,-7 8,-6 8,-4 L8,6 C8,10 5,14 2,14 Z" fill="#fff" stroke="${st.c}" stroke-width="1"/>`
     + `${[[-15, 6], [15, 6], [-12, 13], [12, 13]].map(([x, y]) => `<path d="M${x},${y - 2.5} L${x + 1},${y} L${x},${y + 2.5} L${x - 1},${y} Z" fill="#fff"/>`).join('')}`;
+  const dr = (x, y, k) => `<path transform="translate(${x},${y}) scale(${k})" d="M0,-6 L4.6,3.4 L1.6,2.4 L0,5 L-1.6,2.4 L-4.6,3.4 Z" fill="#fff"/>`;
+  if (id === 'drones') sym = dr(0, -8, 1.2) + dr(-9, 4, 1) + dr(9, 4, 1) + `<path d="M-6,14 L6,14" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`;
+  if (id === 'swarm') sym = [[0, -12, .8], [-9, -6, .8], [9, -6, .8], [-13, 4, .75], [13, 4, .75], [-5, 3, .85], [5, 3, .85], [0, 12, .8]].map(([x, y, k]) => dr(x, y, k)).join('') + `<circle r="16" fill="none" stroke="#fff" stroke-width="1.2" stroke-dasharray="4 3" opacity=".8"/>`;
   if (id === 'whirl') sym = `${[0, 120, 240].map(a => `<path transform="rotate(${a})" d="M2,-3 C10,-8 15,-4 16,4 C12,-1 7,-1 3,2 Z" fill="#fff"/><path transform="rotate(${a})" d="M4,-15 A15,15 0 0 1 15,-4" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`).join('')}<circle r="4.2" fill="#fff"/><circle r="2" fill="${st.b}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-24 -24 48 48">
     <defs>

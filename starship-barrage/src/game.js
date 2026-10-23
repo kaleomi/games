@@ -81,7 +81,7 @@ export class Game {
     this.modeVote = null;
     this.pve = null;
     this.alienSeq = 0;
-    this.zones = []; this.barriers = []; this.zoneSeq = 0;
+    this.zones = []; this.barriers = []; this.zoneSeq = 0; this.pveDrones = [];
     this.memStage = 1;
     this.teams = {};
     for (const id of TEAM_IDS) this.teams[id] = this.makeTeam(id);
@@ -125,7 +125,7 @@ export class Game {
     this.time = 0;
     this.winner = null;
     this.pve = null;
-    this.zones = []; this.barriers = [];
+    this.zones = []; this.barriers = []; this.pveDrones = [];
     this.bullets.length = 0; this.emitters.length = 0; this.hazards.length = 0; this.battleships.length = 0;
     for (const id of TEAM_IDS) this.teams[id] = this.makeTeam(id);
     const nowMs = this.now();
@@ -259,7 +259,7 @@ export class Game {
     if (f.cls === cls) return true;
     f.cls = cls;
     refreshStats(f);
-    this.emit('toast', { uid: f.uid, text: `${f.name} 换成${{ dps: '输出舰', tank: '重装机甲', healer: '医疗舰' }[cls]}` });
+    this.emit('toast', { uid: f.uid, text: `${f.name} 换成${{ dps: '输出舰', tank: '重装机甲', healer: '医疗舰', carrier: '蜂巢航母' }[cls]}` });
     f.labelUntil = this.clock + 3;
     return true;
   }

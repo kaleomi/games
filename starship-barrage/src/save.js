@@ -50,7 +50,7 @@ export class Save {
         merit: clampInt(p.merit, 0, 1e12, 0),
         weekMerit: clampInt(p.weekMerit, 0, 1e12, 0),
         seen: clampInt(p.seen, 0, 1e15, 0),
-        cls: ['dps', 'tank', 'healer'].includes(p.cls) ? p.cls : null,
+        cls: ['dps', 'tank', 'healer', 'carrier'].includes(p.cls) ? p.cls : null,
         shards: clampInt(p.shards, 0, 1e12, 0),
         dodgeLeft: clampInt(p.dodgeLeft, 0, 1e12, 0),
         gear: validGear(p.gear),

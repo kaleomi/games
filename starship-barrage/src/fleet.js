@@ -24,6 +24,7 @@ export function parseClass(text) {
   if (/^(医疗|治疗|奶|奶妈|医疗舰|换医疗|选医疗|当医疗)/.test(s)) return 'healer';
   if (/^(机甲|坦克|肉|坦|重装|前排|换机甲|选机甲|当机甲)/.test(s)) return 'tank';
   if (/^(输出|dps|打手|输出舰|换输出|选输出|当输出)/.test(s)) return 'dps';
+  if (/^(航母|蜂巢|母巢|换航母|选航母|当航母)/.test(s)) return 'carrier';
   return null;
 }
 
@@ -85,6 +86,7 @@ export function pickClass(game) {
   const healers = ships.filter(f => f.cls === 'healer').length, tanks = ships.filter(f => f.cls === 'tank').length;
   if (healers < Math.ceil(n / 5)) return 'healer';
   if (tanks < Math.ceil(n / 6)) return 'tank';
+  if (ships.filter(f => f.cls === 'carrier').length < Math.floor(n / 6)) return 'carrier';
   return 'dps';
 }
 
@@ -95,7 +97,7 @@ export function setupShip(game, f) {
   f.shieldHp = 0; f.taunt = 0; f.beamT = 0;
   f.skillCd = f.npc ? 1 + game.random() * 2 : 0; f.ultCd = f.npc ? 10 + game.random() * 20 : 0;
   f.skillReq = 0; f.ultReq = 0; f.charge = 0; f.fireCd = game.random() * 0.5;
-  f.rushT = 0; f.returning = false; f.lungeT = 0; f.spin = 0;
+  f.rushT = 0; f.returning = false; f.lungeT = 0; f.spin = 0; f.recoilT = 0; f.beamCharge = 0;
   f.lane = f.lane && LANES.includes(f.lane) ? f.lane : LANES[Math.floor(game.random() * 3)];
   f.slotDx = (game.random() - 0.5) * 2 * PVE.wander.x; f.slotDy = (game.random() - 0.5) * 2 * PVE.wander.y; f.wanderT = game.random() * 3; f.wanderX = f.slotDx; f.wanderY = f.slotDy;
   f.x = laneCenter(f.lane) + f.slotDx; f.y = PVE.rows[f.cls] + f.slotDy;
@@ -178,6 +180,7 @@ export function stepShip(game, f, dt, combat) {
   }
   }
   f.lungeT = Math.max(0, (f.lungeT || 0) - dt);
+  f.recoilT = Math.max(0, (f.recoilT || 0) - dt);
   if (!combat) return;
   // 技能：真人要自己发「技能」「大招」，NPC 自动放
   f.ultCd = Math.max(0, f.ultCd - dt);
@@ -208,19 +211,53 @@ export function stepShip(game, f, dt, combat) {
   }
 }
 
+// 歼灭光束：自动瞄准——锁定最近的异形（打完一只自动转向下一只），没有异形就锁母舰触手炮/核心；光束会扫过路径上所有敌人
+function beamTarget(game, f) {
+  let best = null, bd = 1e12;
+  for (const e of game.fighters.values()) {
+    if (!e.alien || !e.alive || e.y > f.y - 30 || e.y < 30) continue;
+    const d = (e.x - f.x) ** 2 + (e.y - f.y) ** 2;
+    if (d < bd) { bd = d; best = e; }
+  }
+  if (best) return { x: best.x, y: best.y };
+  const boss = game.teams.red;
+  if (!boss.present) return null;
+  const pods = (boss.turrets || []).filter(t => !t.dead);
+  if (pods.length && Math.abs(boss.x - f.x) > boss.hitW / 2 + 40) return pods.reduce((a, b) => (Math.abs(a.x - f.x) < Math.abs(b.x - f.x) ? a : b));
+  return { x: boss.x, y: boss.y + boss.coreDy };
+}
+const BEAM_W = 26;
+export function beamHits(f, x, y, r = 0) {
+  const a = f.beamAngle || 0, dx = Math.sin(a), dy = -Math.cos(a);
+  const px = x - f.x, py = y - (f.y - 20);
+  const along = px * dx + py * dy;
+  if (along < 0) return false;
+  return Math.abs(px * dy - py * dx) < BEAM_W + r;
+}
 export function stepBeam(game, f, dt) {
   if (!f.beamT || !f.alive) return;
+  // 蓄能期间和发射期间都持续转向目标
+  if ((f.beamRetarget = (f.beamRetarget || 0) - dt) <= 0) { f.beamRetarget = 0.25; f.beamTgt = beamTarget(game, f); }
+  if (f.beamTgt) {
+    const want = Math.max(-1.25, Math.min(1.25, Math.atan2(f.beamTgt.x - f.x, (f.y - 20) - f.beamTgt.y)));
+    const da = want - (f.beamAngle || 0);
+    f.beamAngle = (f.beamAngle || 0) + Math.max(-2.6 * dt, Math.min(2.6 * dt, da));
+  }
+  if (f.beamCharge > 0) { f.beamCharge -= dt; return; }   // 先蓄能，再发射
   f.beamT -= dt;
-  const [l0, l1] = PVE.lanes[f.lane];
+  if (f.beamT <= 0) { f.beamT = 0; f.beamAngle = 0; f.beamTgt = null; }
   const dps = 12 * f.stats.atk * f.stats.power;
   for (const e of [...game.fighters.values()]) {
-    if (!e.alien || !e.alive || e.y > f.y || e.x < l0 || e.x > l1) continue;
+    if (!e.alien || !e.alive || !beamHits(f, e.x, e.y, e.r || 10)) continue;
     hurt(game, e, dps * dt, f.uid);
   }
   const boss = game.teams.red;
   if (boss.present) {
-    if (Math.max(l0, boss.x - boss.hitW / 2) < Math.min(l1, boss.x + boss.hitW / 2)) game.damageFlag('red', dps * dt, f.uid, 'shot');
-    for (const tu of boss.turrets) if (!tu.dead && tu.x > l0 && tu.x < l1) { tu.hp -= dps * dt * 0.5; if (tu.hp <= 0) game.killTurret(boss, tu, f.uid); }
+    const cy = boss.y + boss.coreDy;
+    // 光束在核心高度的横坐标落在核心宽度内就算命中
+    const a = f.beamAngle || 0, t = ((f.y - 20) - cy) / Math.max(0.2, Math.cos(a)), bx = f.x + Math.sin(a) * t;
+    if (Math.abs(bx - boss.x) < boss.hitW / 2) game.damageFlag('red', dps * dt, f.uid, 'shot');
+    for (const tu of boss.turrets) if (!tu.dead && beamHits(f, tu.x, tu.y, 22)) { tu.hp -= dps * dt * 0.5; f.merit += dps * dt * 0.5 * PVE.contrib.dmg; if (tu.hp <= 0) game.killTurret(boss, tu, f.uid); }
   }
 }
 
@@ -301,6 +338,73 @@ function whirlHit(game, f) {
   for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && (b.x - f.x) ** 2 + (b.y - f.y) ** 2 < 90 * 90) b.life = 0;
 }
 
+// ───────── 蜂巢航母：无人机 ─────────
+// attack：追着最近的异形（母舰战时追触手炮/核心）在下方盘旋射击；guard：在舰队区巡逻，撞到敌弹就拦下
+function launchDrones(game, f, kind, n) {
+  const C = PVE.carrier, list = game.pveDrones || (game.pveDrones = []);
+  const mine = list.filter(d => d.owner === f.uid);
+  for (let i = 0; i < mine.length + n - C.maxPerOwner; i++) mine[i].t = 0;   // 超出上限，最老的先回收
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    list.push({ owner: f.uid, kind, x: f.x + Math.cos(a) * 14, y: f.y - 10, vx: Math.cos(a) * 260, vy: -220 + Math.sin(a) * 120,
+      t: C.droneLife, cd: 0.4 + i * 0.07, phase: a, slot: i / Math.max(1, n - 1), id: ++game.zoneSeq });
+  }
+  game.emit('drones', { uid: f.uid, kind, n, x: f.x, y: f.y });
+}
+function droneTarget(game, d) {
+  let best = null, bd = 1e12;
+  for (const e of game.fighters.values()) {
+    if (!e.alien || !e.alive || e.y < 40) continue;
+    const dd = (e.x - d.x) ** 2 + (e.y - d.y) ** 2;
+    if (dd < bd) { bd = dd; best = e; }
+  }
+  if (best) return best;
+  const boss = game.teams.red;
+  if (!boss.present) return null;
+  const pods = (boss.turrets || []).filter(t => !t.dead);
+  if (pods.length) return pods.reduce((a, b) => ((a.x - d.x) ** 2 < (b.x - d.x) ** 2 ? a : b));
+  return { x: boss.x + Math.sin(d.phase) * 80, y: boss.y + boss.coreDy };
+}
+export function stepDrones(game, dt) {
+  const C = PVE.carrier, list = game.pveDrones;
+  if (!list || !list.length) return;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const d = list[i];
+    const o = game.fighters.get(d.owner);
+    d.t -= dt; d.phase += dt * 2.4; d.cd -= dt;
+    if (d.t <= 0 || !o) { list.splice(i, 1); game.emit('spark', { x: d.x, y: d.y, team: 'blue' }); continue; }
+    const atk = o.stats?.atk || 6, pw = o.stats?.power || 1;
+    let tx, ty, tgt = null;
+    if (d.kind === 'attack') {
+      tgt = droneTarget(game, d);
+      if (tgt) { tx = tgt.x + Math.cos(d.phase) * 46; ty = tgt.y + 110 + Math.sin(d.phase * 1.3) * 22; }
+      else { tx = o.x + Math.cos(d.phase) * 40; ty = o.y - 70; }
+    } else {
+      tx = 70 + d.slot * 580 + Math.sin(d.phase * 0.7) * 30;
+      ty = PVE.zone[0] + 40 + (0.5 + 0.5 * Math.sin(d.phase + d.slot * 6)) * 300;
+    }
+    ty = Math.max(70, ty);
+    const k = Math.min(1, dt * 3.2);
+    d.vx += ((tx - d.x) * 4 - d.vx) * k; d.vy += ((ty - d.y) * 4 - d.vy) * k;
+    const sp = Math.hypot(d.vx, d.vy), max = 520;
+    if (sp > max) { d.vx *= max / sp; d.vy *= max / sp; }
+    d.x += d.vx * dt; d.y += d.vy * dt;
+    if (d.kind === 'guard') {
+      const r2 = C.guardR * C.guardR;
+      for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && (b.x - d.x) ** 2 + (b.y - d.y) ** 2 < r2) {
+        b.life = 0; o.merit += PVE.enemyBulletDmg * PVE.contrib.taken * 0.5; d.flash = 0.18;
+      }
+      d.flash = Math.max(0, (d.flash || 0) - dt);
+      if (!tgt) tgt = droneTarget(game, d);
+    }
+    if (d.cd <= 0 && tgt) {
+      d.cd = d.kind === 'attack' ? C.droneShotCd : C.guardShotCd;
+      const a = Math.atan2(tgt.y - d.y, tgt.x - d.x);
+      game.addBullet(d.x, d.y - 6, Math.cos(a) * 760, Math.sin(a) * 760, 3, C.droneShotAtk * atk * pw, 'blue', 'shot', o.uid, 0, { pveScaled: true, laser: true, life: 2 });
+    }
+  }
+}
+
 function anyHurt(game) {
   for (const f of game.fighters.values()) if (!f.alien && f.team === 'blue' && (!f.alive || f.hp < f.maxHp - 0.5)) return true;
   return false;
@@ -327,12 +431,14 @@ function castSkill(game, f) {
     return true;
   }
   if (f.cls === 'tank') return castImpact(game, f);
+  if (f.cls === 'carrier') { launchDrones(game, f, 'attack', PVE.carrier.attackDrones); game.emit('skill', { uid: f.uid, skill: 'drones', x: f.x, y: f.y }); f.recoilT = 0.3; return true; }
   // 输出舰：集束导弹
   const n = 6;
   for (let i = 0; i < n; i++) {
     const a = -Math.PI / 2 + (i / (n - 1) - 0.5) * 1.6;
     game.addBullet(f.x, f.y - 10, Math.cos(a) * 260, Math.sin(a) * 260, 5, 2.5 * f.stats.atk * f.stats.power, 'blue', 'shot', f.uid, 0, { pveScaled: true, missile: true, life: 4 });
   }
+  f.recoilT = 0.3;
   game.emit('skill', { uid: f.uid, skill: 'missile', x: f.x, y: f.y });
   return true;
 }
@@ -358,6 +464,7 @@ function wantsUlt(game, f) {
     return dead >= 2 || low >= Math.max(2, Math.ceil(a.length * 0.25));
   }
   if (f.cls === 'tank') { let n = 0; for (const e of game.fighters.values()) if (e.alien && e.alive) n++; return n >= 5 || game.teams.red.present; }
+  if (f.cls === 'carrier') { let n = 0; for (const b of game.bullets) if (b.team === 'red' && b.y > PVE.zone[0] - 100) n++; return n >= 25 || game.zones.length > 0; }
   const boss = game.teams.red;
   const [l0, l1] = PVE.lanes[f.lane];
   if (boss.present && Math.max(l0, boss.x - boss.hitW / 2) < Math.min(l1, boss.x + boss.hitW / 2)) return true;
@@ -381,8 +488,11 @@ export function castUlt(game, f) {
     f.rushT = T.rushTime; f.invuln = Math.max(f.invuln, T.rushTime); f.taunt = Math.max(f.taunt, T.rushTime);
     f.rushRetarget = 0; f.rushTick = 0.12; f.returning = false;
     game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y, lane: f.lane });
+  } else if (f.cls === 'carrier') {
+    launchDrones(game, f, 'guard', PVE.carrier.guardDrones);
+    game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y });
   } else {
-    f.beamT = 2.5;
+    f.beamT = 2.5; f.beamCharge = PVE.beamCharge;
     game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y, lane: f.lane });
   }
   return true;

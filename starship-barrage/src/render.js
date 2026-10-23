@@ -2,8 +2,8 @@
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
 import { bossTimeText } from './pve.js';
-import { shockArcSvg, whirlSvg, invulnAuraSvg } from './art.js';
-import { healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
+import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg } from './art.js';
+import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR } from './config.js';
 import { laneCenter, hasAutoDodge, fmtDuration } from './fleet.js';
 import { MODE_NAMES } from './config.js';
@@ -37,7 +37,7 @@ export class Renderer {
     this.shake = 0;
     this.hintIdx = 0;
     this.boardCache = { t: -1, red: [], blue: [] };
-    this.shocks = []; this.trails = new Map();
+    this.shocks = []; this.trails = new Map(); this.ripples = []; this.pillars = []; this.muzzles = [];
     this.reticles = []; this.healLinks = []; this.floaters = []; this.pops = []; this.laneFlashes = []; this.loots = [];
     for (let i = 0; i < 140; i++) this.stars.push({ x: Math.random() * W, y: Math.random() * H, z: 0.2 + Math.random() * 0.8 });
     this.resize();
@@ -114,11 +114,12 @@ export class Renderer {
   fighterArt(f) {
     const skin = f.npc ? 0 : Math.min(5, f.skin | 0);
     if (this.game.mode === 'pve' && f.cls) {
-      if (f.cls === 'healer') return this.art.get(`hl|${skin}`, px => healerSvg(skin, px), 50, 50, 3);
-      if (f.cls === 'tank') return this.art.get(`mc|${skin}`, px => mechSvg(skin, px), 58, 58, 3);
-      return this.art.get(`f|blue|charge|${skin}|0`, px => fighterSvg('blue', 'charge', skin, false, px), 50, 50, 3);
+      if (f.cls === 'healer') return this.art.get(`hl|${skin}`, px => healerSvg(skin, px), 58, 58, 3);
+      if (f.cls === 'tank') return this.art.get(`mc|${skin}`, px => mechSvg(skin, px), 66, 66, 3);
+      if (f.cls === 'carrier') return this.art.get(`cv|${skin}`, px => carrierSvg(skin, px), 60, 60, 3);
+      return this.art.get(`dps|${skin}`, px => dpsSvg(skin, px), 58, 58, 3);
     }
-    return this.art.get(`f|${f.team}|${f.weapon}|${skin}|${f.npc ? 1 : 0}`, px => fighterSvg(f.team, f.weapon, skin, f.npc, px), 50, 50, 3);
+    return this.art.get(`f|${f.team}|${f.weapon}|${skin}|${f.npc ? 1 : 0}`, px => fighterSvg(f.team, f.weapon, skin, f.npc, px), 54, 54, 3);
   }
   flagArt(team) { return this.art.get(`flag|${team}`, (w, h) => flagshipSvg(team, w, h), 640, 200, 2); }
   shipArt(team) { return this.art.get(`ship|${team}`, (w, h) => battleshipSvg(team, w, h), 150, 120, 2.5); }
@@ -156,13 +157,22 @@ export class Renderer {
         case 'vote': this.toast(`${e.name} 投票换${e.modeName}模式（${e.votes}/${e.need}）`, null, '#ffe28a'); break;
         case 'dive': this.ring(e.x, e.y, '#ff5ad1', 26); break;
         case 'diveWarn': this.reticles.push({ x: e.x, y: e.y, r: e.r, t: e.t, max: e.t }); break;
-        case 'heal': this.pops.push({ uid: e.uid, id: 'heal', t: 0 }); this.healLinks.push({ uid: e.uid, x: e.x, y: e.y, targets: e.targets, t: 0.6 }); for (const tg of e.targets) this.floaters.push({ x: tg.x, y: tg.y - 10, text: `+${tg.amount}`, color: '#7dffb0', t: 0, plus: true }); break;
-        case 'skill': this.pops.push({ uid: e.uid, id: e.skill, t: 0 }); break;
+        case 'heal': this.pops.push({ uid: e.uid, id: 'heal', t: 0 }); this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.6, r0: 26, r1: 80, color: '93,255,158' }); for (const tg of e.targets) this.ripples.push({ uid: tg.uid, x: tg.x, y: tg.y, t: -0.25, dur: 0.5, r0: 10, r1: 42, color: '93,255,158' }); this.healLinks.push({ uid: e.uid, x: e.x, y: e.y, targets: e.targets, t: 0.6 }); for (const tg of e.targets) this.floaters.push({ x: tg.x, y: tg.y - 10, text: `+${tg.amount}`, color: '#7dffb0', t: 0, plus: true }); break;
+        case 'skill': this.pops.push({ uid: e.uid, id: e.skill, t: 0 });
+          if (e.skill === 'missile') for (const k of [-1, 1]) this.muzzles.push({ uid: e.uid, dx: k * 22, dy: 4, t: 0, color: '#ffb43a' });
+          break;
+        case 'drones': for (let i = 0; i < 2; i++) this.muzzles.push({ uid: e.uid, dx: (i ? 6 : -6), dy: -36, t: 0, color: '#c58bff' }); if (e.kind === 'guard') this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.8, r0: 30, r1: 180, color: '197,139,255' }); break;
         case 'ult': {
-          const id = { healer: 'healUlt', tank: 'whirl', dps: 'beam' }[e.cls];
+          const id = { healer: 'healUlt', tank: 'whirl', dps: 'beam', carrier: 'swarm' }[e.cls];
           this.pops.push({ uid: e.uid, id, t: 0, big: true });
           this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `释放「${CLASSES[e.cls].ult}」${e.revived ? `，复活${e.revived}人` : ''}`, tier: 3, icon: id });
-          if (e.cls === 'healer') this.flashes.push({ t: 0.35, color: '#5dff9e' });
+          if (e.cls === 'healer') {
+            this.flashes.push({ t: 0.35, color: '#5dff9e' });
+            this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 1.2, r0: 40, r1: 900, color: '160,255,190', w: 10 });
+            for (const a of g.fighters.values()) if (!a.alien && a.team === 'blue') this.pillars.push({ uid: a.uid, t: 0, delay: Math.abs(a.x - e.x) / 1600 });
+          }
+          if (e.cls === 'dps') this.shake = Math.max(this.shake, 4);
+          if (e.cls === 'carrier') this.flashes.push({ t: 0.25, color: '#c58bff' });
           if (e.cls === 'tank') { this.flashes.push({ t: 0.3, color: '#ffd86b' }); this.shake = Math.max(this.shake, 8); this.ring(e.x, e.y, '#ffe8a0', 40); }
           break;
         }
@@ -223,7 +233,7 @@ export class Renderer {
     for (const s of g.battleships) this.drawShip(x, s);
     this.drawFighters(x);
     this.drawBullets(x);
-    if (g.mode === 'pve') { this.drawShocks(x, dt); this.drawPveFx(x, dt); }
+    if (g.mode === 'pve') { this.drawShocks(x, dt); this.drawDrones(x); this.drawSupportFx(x, dt); this.drawPveFx(x, dt); }
     this.drawParticles(x, dt);
     this.drawCannons(x);
     x.restore();
@@ -463,6 +473,11 @@ export class Renderer {
       if (f.rushT > 0) { x.rotate(f.spin || 0); x.scale(1.15, 1.15); }
       else if (f.returning) x.rotate(Math.atan2(f.vx, -f.vy) * 0.3);
     }
+    // 输出舰：导弹齐射后坐；光束时机身跟着光束转、持续抖动
+    if (f.cls === 'dps' || f.cls === 'carrier') { if (f.recoilT > 0) { const k = Math.sin((f.recoilT / 0.3) * Math.PI); x.translate(0, 7 * k); } }
+    if (f.cls === 'dps' && f.beamT > 0) { x.rotate((f.beamAngle || 0) * 0.6); if (!(f.beamCharge > 0)) x.translate((Math.random() - 0.5) * 2, 3 + Math.random() * 2); }
+    // 医疗舰：放技能时轻轻一鼓
+    if (f.cls === 'healer') { const r = this.ripples.find(q => q.uid === f.uid && q.r1 === 80); if (r && r.t < 0.3) { const k = 1 + 0.14 * Math.sin((r.t / 0.3) * Math.PI); x.scale(k, k); } }
     x.globalCompositeOperation = 'lighter';
     const fl = this.glowSprite('#7fe3ff', 2.6 + f.power * 0.7);
     x.drawImage(fl, -fl.half, 22 - fl.half + Math.random() * 3);
@@ -471,6 +486,7 @@ export class Renderer {
     if (f.hitFlash > 0 && art) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = f.hitFlash * 4; this.blit(x, art, 0, 0); x.globalCompositeOperation = 'source-over'; }
     x.restore(); x.globalAlpha = 1;
     if (f.cls === 'tank') this.drawMechFx(x, f, art, 'over');
+    if (f.cls === 'dps' && f.beamT > 0 && f.beamCharge > 0) this.drawBeamCharge(x, f);
     if (f.shieldHp > 0) { const sb = this.sprite('bubble', px => shieldBubbleSvg(px), 58); if (sb) { x.globalAlpha = Math.min(1, 0.4 + f.shieldHp / f.maxHp); this.blit(x, sb, f.x, f.y); x.globalAlpha = 1; } }
     const av = !f.npc && this.avatar(f.avatar);
     if (av) {
@@ -496,7 +512,7 @@ export class Renderer {
     if (f.charge >= 20) { x.strokeStyle = 'rgba(255,243,168,.7)'; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 25, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f.charge / 100); x.stroke(); }
     // 真人：技能 / 大招 就绪小图标（提醒发弹幕）
     if (!f.npc) {
-      const ids = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'] }[f.cls];
+      const ids = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'], carrier: ['drones', 'swarm'] }[f.cls];
       [[ids[0], f.skillCd, CLASSES[f.cls].skillCd], [ids[1], f.ultCd, PVE.ultCooldown]].forEach(([id, cd, max], i) => {
         const ic = this.skillIcon(id, 16), cx = f.x + bw / 2 + 10, cy = f.y + 14 + i * 17;
         if (!ic) return;
@@ -572,17 +588,101 @@ export class Renderer {
     }
   }
 
-  drawBeam(x, f) {
-    const [l0, l1] = PVE.lanes[f.lane];
-    const cx = f.x, k = Math.min(1, f.beamT / 0.4);
+  // 歼灭光束：自动瞄准，沿 beamAngle 方向；先蓄能 0.5 秒
+  drawBeamCharge(x, f) {
+    const g = this.game, k = 1 - f.beamCharge / 0.5;
+    const nx = f.x + Math.sin(f.beamAngle || 0) * 30, ny = f.y - 20 - Math.cos(f.beamAngle || 0) * 30;
     x.save(); x.globalCompositeOperation = 'lighter';
-    const lane = x.createLinearGradient(l0, 0, l1, 0);
-    lane.addColorStop(0, 'rgba(255,180,58,0)'); lane.addColorStop(0.5, `rgba(255,180,58,${0.18 * k})`); lane.addColorStop(1, 'rgba(255,180,58,0)');
-    x.fillStyle = lane; x.fillRect(l0, 0, l1 - l0, f.y);
-    const core = x.createLinearGradient(cx - 26, 0, cx + 26, 0);
-    core.addColorStop(0, 'rgba(0,0,0,0)'); core.addColorStop(0.3, '#ffb43a'); core.addColorStop(0.5, '#ffffff'); core.addColorStop(0.7, '#ffb43a'); core.addColorStop(1, 'rgba(0,0,0,0)');
-    x.globalAlpha = 0.85 * k + Math.random() * 0.15; x.fillStyle = core; x.fillRect(cx - 26 - Math.random() * 4, 0, 52 + Math.random() * 8, f.y - 16);
+    for (let i = 0; i < 14; i++) {
+      const a = i * 2.4 + g.clock * 3, r = 70 * (1 - ((k + i / 14) % 1));
+      const gl = this.glowSprite('#ffb43a', 3);
+      x.globalAlpha = 0.9; x.drawImage(gl, nx + Math.cos(a) * r - gl.half, ny + Math.sin(a) * r - gl.half);
+    }
+    const orb = this.glowSprite('#ffd27a', 8 + 22 * k);
+    x.globalAlpha = 0.6 + 0.4 * k; x.drawImage(orb, nx - orb.half, ny - orb.half);
+    x.strokeStyle = `rgba(255,210,122,${0.7 * k})`; x.lineWidth = 2; x.beginPath(); x.arc(nx, ny, 40 * (1 - k) + 8, 0, Math.PI * 2); x.stroke();
     x.restore(); x.globalAlpha = 1;
+  }
+
+  drawBeam(x, f) {
+    if (f.beamCharge > 0) return;
+    const g = this.game, k = Math.min(1, f.beamT / 0.4), a = f.beamAngle || 0;
+    const L = 1500;
+    x.save(); x.globalCompositeOperation = 'lighter';
+    x.translate(f.x, f.y - 20); x.rotate(a);
+    const wob = 1 + Math.sin(g.clock * 40) * 0.08;
+    const halo = x.createLinearGradient(-60, 0, 60, 0);
+    halo.addColorStop(0, 'rgba(255,140,40,0)'); halo.addColorStop(0.5, `rgba(255,150,50,${0.28 * k})`); halo.addColorStop(1, 'rgba(255,140,40,0)');
+    x.fillStyle = halo; x.fillRect(-60, -L, 120, L);
+    const core = x.createLinearGradient(-26 * wob, 0, 26 * wob, 0);
+    core.addColorStop(0, 'rgba(0,0,0,0)'); core.addColorStop(0.28, '#ff8a2a'); core.addColorStop(0.5, '#ffffff'); core.addColorStop(0.72, '#ff8a2a'); core.addColorStop(1, 'rgba(0,0,0,0)');
+    x.globalAlpha = 0.85 * k + Math.random() * 0.15; x.fillStyle = core; x.fillRect(-26 * wob, -L, 52 * wob, L);
+    // 沿光束往上跑的能量环
+    x.globalAlpha = 0.7 * k; x.strokeStyle = '#ffe2b0'; x.lineWidth = 2;
+    for (let i = 0; i < 6; i++) { const yy = -((g.clock * 900 + i * 220) % 1320) - 30; x.beginPath(); x.ellipse(0, yy, 30, 7, 0, 0, Math.PI * 2); x.stroke(); }
+    // 炮口光球
+    const gl = this.glowSprite('#ffd27a', 26);
+    x.globalAlpha = 1; x.drawImage(gl, -gl.half, -gl.half - 4);
+    x.restore(); x.globalAlpha = 1;
+    // 命中点火花
+    if (f.beamTgt && Math.random() < 0.6) this.burst(f.beamTgt.x + (Math.random() - 0.5) * 20, f.beamTgt.y + (Math.random() - 0.5) * 20, 0.5, null);
+  }
+
+  // 治疗波纹、圣光光柱、炮口闪光、导弹尾烟、无人机
+  drawSupportFx(x, dt) {
+    const g = this.game;
+    x.save(); x.globalCompositeOperation = 'lighter';
+    for (let i = this.ripples.length - 1; i >= 0; i--) {
+      const r = this.ripples[i]; r.t += dt;
+      if (r.t > r.dur) { this.ripples.splice(i, 1); continue; }
+      if (r.t < 0) continue;
+      const f = g.fighters.get(r.uid), cx = f ? f.x : r.x, cy = f ? f.y : r.y;
+      const k = r.t / r.dur, e = 1 - (1 - k) ** 2;
+      x.globalAlpha = (1 - k) * 0.9; x.strokeStyle = `rgb(${r.color})`; x.lineWidth = (r.w || 4) * (1 - k * 0.6);
+      x.beginPath(); x.arc(cx, cy, r.r0 + (r.r1 - r.r0) * e, 0, Math.PI * 2); x.stroke();
+      x.globalAlpha = (1 - k) * 0.25; x.lineWidth = (r.w || 4) * 3; x.stroke();
+    }
+    for (let i = this.pillars.length - 1; i >= 0; i--) {
+      const p = this.pillars[i]; p.t += dt;
+      const t = p.t - p.delay, dur = 1.1;
+      if (t > dur) { this.pillars.splice(i, 1); continue; }
+      if (t < 0) continue;
+      const f = g.fighters.get(p.uid); if (!f) continue;
+      const k = t / dur, a = Math.sin(k * Math.PI);
+      const top = f.y - 380;
+      const grd = x.createLinearGradient(f.x - 20, 0, f.x + 20, 0);
+      grd.addColorStop(0, 'rgba(120,255,170,0)'); grd.addColorStop(0.5, `rgba(170,255,200,${0.32 * a})`); grd.addColorStop(1, 'rgba(120,255,170,0)');
+      const fade = x.createLinearGradient(0, top, 0, f.y);
+      x.globalAlpha = 1; x.fillStyle = grd; x.fillRect(f.x - 20, top, 40, f.y - top + 10);
+      fade.addColorStop(0, 'rgba(255,255,255,0)'); fade.addColorStop(1, `rgba(255,255,255,${0.45 * a})`);
+      x.fillStyle = fade; x.fillRect(f.x - 2.5, top, 5, f.y - top);
+      const gl = this.glowSprite('#9dffc4', 22); x.globalAlpha = a * 0.8; x.drawImage(gl, f.x - gl.half, f.y - gl.half);
+      if (Math.random() < 0.06) this.floaters.push({ x: f.x + (Math.random() - 0.5) * 30, y: f.y + 10, text: '', color: '#9dffc4', t: 0 });
+    }
+    for (let i = this.muzzles.length - 1; i >= 0; i--) {
+      const m = this.muzzles[i]; m.t += dt;
+      if (m.t > 0.25) { this.muzzles.splice(i, 1); continue; }
+      const f = g.fighters.get(m.uid); if (!f) continue;
+      const gl = this.glowSprite(m.color, 14 * (1 - m.t / 0.25) + 4);
+      x.globalAlpha = 1 - m.t / 0.25; x.drawImage(gl, f.x + m.dx - gl.half, f.y + m.dy - gl.half);
+    }
+    x.restore(); x.globalAlpha = 1;
+  }
+
+  drawDrones(x) {
+    const g = this.game;
+    for (const d of g.pveDrones || []) {
+      const art = this.sprite(`drone|${d.kind}`, px => droneShipSvg(d.kind, px), d.kind === 'guard' ? 30 : 24);
+      const a = Math.atan2(d.vx, -d.vy);
+      const fade = Math.min(1, d.t / 0.5);
+      x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.5 * fade;
+      const tr = this.glowSprite('#c58bff', 5); x.drawImage(tr, d.x - Math.sin(a) * 12 - tr.half, d.y + Math.cos(a) * 12 - tr.half);
+      if (d.flash > 0) { const fl = this.glowSprite('#e8d0ff', 26); x.globalAlpha = d.flash / 0.18; x.drawImage(fl, d.x - fl.half, d.y - fl.half); }
+      x.restore();
+      x.globalAlpha = fade;
+      if (art) { x.save(); x.translate(d.x, d.y); x.rotate(a); this.blit(x, art, 0, 0); x.restore(); }
+      x.globalAlpha = 1;
+    }
   }
 
   drawZones(x, dt) {
@@ -737,13 +837,20 @@ export class Renderer {
     for (const b of g.bullets) {
       const pal = PALETTE[b.team];
       if (b.laser) {
+        x.setTransform(k, 0, 0, k, ox, oy);
         x.strokeStyle = pal.laser; x.lineWidth = 2.4;
         x.beginPath(); x.moveTo(b.x, b.y); x.lineTo(b.x - b.vx * 0.018, b.y - b.vy * 0.018); x.stroke();
         continue;
       }
       if (b.missile) {
         const ms = this.sprite('missile', px => missileSvg(px), 20);
-        if (ms) { const a = Math.atan2(b.vy, b.vx) + Math.PI / 2, c = Math.cos(a) * k, sn = Math.sin(a) * k; x.setTransform(c, sn, -sn, c, k * b.x + ox, k * b.y + oy); x.drawImage(ms, -10, -10, 20, 20); continue; }
+        if (ms) {
+          (b.trail ||= []).push(b.x, b.y); if (b.trail.length > 16) b.trail.splice(0, 2);
+          x.setTransform(k, 0, 0, k, ox, oy); x.globalCompositeOperation = 'lighter';
+          for (let i = 0; i < b.trail.length; i += 2) { const q = i / b.trail.length; x.globalAlpha = q * 0.5; const sm = this.glowSprite('#ffb070', 2 + q * 4); x.drawImage(sm, b.trail[i] - sm.half, b.trail[i + 1] - sm.half); }
+          x.globalAlpha = 1;
+          const a = Math.atan2(b.vy, b.vx) + Math.PI / 2, c = Math.cos(a) * k, sn = Math.sin(a) * k; x.setTransform(c, sn, -sn, c, k * b.x + ox, k * b.y + oy); x.drawImage(ms, -10, -10, 20, 20); continue;
+        }
       }
       let color, shape;
       if (b.kind === 'shot') { color = b.overload ? '#fff3a8' : b.gift ? '#ffd86b' : pal.shot; shape = b.orb || b.overload ? 'orb' : b.gift ? 'kunai' : 'rice'; }
@@ -857,7 +964,7 @@ export class Renderer {
     // 指令提示轮播
     const other = pve ? '对战' : '讨伐';
     const hints = pve
-      ? ['发「输出」「机甲」「医疗」选战舰加入', '红色区域10秒后命中，发「左」「中」「右」躲开', '机甲站前排挡子弹，医疗给血最少的队友回血', '发「技能」放小技能，发「大招」放大招', '湮灭炮锁定时，全员发「拦截」削弱它', '点赞充能，满了打出超载炮', '打爆母舰掉装备，自动穿上更好的', `发「换${other}」投票切到红蓝对战`, '发「我的」查看战舰、装备和贡献']
+      ? ['发「输出」「机甲」「医疗」「航母」选战舰加入', '红色区域10秒后命中，发「左」「中」「右」躲开', '机甲站前排挡子弹，医疗给血最少的队友回血', '发「技能」放小技能，发「大招」放大招', '湮灭炮锁定时，全员发「拦截」削弱它', '点赞充能，满了打出超载炮', '打爆母舰掉装备，自动穿上更好的', `发「换${other}」投票切到红蓝对战`, '发「我的」查看战舰、装备和贡献']
       : ['发「红」「蓝」加入舰队', '发「激光」「散弹」「蓄力」换武器', '发「左」「中」「右」换编队位置', '发「核心」「炮台」选攻击目标', '点赞给自己战机充能，满了放超载炮', '对面主炮蓄力时，发「拦截」削弱它', `发「换${other}」投票切到打BOSS模式`, '发「我的」查看等级和战功'];
     if (g.clock - (this.hintAt || 0) > 5) { this.hintAt = g.clock; this.hintIdx = (this.hintIdx + 1) % hints.length; }
     x.font = `15px ${FONT}`; x.fillStyle = 'rgba(200,215,255,.75)'; x.fillText(hints[this.hintIdx % hints.length], 360, hy);
@@ -894,7 +1001,7 @@ export class Renderer {
   fleetBar(x, y) {
     const g = this.game;
     let n = 0, alive = 0, hp = 0, max = 0;
-    const cls = { dps: 0, tank: 0, healer: 0 };
+    const cls = { dps: 0, tank: 0, healer: 0, carrier: 0 };
     for (const f of g.fighters.values()) if (!f.alien && f.team === 'blue') { n++; cls[f.cls]++; if (f.alive) { alive++; hp += f.hp; } max += f.maxHp || 0; }
     x.fillStyle = 'rgba(4,6,16,.78)'; x.fillRect(0, y, W, 46);
     const pct = max ? hp / max : 0;
@@ -905,7 +1012,7 @@ export class Renderer {
     x.fillText('苍穹舰队', 14, y + 20);
     x.font = `13px ${FONT}`; x.fillStyle = '#aab4cc'; x.fillText(`存活 ${alive}/${n}`, 14, y + 38);
     x.font = `12px ${FONT}`; x.fillStyle = '#c8d2ee'; x.textAlign = 'center';
-    x.fillText(`输出 ${cls.dps} · 机甲 ${cls.tank} · 医疗 ${cls.healer}`, 360, y + 37);
+    x.fillText(`输出 ${cls.dps} · 机甲 ${cls.tank} · 医疗 ${cls.healer} · 航母 ${cls.carrier}`, 360, y + 37);
     x.textAlign = 'right'; x.font = `700 20px ${NUM}`; x.fillStyle = '#ffffff'; x.fillText(`${Math.round(pct * 100)}%`, W - 14, y + 22);
     const c = g.teams.blue.cannon;
     x.font = `12px ${FONT}`; x.fillStyle = c.state === 'idle' ? '#7f8aa6' : '#ffe28a';
