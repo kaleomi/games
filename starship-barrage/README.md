@@ -70,7 +70,8 @@ python3 -m http.server 8811     # 本地预览 http://127.0.0.1:8811
 | `src/config.js` | 全部数值（血量、伤害、礼物分档、经验） |
 | `src/game.js` | 战斗模拟、AI躲弹、礼物效果、回合（不依赖页面，可在 Node 里测） |
 | `src/relay.js` | 熙梦连接，沿用凌霄守山的 hello 协议、连击计数和去重 |
-| `src/render.js` | 竖屏画面、弹幕粒子、HUD |
+| `src/art.js` | 全部矢量美术（SVG）：三种机型×6涂装、红蓝两款旗舰、召唤战舰、炮台、僚机、子弹、勋章、徽章 |
+| `src/render.js` | 竖屏画面、弹幕粒子、HUD（SVG 加载后栅格化缓存再绘制） |
 | `src/ui.js` | 设置面板、开局规则页、结算页 |
 | `src/save.js` | 玩家存档 |
 | `src/audio.js` | 合成音效、中文语音播报 |

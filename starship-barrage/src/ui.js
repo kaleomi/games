@@ -1,5 +1,6 @@
 // 设置面板、开局规则页、结算页（DOM）
 import { TEAMS, GIFT, LEVEL, SKINS } from './config.js';
+import { emblemSvg, logoSvg, medalSvg, gearSvg } from './art.js';
 
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
 
@@ -50,7 +51,9 @@ export class UI {
     this.panel = document.getElementById('panel');
     this.rulesForced = false;
     this.buildPanel();
-    document.getElementById('gear').onclick = () => this.togglePanel();
+    const gear = document.getElementById('gear');
+    gear.innerHTML = gearSvg();
+    gear.onclick = () => this.togglePanel();
     window.addEventListener('keydown', e => { if (e.key === 'F2' || (e.key === 's' && e.altKey)) this.togglePanel(); });
     this.layout();
     window.addEventListener('resize', () => this.layout());
@@ -218,11 +221,11 @@ export class UI {
         const week = this.save.topWeek(5);
         const counts = { red: g.countTeam('red', true), blue: g.countTeam('blue', true) };
         this.lobby.innerHTML = `
-          <div class="title"><span>星舰弹幕战</span><small>竖屏舰队对攻 · 观众自己当飞行员</small></div>
+          <div class="title">${logoSvg(150)}<span>星舰弹幕战</span><small>竖屏舰队对攻 · 观众自己当飞行员</small></div>
           ${g.phase === 'lobby' ? `<div class="count">${Math.ceil(g.phaseT)}<small>秒后开战</small></div>` : ''}
-          <div class="join"><span class="red">发「红」加入赤焰舰队 · ${counts.red}人</span><span class="blue">发「蓝」加入苍穹舰队 · ${counts.blue}人</span></div>
+          <div class="join"><span class="red">${emblemSvg('red', 30)}发「红」加入赤焰舰队 · ${counts.red}人</span><span class="blue">${emblemSvg('blue', 30)}发「蓝」加入苍穹舰队 · ${counts.blue}人</span></div>
           ${rulesHtml(this.settings)}
-          ${week.length ? `<div class="week"><h2>本周战功榜</h2>${week.map((p, i) => `<div><i>${i + 1}</i>${esc(p.name)}<b>${p.weekMerit}</b><em>Lv.${p.level}</em></div>`).join('')}</div>` : ''}`;
+          ${week.length ? `<div class="week"><h2>本周战功榜</h2>${week.map((p, i) => `<div><i>${i < 3 ? medalSvg(i, 22) : i + 1}</i>${esc(p.name)}<b>${p.weekMerit}</b><em>Lv.${p.level}</em></div>`).join('')}</div>` : ''}`;
       }
     }
     const res = renderer.result;
@@ -230,7 +233,7 @@ export class UI {
     if (!!showRes !== !this.resultEl.hidden) this.resultEl.hidden = !showRes;
     if (showRes && this.resKey !== res.round) {
       this.resKey = res.round;
-      const col = id => `<div class="mvp ${id}"><h3>${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${['冠', '亚', '季'][i]}</i>${esc(m.name)}<b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
+      const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i>${esc(m.name)}<b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
       this.resultEl.innerHTML = `
         <div class="win ${res.winner || ''}">${res.winner ? `${TEAMS[res.winner].name} 获胜` : '平局'}</div>
         <div class="reason">${res.reason === 'destroyed' ? '敌方旗舰核心被摧毁' : '时间到，比较旗舰剩余血量'}</div>

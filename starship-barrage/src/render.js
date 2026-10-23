@@ -1,5 +1,6 @@
 // 星舰弹幕战 · 画面
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
+import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg } from './art.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
 const NUM = '"Orbitron","DIN Alternate","Bahnschrift","Segoe UI",sans-serif';
@@ -18,6 +19,8 @@ export class Renderer {
     this.game = game;
     this.glow = new Map();
     this.ships = new Map();
+    this.art = new ArtCache();
+    this.rankOf = new Map();
     this.avatars = new Map();
     this.particles = [];
     this.banners = [];
@@ -99,6 +102,18 @@ export class Renderer {
     return a.ok ? a.img : null;
   }
 
+  // 矢量美术（加载完成前返回 null，用简化图形兜底）
+  fighterArt(f) {
+    const skin = f.npc ? 0 : Math.min(5, f.skin | 0);
+    return this.art.get(`f|${f.team}|${f.weapon}|${skin}|${f.npc ? 1 : 0}`, px => fighterSvg(f.team, f.weapon, skin, f.npc, px), 50, 50, 3);
+  }
+  flagArt(team) { return this.art.get(`flag|${team}`, (w, h) => flagshipSvg(team, w, h), 640, 200, 2); }
+  shipArt(team) { return this.art.get(`ship|${team}`, (w, h) => battleshipSvg(team, w, h), 150, 120, 2.5); }
+  turretArt(team, dead) { return this.art.get(`tu|${team}|${dead ? 1 : 0}`, px => turretSvg(team, px, dead), 58, 58, 3); }
+  droneArt(team) { return this.art.get(`dr|${team}`, px => droneSvg(team, px), 24, 24, 3); }
+  medalArt(rank) { return this.art.get(`md|${rank}`, px => medalSvg(rank, px), 18, 19.5, 4); }
+  blit(x, c, cx, cy) { x.drawImage(c, cx - c.w / 2, cy - c.h / 2, c.w, c.h); }
+
   // ───────── 事件 → 特效 ─────────
   consume(events) {
     const g = this.game;
@@ -162,6 +177,7 @@ export class Renderer {
     let sx = 0, sy = 0;
     if (this.shake > 0) { sx = (Math.random() - 0.5) * this.shake; sy = (Math.random() - 0.5) * this.shake; this.shake = Math.max(0, this.shake - dt * 40); }
     this.drawBackground(x);
+    this.sx = sx; this.sy = sy;
     x.save(); x.translate(sx, sy);
     for (const id of ['red', 'blue']) this.drawFlagship(x, g.teams[id]);
     this.drawHazards(x);
@@ -199,18 +215,21 @@ export class Renderer {
     x.translate(360, y);
     if (d === 1) x.scale(1, -1); // 红方在上，机头朝下：以“朝上”绘制后翻转
     // 船体（朝上：前端在 -y）
+    const art = this.flagArt(def.id);
     const col = def.color;
-    x.shadowColor = col; x.shadowBlur = 24;
-    x.beginPath();
-    x.moveTo(-300, 70); x.lineTo(-250, 10); x.lineTo(-120, -10); x.lineTo(-60, -52); x.lineTo(60, -52); x.lineTo(120, -10); x.lineTo(250, 10); x.lineTo(300, 70); x.closePath();
-    const hull = x.createLinearGradient(0, -52, 0, 70);
-    hull.addColorStop(0, '#2a3148'); hull.addColorStop(0.5, '#141a2c'); hull.addColorStop(1, '#0a0d18');
-    x.fillStyle = hull; x.fill();
-    x.shadowBlur = 0;
-    x.strokeStyle = col; x.lineWidth = 2.5; x.stroke();
-    // 舰体条纹
-    x.strokeStyle = 'rgba(255,255,255,.08)'; x.lineWidth = 1;
-    for (let i = -4; i <= 4; i++) { x.beginPath(); x.moveTo(i * 55, 0); x.lineTo(i * 62, 64); x.stroke(); }
+    if (art) {
+      this.blit(x, art, 0, 0);
+      if (t.hitFlash > 0.05) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = Math.min(0.35, t.hitFlash * 0.5); this.blit(x, art, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; }
+    } else {
+      x.shadowColor = col; x.shadowBlur = 24;
+      x.beginPath();
+      x.moveTo(-300, 70); x.lineTo(-250, 10); x.lineTo(-120, -10); x.lineTo(-60, -52); x.lineTo(60, -52); x.lineTo(120, -10); x.lineTo(250, 10); x.lineTo(300, 70); x.closePath();
+      const hull = x.createLinearGradient(0, -52, 0, 70);
+      hull.addColorStop(0, '#2a3148'); hull.addColorStop(0.5, '#141a2c'); hull.addColorStop(1, '#0a0d18');
+      x.fillStyle = hull; x.fill();
+      x.shadowBlur = 0;
+      x.strokeStyle = col; x.lineWidth = 2.5; x.stroke();
+    }
     // 核心
     const pct = t.core / t.coreMax;
     const pulse = 0.75 + Math.sin(this.game.clock * 4) * 0.25;
@@ -228,18 +247,27 @@ export class Renderer {
     }
     x.globalCompositeOperation = 'source-over';
     x.restore();
-    // 炮台
+    // 炮台：炮管跟踪最近的敌机
+    const enemies = [];
+    for (const f of this.game.fighters.values()) if (f.alive && f.team !== def.id) enemies.push(f);
     for (const tu of t.turrets) {
       x.save(); x.translate(tu.x, tu.y);
+      const art = this.turretArt(def.id, tu.dead);
       if (tu.dead) {
-        x.fillStyle = 'rgba(80,80,90,.6)'; x.beginPath(); x.arc(0, 0, 18, 0, Math.PI * 2); x.fill();
-        x.fillStyle = '#9aa3b5'; x.font = `12px ${FONT}`; x.textAlign = 'center'; x.fillText(`${Math.ceil(tu.respawn)}s`, 0, 4);
+        if (art) this.blit(x, art, 0, 0); else { x.fillStyle = 'rgba(80,80,90,.6)'; x.beginPath(); x.arc(0, 0, 18, 0, Math.PI * 2); x.fill(); }
+        this.label(x, `${Math.ceil(tu.respawn)}s`, 0, 0, 13, '#c9d1e2', true);
       } else {
-        x.fillStyle = '#20263a'; x.strokeStyle = def.color; x.lineWidth = 2;
-        x.beginPath(); x.arc(0, 0, 22, 0, Math.PI * 2); x.fill(); x.stroke();
-        x.fillStyle = def.glow; x.fillRect(-4, d === 1 ? 6 : -26, 8, 20);
-        x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(-20, d === 1 ? -32 : 26, 40, 5);
-        x.fillStyle = def.color; x.fillRect(-20, d === 1 ? -32 : 26, 40 * tu.hp / tu.max, 5);
+        let best = null, bd = Infinity;
+        for (const f of enemies) { const dd = (f.x - tu.x) ** 2 + (f.y - tu.y) ** 2; if (dd < bd) { bd = dd; best = f; } }
+        const want = best ? Math.atan2(best.y - tu.y, best.x - tu.x) + Math.PI / 2 : (d === 1 ? Math.PI : 0);
+        tu.aim = tu.aim == null ? want : tu.aim + Math.atan2(Math.sin(want - tu.aim), Math.cos(want - tu.aim)) * 0.12;
+        x.save(); x.rotate(tu.aim);
+        if (art) this.blit(x, art, 0, 0);
+        else { x.fillStyle = '#20263a'; x.strokeStyle = def.color; x.lineWidth = 2; x.beginPath(); x.arc(0, 0, 22, 0, Math.PI * 2); x.fill(); x.stroke(); x.fillStyle = def.glow; x.fillRect(-4, -26, 8, 20); }
+        x.restore();
+        const by = d === 1 ? -36 : 31;
+        x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(-21, by, 42, 5);
+        x.fillStyle = def.color; x.fillRect(-20, by + 1, 40 * tu.hp / tu.max, 3);
       }
       x.restore();
     }
@@ -266,16 +294,22 @@ export class Renderer {
   drawShip(x, s) {
     const def = TEAMS[s.team], d = def.dir;
     x.save(); x.translate(s.x, s.y); if (d === 1) x.scale(1, -1);
-    x.shadowColor = def.color; x.shadowBlur = 18;
-    x.beginPath(); x.moveTo(0, -40); x.lineTo(22, -14); x.lineTo(62, 8); x.lineTo(62, 22); x.lineTo(18, 18); x.lineTo(10, 30); x.lineTo(-10, 30); x.lineTo(-18, 18); x.lineTo(-62, 22); x.lineTo(-62, 8); x.lineTo(-22, -14); x.closePath();
-    const g = x.createLinearGradient(0, -40, 0, 30); g.addColorStop(0, '#fff8e0'); g.addColorStop(0.35, def.color); g.addColorStop(1, '#141826');
-    x.fillStyle = g; x.fill(); x.shadowBlur = 0; x.strokeStyle = '#ffd86b'; x.lineWidth = 2; x.stroke();
-    x.globalCompositeOperation = 'lighter';
-    const e = this.glowSprite(def.glow, 8); x.drawImage(e, -e.half, 30 - e.half); x.drawImage(e, -e.half - 30, 22 - e.half); x.drawImage(e, -e.half + 30, 22 - e.half);
-    x.globalCompositeOperation = 'source-over';
+    const art = this.shipArt(s.team);
+    if (art) {
+      x.globalCompositeOperation = 'lighter';
+      const e = this.glowSprite(def.glow, 9 + Math.random() * 2);
+      for (const ex of [-22, 0, 22]) x.drawImage(e, ex * 0.94 - e.half, 54 - e.half);
+      x.globalCompositeOperation = 'source-over';
+      this.blit(x, art, 0, 0);
+    } else {
+      x.shadowColor = def.color; x.shadowBlur = 18;
+      x.beginPath(); x.moveTo(0, -40); x.lineTo(22, -14); x.lineTo(62, 8); x.lineTo(62, 22); x.lineTo(18, 18); x.lineTo(10, 30); x.lineTo(-10, 30); x.lineTo(-18, 18); x.lineTo(-62, 22); x.lineTo(-62, 8); x.lineTo(-22, -14); x.closePath();
+      const g = x.createLinearGradient(0, -40, 0, 30); g.addColorStop(0, '#fff8e0'); g.addColorStop(0.35, def.color); g.addColorStop(1, '#141826');
+      x.fillStyle = g; x.fill(); x.shadowBlur = 0; x.strokeStyle = '#ffd86b'; x.lineWidth = 2; x.stroke();
+    }
     x.restore();
     // 名字（战舰上写着送礼人的名字）
-    const ly = s.y + (d === 1 ? -50 : 50);
+    const ly = s.y + (d === 1 ? -66 : 66);
     this.label(x, s.name, s.x, ly, 18, '#ffe7a3', true);
     x.fillStyle = 'rgba(0,0,0,.55)'; x.fillRect(s.x - 50, ly + (d === 1 ? -22 : 10), 100, 5);
     x.fillStyle = '#ffd86b'; x.fillRect(s.x - 50, ly + (d === 1 ? -22 : 10), 100 * Math.max(0, s.hp / s.max), 5);
@@ -285,49 +319,63 @@ export class Renderer {
     const g = this.game;
     const top = new Set();
     if (g.clock - this.boardCache.t > 0.5) { this.boardCache = { t: g.clock, red: g.roundBoard('red', 3), blue: g.roundBoard('blue', 3) }; }
-    for (const f of [...this.boardCache.red, ...this.boardCache.blue]) if (f.merit > 0) top.add(f.uid);
+    this.rankOf.clear();
+    for (const list of [this.boardCache.red, this.boardCache.blue]) list.forEach((f, i) => { if (f.merit > 0) { top.add(f.uid); this.rankOf.set(f.uid, i); } });
     for (const f of g.fighters.values()) {
       if (!f.alive) continue;
       const d = TEAMS[f.team].dir;
-      const spr = this.shipSprite(f.team, f.npc ? 0 : f.skin, f.npc);
+      const art = this.fighterArt(f);
       x.save(); x.translate(f.x, f.y);
       if (f.invuln > 0 && Math.floor(g.clock * 12) % 2) x.globalAlpha = 0.45;
       if (d === 1) x.scale(1, -1);
-      // 尾焰
+      // 尾焰（随火力等级变大）
       x.globalCompositeOperation = 'lighter';
-      const fl = this.glowSprite(TEAMS[f.team].glow, 3 + f.power * 0.6);
-      x.drawImage(fl, -fl.half, 15 - fl.half + Math.random() * 3);
+      const fl = this.glowSprite(TEAMS[f.team].glow, 2.6 + f.power * 0.7);
+      x.drawImage(fl, -fl.half, 19 - fl.half + Math.random() * 3);
       x.globalCompositeOperation = 'source-over';
-      x.drawImage(spr, -spr.half, -spr.half);
+      if (art) this.blit(x, art, 0, 0);
+      else { const spr = this.shipSprite(f.team, f.npc ? 0 : f.skin, f.npc); x.drawImage(spr, -spr.half, -spr.half); }
       x.restore();
       x.globalAlpha = 1;
       // 头像
       const av = !f.npc && this.avatar(f.avatar);
       if (av) {
-        const ay = f.y - d * 2;
-        x.save(); x.beginPath(); x.arc(f.x, ay, 6.5, 0, Math.PI * 2); x.clip(); x.drawImage(av, f.x - 6.5, ay - 6.5, 13, 13); x.restore();
+        const ay = f.y + d * 6;
+        x.save(); x.beginPath(); x.arc(f.x, ay, 7, 0, Math.PI * 2); x.clip(); x.drawImage(av, f.x - 7, ay - 7, 14, 14); x.restore();
+        x.strokeStyle = TEAMS[f.team].glow; x.lineWidth = 1.5; x.beginPath(); x.arc(f.x, ay, 7.5, 0, Math.PI * 2); x.stroke();
       }
-      if (f.shield > 0) { x.strokeStyle = 'rgba(170,230,255,.75)'; x.lineWidth = 1.5; x.beginPath(); x.arc(f.x, f.y, 19, 0, Math.PI * 2); x.stroke(); }
+      if (f.shield > 0) { x.strokeStyle = 'rgba(170,230,255,.75)'; x.lineWidth = 1.5; x.beginPath(); x.arc(f.x, f.y, 24, 0, Math.PI * 2); x.stroke(); }
       if (f.charge >= 20) {
         x.strokeStyle = '#fff3a8'; x.lineWidth = 2;
-        x.beginPath(); x.arc(f.x, f.y, 23, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f.charge / 100); x.stroke();
+        x.beginPath(); x.arc(f.x, f.y, 28, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f.charge / 100); x.stroke();
       }
       if (f.drones) {
-        x.globalCompositeOperation = 'lighter';
-        const s = this.glowSprite(TEAMS[f.team].glow, 4);
-        for (const k of [-1, 1]) x.drawImage(s, f.x + k * 26 - s.half, f.y + Math.sin(g.clock * 6 + k) * 4 - s.half);
-        x.globalCompositeOperation = 'source-over';
+        const da = this.droneArt(f.team);
+        for (const k of [-1, 1]) {
+          const dx = f.x + k * 30, dy = f.y + Math.sin(g.clock * 6 + k) * 4;
+          if (da) { x.save(); x.translate(dx, dy); if (d === 1) x.scale(1, -1); this.blit(x, da, 0, 0); x.restore(); }
+          else { x.globalCompositeOperation = 'lighter'; const s = this.glowSprite(TEAMS[f.team].glow, 4); x.drawImage(s, dx - s.half, dy - s.half); x.globalCompositeOperation = 'source-over'; }
+        }
       }
       const show = top.has(f.uid) || f.labelUntil > g.clock || (this.card && this.card.uid === f.uid);
       if (show && !f.npc) {
-        const crown = top.has(f.uid) ? '★' : '';
-        this.label(x, `${crown}${f.name}`, f.x, f.y + (d === 1 ? -24 : 32), 13, top.has(f.uid) ? '#ffe28a' : '#ffffff');
+        const rank = this.rankOf.get(f.uid);
+        const ly = f.y + (d === 1 ? -30 : 38);
+        this.label(x, f.name, f.x, ly, 13, rank != null ? '#ffe28a' : '#ffffff');
+        const m = rank != null && this.medalArt(rank);
+        if (m) { x.font = `500 13px ${FONT}`; this.blit(x, m, f.x - x.measureText(f.name).width / 2 - 11, ly - 1); }
       }
     }
   }
 
+  bulletArt(shape, color, r) {
+    const size = Math.max(8, Math.round(r * 4.2));
+    return this.art.get(`b|${shape}|${color}|${size}`, px => bulletSvg(shape, color, px), size, size, 3);
+  }
+
   drawBullets(x) {
-    const g = this.game;
+    const g = this.game, k = this.pxScale, ox = k * (this.sx || 0), oy = k * (this.sy || 0);
+    const SHAPES = ['kunai', 'rice', 'orb', 'star', 'rice'];
     x.globalCompositeOperation = 'lighter';
     for (const b of g.bullets) {
       const pal = PALETTE[b.team];
@@ -336,12 +384,18 @@ export class Renderer {
         x.beginPath(); x.moveTo(b.x, b.y); x.lineTo(b.x - b.vx * 0.018, b.y - b.vy * 0.018); x.stroke();
         continue;
       }
-      let color;
-      if (b.kind === 'shot') color = b.overload ? '#fff3a8' : b.gift ? '#ffd86b' : pal.shot;
-      else color = pal.danmaku[b.hue % 5];
-      const s = this.glowSprite(color, b.r);
-      x.drawImage(s, b.x - s.half, b.y - s.half);
+      let color, shape;
+      if (b.kind === 'shot') { color = b.overload ? '#fff3a8' : b.gift ? '#ffd86b' : pal.shot; shape = b.orb || b.overload ? 'orb' : b.gift ? 'kunai' : 'rice'; }
+      else { color = pal.danmaku[b.hue % 5]; shape = b.orb ? 'orb' : SHAPES[b.hue % 5]; }
+      const spr = this.bulletArt(shape, color, b.r);
+      if (!spr) { const s = this.glowSprite(color, b.r); x.drawImage(s, b.x - s.half, b.y - s.half); continue; }
+      if (shape === 'orb') { x.drawImage(spr, b.x - spr.w / 2, b.y - spr.h / 2, spr.w, spr.h); continue; }
+      const a = shape === 'star' ? g.clock * 7 + b.x * 0.05 : Math.atan2(b.vy, b.vx) + Math.PI / 2;
+      const c = Math.cos(a) * k, sn = Math.sin(a) * k;
+      x.setTransform(c, sn, -sn, c, k * b.x + ox, k * b.y + oy);
+      x.drawImage(spr, -spr.w / 2, -spr.h / 2, spr.w, spr.h);
     }
+    x.setTransform(k, 0, 0, k, ox, oy);
     x.globalCompositeOperation = 'source-over';
   }
 
@@ -454,7 +508,9 @@ export class Renderer {
     x.font = `600 13px ${FONT}`; x.fillStyle = TEAMS[team].glow; x.fillText('本局战功', px + 10, py + 12);
     list.forEach((f, i) => {
       x.font = `13px ${FONT}`; x.fillStyle = i === 0 ? '#ffe28a' : '#dfe6ff';
-      x.fillText(`${i + 1}. ${trim(f.name, 7)}`, px + 10, py + 34 + i * 22);
+      const m = this.medalArt(i);
+      if (m) this.blit(x, m, px + 18, py + 33 + i * 22); else x.fillText(`${i + 1}.`, px + 10, py + 34 + i * 22);
+      x.fillText(trim(f.name, 7), px + 32, py + 34 + i * 22);
       x.textAlign = 'right'; x.font = `600 13px ${NUM}`; x.fillText(String(Math.floor(f.merit)), px + 176, py + 34 + i * 22); x.textAlign = 'left';
     });
   }
