@@ -27,6 +27,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 #lobby .join { display: flex; gap: 14px; margin: 18px 0 8px; }
 #lobby .join span { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px 8px 10px; border-radius: 999px; font-size: 18px; font-weight: 700; white-space: nowrap; }
 #lobby .join .red { background: rgba(255,77,94,.16); border: 2px solid var(--red); color: #ffd3d8; }
+#lobby .join .pve { background: rgba(140,70,200,.18); border: 2px solid #b35ee6; color: #ecd4ff; }
 #lobby .join .blue { background: rgba(58,168,255,.16); border: 2px solid var(--blue); color: #d3ecff; }
 
 .rules { width: 100%; background: rgba(13,18,34,.82); border: 1px solid var(--line); border-radius: 18px; padding: 6px 24px 14px; margin-top: 10px; }
@@ -50,6 +51,9 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 #result { justify-content: center; background: radial-gradient(ellipse at center, rgba(4,6,16,.9) 30%, rgba(4,6,16,.55) 75%, rgba(4,6,16,.2)); }
 #result .win { font-size: 66px; font-weight: 900; letter-spacing: 4px; }
 #result .win.red { color: #ffc0c6; text-shadow: 0 0 30px var(--red); }
+#result .win.fail { color: #e2c4ff; text-shadow: 0 0 30px #8a3dbf; }
+#result .mvp.wide { flex: 0 1 420px; margin: 0 auto; }
+#result .mvp .rk { width: 30px; text-align: center; color: var(--dim); font-weight: 800; font-size: 18px; }
 #result .win.blue { color: #c5e8ff; text-shadow: 0 0 30px var(--blue); }
 #result .reason { color: var(--dim); font-size: 20px; margin: 6px 0 22px; }
 #result .mvps { display: flex; gap: 18px; width: 640px; }

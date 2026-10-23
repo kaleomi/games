@@ -1,6 +1,8 @@
 // 星舰弹幕战 · 画面
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
-import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg } from './art.js';
+import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
+import { bossTimeText } from './pve.js';
+import { MODE_NAMES } from './config.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
 const NUM = '"Orbitron","DIN Alternate","Bahnschrift","Segoe UI",sans-serif';
@@ -112,6 +114,9 @@ export class Renderer {
   turretArt(team, dead) { return this.art.get(`tu|${team}|${dead ? 1 : 0}`, px => turretSvg(team, px, dead), 58, 58, 3); }
   droneArt(team) { return this.art.get(`dr|${team}`, px => droneSvg(team, px), 24, 24, 3); }
   medalArt(rank) { return this.art.get(`md|${rank}`, px => medalSvg(rank, px), 18, 19.5, 4); }
+  alienArt(kind) { const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
+  podArt(dead) { return this.art.get(`pod|${dead ? 1 : 0}`, px => podSvg(px, dead), 58, 58, 3); }
+  bossArt() { return this.art.get('boss', (w, h) => bossSvg(w, h), BOSS_VIEW.w, BOSS_VIEW.h, 2); }
   blit(x, c, cx, cy) { x.drawImage(c, cx - c.w / 2, cy - c.h / 2, c.w, c.h); }
 
   // ───────── 事件 → 特效 ─────────
@@ -134,6 +139,8 @@ export class Renderer {
         case 'result': this.result = e; this.resultAt = g.clock; break;
         case 'card': this.card = { uid: e.uid, until: g.clock + 5 }; break;
         case 'ship': break;
+        case 'vote': this.toast(`${e.name} 投票换${e.modeName}模式（${e.votes}/${e.need}）`, null, '#ffe28a'); break;
+        case 'dive': this.ring(e.x, e.y, '#ff5ad1', 26); break;
         default: break;
       }
     }
@@ -210,9 +217,10 @@ export class Renderer {
   }
 
   drawFlagship(x, t) {
-    const def = t.def, y = def.flagY, d = def.dir;
+    if (t.boss) return this.drawBoss(x, t);
+    const def = t.def, y = t.y, d = def.dir;
     x.save();
-    x.translate(360, y);
+    x.translate(t.x, y);
     if (d === 1) x.scale(1, -1); // 红方在上，机头朝下：以“朝上”绘制后翻转
     // 船体（朝上：前端在 -y）
     const art = this.flagArt(def.id);
@@ -247,12 +255,17 @@ export class Renderer {
     }
     x.globalCompositeOperation = 'source-over';
     x.restore();
-    // 炮台：炮管跟踪最近的敌机
+    this.drawTurrets(x, t, dead => this.turretArt(def.id, dead));
+  }
+
+  // 炮台 / 触手炮：炮管跟踪最近的敌机
+  drawTurrets(x, t, artFn) {
+    const def = t.def, d = def.dir;
     const enemies = [];
     for (const f of this.game.fighters.values()) if (f.alive && f.team !== def.id) enemies.push(f);
     for (const tu of t.turrets) {
       x.save(); x.translate(tu.x, tu.y);
-      const art = this.turretArt(def.id, tu.dead);
+      const art = artFn(tu.dead);
       if (tu.dead) {
         if (art) this.blit(x, art, 0, 0); else { x.fillStyle = 'rgba(80,80,90,.6)'; x.beginPath(); x.arc(0, 0, 18, 0, Math.PI * 2); x.fill(); }
         this.label(x, `${Math.ceil(tu.respawn)}s`, 0, 0, 13, '#c9d1e2', true);
@@ -267,10 +280,31 @@ export class Renderer {
         x.restore();
         const by = d === 1 ? -36 : 31;
         x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(-21, by, 42, 5);
-        x.fillStyle = def.color; x.fillRect(-20, by + 1, 40 * tu.hp / tu.max, 3);
+        x.fillStyle = tu.pod ? '#c45cff' : def.color; x.fillRect(-20, by + 1, 40 * tu.hp / tu.max, 3);
       }
       x.restore();
     }
+  }
+
+  drawBoss(x, t) {
+    if (t.y < -160 || (t.core <= 0 && this.game.phase === 'result')) return;
+    const art = this.bossArt();
+    const g = this.game;
+    if (art) {
+      x.drawImage(art, t.x + BOSS_VIEW.left, t.y + BOSS_VIEW.top, BOSS_VIEW.w, BOSS_VIEW.h);
+      if (t.hitFlash > 0.05) { x.globalCompositeOperation = 'lighter'; x.globalAlpha = Math.min(0.3, t.hitFlash * 0.5); x.drawImage(art, t.x + BOSS_VIEW.left, t.y + BOSS_VIEW.top, BOSS_VIEW.w, BOSS_VIEW.h); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; }
+    } else {
+      x.fillStyle = '#3e1259'; x.beginPath(); x.ellipse(t.x, t.y, 160, 120, 0, 0, Math.PI * 2); x.fill();
+    }
+    // 核心
+    const cy = t.y + t.coreDy, pct = t.core / t.coreMax, pulse = 0.7 + Math.sin(g.clock * (3 + t.rage)) * 0.3;
+    x.globalCompositeOperation = 'lighter';
+    const cg = x.createRadialGradient(t.x, cy, 0, t.x, cy, 54);
+    cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.2, t.rage >= 3 ? '#ff6a3a' : '#e7a6ff'); cg.addColorStop(0.55, t.rage >= 2 ? '#8dff5a' : '#c45cff'); cg.addColorStop(1, 'rgba(0,0,0,0)');
+    x.globalAlpha = Math.min(1, 0.4 + 0.6 * pct * pulse + t.hitFlash);
+    x.fillStyle = cg; x.beginPath(); x.arc(t.x, cy, 54, 0, Math.PI * 2); x.fill();
+    x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    this.drawTurrets(x, t, dead => this.podArt(dead));
   }
 
   drawHazards(x) {
@@ -318,11 +352,12 @@ export class Renderer {
   drawFighters(x) {
     const g = this.game;
     const top = new Set();
-    if (g.clock - this.boardCache.t > 0.5) { this.boardCache = { t: g.clock, red: g.roundBoard('red', 3), blue: g.roundBoard('blue', 3) }; }
+    if (g.clock - this.boardCache.t > 0.5) { const pve = g.mode === 'pve'; this.boardCache = { t: g.clock, red: pve ? [] : g.roundBoard('red', 3), blue: g.roundBoard('blue', pve ? 5 : 3) }; }
     this.rankOf.clear();
-    for (const list of [this.boardCache.red, this.boardCache.blue]) list.forEach((f, i) => { if (f.merit > 0) { top.add(f.uid); this.rankOf.set(f.uid, i); } });
+    for (const list of [this.boardCache.red, this.boardCache.blue]) list.forEach((f, i) => { if (f.merit > 0 && i < 3) { top.add(f.uid); this.rankOf.set(f.uid, i); } });
     for (const f of g.fighters.values()) {
       if (!f.alive) continue;
+      if (f.alien) { this.drawAlien(x, f); continue; }
       const d = TEAMS[f.team].dir;
       const art = this.fighterArt(f);
       x.save(); x.translate(f.x, f.y);
@@ -371,6 +406,22 @@ export class Renderer {
   bulletArt(shape, color, r) {
     const size = Math.max(8, Math.round(r * 4.2));
     return this.art.get(`b|${shape}|${color}|${size}`, px => bulletSvg(shape, color, px), size, size, 3);
+  }
+
+  drawAlien(x, f) {
+    const art = this.alienArt(f.kind);
+    x.save(); x.translate(f.x, f.y);
+    let a = Math.sin(f.t * 3 + f.seed) * 0.12;
+    if (f.kind === 'diver' && f.stage === 2) a = Math.atan2(f.vy, f.vx) - Math.PI / 2;
+    if (f.kind === 'diver' && f.stage === 1) { x.globalCompositeOperation = 'lighter'; const s = this.glowSprite('#ff5ad1', 10 + Math.sin(f.t * 30) * 3); x.drawImage(s, -s.half, -s.half); x.globalCompositeOperation = 'source-over'; }
+    x.rotate(a);
+    if (art) this.blit(x, art, 0, 0);
+    else { x.fillStyle = '#9a45c8'; x.beginPath(); x.arc(0, 0, 10, 0, Math.PI * 2); x.fill(); }
+    x.restore();
+    if (f.kind === 'gunner' && f.hp < f.maxHp) {
+      x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(f.x - 22, f.y - 34, 44, 5);
+      x.fillStyle = '#8dff5a'; x.fillRect(f.x - 21, f.y - 33, 42 * Math.max(0, f.hp / f.maxHp), 3);
+    }
   }
 
   drawBullets(x) {
@@ -426,25 +477,31 @@ export class Renderer {
     const g = this.game;
     for (const id of ['red', 'blue']) {
       const t = g.teams[id], c = t.cannon, def = t.def, d = def.dir;
-      const fy = def.flagY + d * 60;
+      if (!t.present) {
+        if (c.state === 'charging') this.label(x, '主炮已蓄满，等母舰现身', t.x, t.y + d * 130, 18, '#ffe28a', true);
+        continue;
+      }
+      const fy = t.boss ? t.y + 90 : t.y + d * 60, cx = t.x;
       if (c.state === 'charging') {
         const k = 1 - c.t / GIFT.cannonCharge;
         x.globalCompositeOperation = 'lighter';
         const s = this.glowSprite('#ffffff', 10 + k * 34);
-        x.drawImage(s, 360 - s.half, fy - s.half);
+        x.drawImage(s, cx - s.half, fy - s.half);
         x.strokeStyle = def.glow; x.lineWidth = 2;
-        for (let i = 0; i < 3; i++) { const r = ((g.clock * 120 + i * 40) % 120); x.globalAlpha = 1 - r / 120; x.beginPath(); x.arc(360, fy, 120 - r, 0, Math.PI * 2); x.stroke(); }
+        x.strokeStyle = t.boss ? '#8dff5a' : def.glow;
+        for (let i = 0; i < 3; i++) { const r = ((g.clock * 120 + i * 40) % 120); x.globalAlpha = 1 - r / 120; x.beginPath(); x.arc(cx, fy, 120 - r, 0, Math.PI * 2); x.stroke(); }
         x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
         const pct = Math.round(Math.min(GIFT.interceptCap, c.intercept) * 100);
-        this.label(x, `主炮蓄力 ${c.t.toFixed(1)}s · 已被拦截 -${pct}%`, 360, fy + d * 70, 20, '#ffffff', true);
+        this.label(x, `${t.boss ? '湮灭炮' : '主炮'}蓄力 ${c.t.toFixed(1)}s · 已被拦截 -${pct}%`, cx, fy + d * 70, 20, '#ffffff', true);
       } else if (c.state === 'firing') {
         const k = c.fireT / 1.3;
         x.globalCompositeOperation = 'lighter';
         const y0 = fy, y1 = d === 1 ? H : 0;
-        const gr = x.createLinearGradient(260, 0, 460, 0);
-        gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.3, def.glow); gr.addColorStop(0.5, '#ffffff'); gr.addColorStop(0.7, def.glow); gr.addColorStop(1, 'rgba(0,0,0,0)');
+        const bc = t.boss ? '#8dff5a' : def.glow;
+        const gr = x.createLinearGradient(cx - 100, 0, cx + 100, 0);
+        gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.3, bc); gr.addColorStop(0.5, '#ffffff'); gr.addColorStop(0.7, bc); gr.addColorStop(1, 'rgba(0,0,0,0)');
         x.globalAlpha = Math.min(1, k * 1.5); x.fillStyle = gr;
-        x.fillRect(360 - 100 - (1 - k) * 20, Math.min(y0, y1), 200 + (1 - k) * 40, Math.abs(y1 - y0));
+        x.fillRect(cx - 100 - (1 - k) * 20, Math.min(y0, y1), 200 + (1 - k) * 40, Math.abs(y1 - y0));
         x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
       }
     }
@@ -464,17 +521,36 @@ export class Renderer {
     this.teamBar(x, g.teams.red, 0);
     this.teamBar(x, g.teams.blue, H - 46);
     // 计时
+    const pve = g.mode === 'pve';
     const mm = Math.max(0, Math.floor(g.phaseT / 60)), ss = Math.max(0, Math.floor(g.phaseT % 60));
-    const timeText = g.phase === 'battle' ? `第${g.roundNo}局 · ${mm}:${String(ss).padStart(2, '0')}` : g.phase === 'lobby' ? `第${g.roundNo}局 ${Math.ceil(g.phaseT)}秒后开战` : '结算中';
-    x.fillStyle = 'rgba(5,8,20,.55)'; roundRect(x, 250, 622, 220, 36, 18); x.fill();
-    x.fillStyle = '#e8eeff'; x.font = `600 18px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(timeText, 360, 641);
-    // 本局战功榜（各队前三）
-    this.board(x, 'red', 520, 196);
-    this.board(x, 'blue', 520, 1000);
+    const stage = pve ? (g.pve?.stage || g.teams.red.stage || 1) : 0;
+    let timeText;
+    if (pve) timeText = g.phase === 'battle' ? `讨伐 第${stage}关` : g.phase === 'lobby' ? `讨伐 第${stage}关 · ${Math.ceil(g.phaseT)}秒后出击` : '结算中';
+    else timeText = g.phase === 'battle' ? `第${g.roundNo}局 · ${mm}:${String(ss).padStart(2, '0')}` : g.phase === 'lobby' ? `第${g.roundNo}局 ${Math.ceil(g.phaseT)}秒后开战` : '结算中';
+    x.font = `600 18px ${FONT}`;
+    const tw = Math.max(220, x.measureText(timeText).width + 40);
+    x.fillStyle = 'rgba(5,8,20,.55)'; roundRect(x, 360 - tw / 2, 622, tw, 36, 18); x.fill();
+    x.fillStyle = '#e8eeff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(timeText, 360, 641);
+    // 本局战功榜
+    if (pve) this.board(x, 'blue', 520, 300);
+    else { this.board(x, 'red', 520, 196); this.board(x, 'blue', 520, 1000); }
+    // 模式投票
+    const v = g.voteView();
+    let hy = 672;
+    if (v) {
+      const text = `投票换${v.modeName}模式 ${v.votes}/${v.need} · 发「换${v.modeName}」同意`;
+      x.font = `600 15px ${FONT}`; const w = x.measureText(text).width + 30;
+      x.fillStyle = 'rgba(80,60,0,.75)'; roundRect(x, 360 - w / 2, 662, w, 26, 13); x.fill();
+      x.fillStyle = '#ffe28a'; x.fillText(text, 360, 675);
+      hy = 702;
+    }
     // 指令提示轮播
-    const hints = ['发「红」「蓝」加入舰队', '发「激光」「散弹」「蓄力」换武器', '发「左」「中」「右」换编队位置', '发「核心」「炮台」选攻击目标', '点赞给自己战机充能，满了放超载炮', '对面主炮蓄力时，发「拦截」削弱它', '发「我的」查看等级和战功'];
+    const other = pve ? '对战' : '讨伐';
+    const hints = pve
+      ? ['发任意指令加入舰队，一起讨伐异形母舰', '发「激光」「散弹」「蓄力」换武器', '发「左」「中」「右」换编队位置', '母舰湮灭炮蓄力时，全员发「拦截」', '点赞给自己战机充能，满了放超载炮', `发「换${other}」投票切到红蓝对战`, '发「我的」查看等级和战功']
+      : ['发「红」「蓝」加入舰队', '发「激光」「散弹」「蓄力」换武器', '发「左」「中」「右」换编队位置', '发「核心」「炮台」选攻击目标', '点赞给自己战机充能，满了放超载炮', '对面主炮蓄力时，发「拦截」削弱它', `发「换${other}」投票切到打BOSS模式`, '发「我的」查看等级和战功'];
     if (g.clock - (this.hintAt || 0) > 5) { this.hintAt = g.clock; this.hintIdx = (this.hintIdx + 1) % hints.length; }
-    x.font = `15px ${FONT}`; x.fillStyle = 'rgba(200,215,255,.75)'; x.fillText(hints[this.hintIdx], 360, 672);
+    x.font = `15px ${FONT}`; x.fillStyle = 'rgba(200,215,255,.75)'; x.fillText(hints[this.hintIdx % hints.length], 360, hy);
     this.drawBanners(x, dt);
     this.drawToasts(x, dt);
     if (this.card && this.card.until > g.clock) this.drawCard(x);
@@ -483,21 +559,25 @@ export class Renderer {
   teamBar(x, t, y) {
     const def = t.def;
     x.fillStyle = 'rgba(4,6,16,.78)'; x.fillRect(0, y, W, 46);
-    const pct = t.core / t.coreMax, sp = t.shield / t.shieldMax;
+    const pct = t.core / t.coreMax, sp = t.shieldMax > 0 ? t.shield / t.shieldMax : 0;
     x.fillStyle = 'rgba(255,255,255,.08)'; x.fillRect(150, y + 12, 420, 14);
-    const g = x.createLinearGradient(150, 0, 570, 0); g.addColorStop(0, def.color); g.addColorStop(1, def.glow);
+    const g = x.createLinearGradient(150, 0, 570, 0);
+    if (t.boss) { g.addColorStop(0, '#8a3dbf'); g.addColorStop(1, '#8dff5a'); } else { g.addColorStop(0, def.color); g.addColorStop(1, def.glow); }
     x.fillStyle = g; x.fillRect(150, y + 12, 420 * pct, 14);
     x.fillStyle = 'rgba(150,220,255,.85)'; x.fillRect(150, y + 30, 420 * sp, 4);
     if (t.hitFlash > 0.05) { x.fillStyle = `rgba(255,255,255,${t.hitFlash * 0.5})`; x.fillRect(150, y + 12, 420 * pct, 14); }
-    x.textBaseline = 'middle'; x.textAlign = 'left'; x.font = `700 18px ${FONT}`; x.fillStyle = def.color;
-    x.fillText(def.name, 14, y + 20);
+    x.textBaseline = 'middle'; x.textAlign = 'left'; x.font = `700 18px ${FONT}`; x.fillStyle = t.boss ? '#d79bff' : def.color;
+    const pve = this.game.mode === 'pve';
+    x.fillText(t.boss ? `异形母舰` : pve ? '苍穹要塞' : def.name, 14, y + 20);
     const humans = this.game.countTeam(def.id, true);
-    x.font = `13px ${FONT}`; x.fillStyle = '#aab4cc'; x.fillText(`${humans}名飞行员`, 14, y + 38);
+    x.font = `13px ${FONT}`; x.fillStyle = '#aab4cc';
+    x.fillText(t.boss ? (this.game.phase === 'battle' ? bossTimeText(this.game) : `第${t.stage}关`) : `${humans}名飞行员`, 14, y + 38);
     x.textAlign = 'right'; x.font = `700 20px ${NUM}`; x.fillStyle = '#ffffff';
     x.fillText(`${Math.ceil(pct * 100)}%`, W - 14, y + 22);
     const c = t.cannon;
     x.font = `12px ${FONT}`; x.fillStyle = c.state === 'idle' ? '#7f8aa6' : '#ffe28a';
-    x.fillText(c.state === 'cool' ? `主炮冷却${Math.ceil(c.t)}s` : c.state === 'charging' ? '主炮蓄力' : c.state === 'firing' ? '主炮发射' : '主炮待命', W - 14, y + 39);
+    const gun = t.boss ? '湮灭炮' : '主炮';
+    x.fillText(c.state === 'cool' ? `${gun}冷却${Math.ceil(c.t)}s` : c.state === 'charging' ? `${gun}蓄力` : c.state === 'firing' ? `${gun}发射` : `${gun}待命`, W - 14, y + 39);
   }
 
   board(x, team, px, py) {
@@ -508,7 +588,7 @@ export class Renderer {
     x.font = `600 13px ${FONT}`; x.fillStyle = TEAMS[team].glow; x.fillText('本局战功', px + 10, py + 12);
     list.forEach((f, i) => {
       x.font = `13px ${FONT}`; x.fillStyle = i === 0 ? '#ffe28a' : '#dfe6ff';
-      const m = this.medalArt(i);
+      const m = i < 3 && this.medalArt(i);
       if (m) this.blit(x, m, px + 18, py + 33 + i * 22); else x.fillText(`${i + 1}.`, px + 10, py + 34 + i * 22);
       x.fillText(trim(f.name, 7), px + 32, py + 34 + i * 22);
       x.textAlign = 'right'; x.font = `600 13px ${NUM}`; x.fillText(String(Math.floor(f.merit)), px + 176, py + 34 + i * 22); x.textAlign = 'left';

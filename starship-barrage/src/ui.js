@@ -1,5 +1,6 @@
 // 设置面板、开局规则页、结算页（DOM）
-import { TEAMS, GIFT, LEVEL, SKINS } from './config.js';
+import { TEAMS, GIFT, LEVEL, SKINS, PVE } from './config.js';
+import { bossMax } from './pve.js';
 import { emblemSvg, logoSvg, medalSvg, gearSvg } from './art.js';
 
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
@@ -12,17 +13,24 @@ export function storeSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-export function rulesHtml(settings) {
+export function rulesHtml(settings, mode = 'pvp') {
   const t = settings.tiers;
   const range = i => i < 4 ? `${t[i]}–${t[i + 1] - 1}` : `${t[i]}+`;
-  return `
-  <div class="rules">
-    <h2>怎么玩</h2>
-    <ul>
+  const pve = mode === 'pve';
+  const how = pve ? `
+      <li>发 <b>任意指令</b>（如「加入」「激光」）加入舰队，头像变成你的战机，<b>AI自动驾驶、躲弹、开火</b></li>
+      <li><b>激光 / 散弹 / 蓄力</b> 换武器 · <b>左 / 中 / 右</b> 换编队 · <b>点赞</b>充能，满了打出超载炮</li>
+      <li>先清虫群，再打<b>异形母舰</b>；母舰血量过半后会蓄力湮灭炮，全员发 <b>拦截</b> 削弱它</li>
+      <li>打爆母舰进下一关；要塞被毁或${PVE.bossMinutes}分钟没打完，退回一关 · 发 <b>换对战</b> 投票切回红蓝对战</li>`
+    : `
       <li>发 <b>红</b> 或 <b>蓝</b> 加入舰队，头像变成你的战机，<b>AI自动驾驶、躲弹、开火</b></li>
       <li><b>激光 / 散弹 / 蓄力</b> 换武器 · <b>左 / 中 / 右</b> 换编队 · <b>核心 / 炮台</b> 选目标</li>
       <li><b>点赞</b>给自己战机充能，满了打出超载炮 · 对面主炮蓄力时发 <b>拦截</b></li>
-      <li>打掉对面旗舰核心获胜；${settings.battleMinutes}分钟到时比剩余血量</li>
+      <li>打掉对面旗舰核心获胜；${settings.battleMinutes}分钟到时比剩余血量 · 发 <b>换讨伐</b> 投票切到打BOSS</li>`;
+  return `
+  <div class="rules">
+    <h2>怎么玩</h2>
+    <ul>${how}
     </ul>
     <h2>礼物效果 <small>按单个礼物价值（抖币）</small></h2>
     <table>
@@ -30,11 +38,11 @@ export function rulesHtml(settings) {
       <tr><td>${range(1)}</td><td>弹幕阵型（螺旋 / 扇形）</td></tr>
       <tr><td>${range(2)}</td><td>激光网格或分裂弹 + 2架护卫僚机${GIFT.droneSeconds}秒</td></tr>
       <tr><td>${range(3)}</td><td>召唤战舰${GIFT.battleshipSeconds}秒，舰体写着你的名字</td></tr>
-      <tr><td>${range(4)}</td><td>旗舰主炮：蓄力${GIFT.cannonCharge}秒，对面发「拦截」最多削弱${Math.round(GIFT.interceptCap * 100)}%</td></tr>
+      <tr><td>${range(4)}</td><td>${pve ? `旗舰主炮：轰掉母舰${Math.round(PVE.playerCannonDamage * 100)}%血量，母舰没出现时先蓄满等着` : `旗舰主炮：蓄力${GIFT.cannonCharge}秒，对面发「拦截」最多削弱${Math.round(GIFT.interceptCap * 100)}%`}</td></tr>
     </table>
     <h2>榜单与成长</h2>
     <ul>
-      <li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>
+      <li>战功只按战果计算（击落、伤害、炮台、拦截、${pve ? '过关' : '胜利'}），<b>不显示消费金额</b></li>
       <li>等级跟着抖音账号保存，<b>等级越高，AI躲弹越灵活</b>，满${LEVEL.max}级；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
       <li>灰色「NPC」战机是人少时的补位电脑，不是真人，不进榜单</li>
       <li>礼物效果固定、没有抽奖；理性消费，未成年人请勿打赏</li>
@@ -82,6 +90,10 @@ export class UI {
         <div id="link-status" class="status"></div>
       </section>
       <section>
+        <h3>模式</h3>
+        <div class="row wrap"><span id="mode-info"></span></div>
+        <div class="row wrap"><button data-act="mode-pvp">切到对战（红蓝对攻）</button><button data-act="mode-pve">切到讨伐（打母舰）</button><button data-act="stage-reset">讨伐回到第1关</button></div>
+        <div class="note">观众也能随时发「换讨伐」「换对战」投票切换，在场一半人同意就换（和暴力摩托一样）。</div>
         <h3>对局</h3>
         <div class="row">每局上限 <input id="cfg-minutes" type="number" min="3" max="30" value="${s.battleMinutes}"> 分钟</div>
         <div class="row">人少时每队补位NPC到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMinPerTeam}"> 架</div>
@@ -169,6 +181,13 @@ export class UI {
       case 'test-intercept': if (!this.testAllowed()) break; for (const f of g.fighters.values()) if (f.test) g.chat({ id: f.uid, name: f.name }, '拦截'); break;
       case 'test-like': if (!this.testAllowed()) break; for (const f of g.fighters.values()) if (f.test) g.like({ id: f.uid, name: f.name }, 10); break;
       case 'start-now': if (g.phase === 'lobby') g.phaseT = 0.01; break;
+      case 'mode-pvp': g.setMode('pvp'); break;
+      case 'mode-pve': g.setMode('pve'); break;
+      case 'stage-reset':
+        if (!confirm('讨伐模式回到第1关？')) break;
+        this.save.data.pveStage = 1; this.save.dirty = true; this.save.flush(); g.memStage = 1;
+        if (g.mode === 'pve' && g.phase === 'lobby') g.startLobby();
+        this.note('讨伐模式已回到第1关'); break;
       case 'end-now': if (g.phase === 'battle') g.phaseT = 0.01; break;
       case 'export': {
         const blob = new Blob([this.save.exportJson()], { type: 'application/json' });
@@ -206,6 +225,8 @@ export class UI {
     const text = { offline: '未连接', connecting: '正在连接…', connected: '已连接', reconnecting: '断开，正在重连…', error: '连接出错' }[r.status] || r.status;
     document.getElementById('link-status').innerHTML = `<span class="dot ${r.status}"></span>${text}${r.room ? ` · 直播间 ${esc(r.room)}` : ''} · 已收消息 ${r.received}${r.error && r.status !== 'connected' ? `<div class="err">${esc(r.error)}</div>` : ''}`;
     const n = Object.keys(this.save.data.players).length;
+    const mi = document.getElementById('mode-info');
+    if (mi) mi.textContent = `当前：${this.game.mode === 'pve' ? `讨伐模式 · 第${this.save.data.pveStage || 1}关（最高通关第${this.save.data.pveBest || 0}关）` : '对战模式'}`;
     document.getElementById('save-info').textContent = `存档玩家 ${n} 人 · 累计 ${this.save.data.rounds} 局 · 本周从 ${this.save.data.week} 开始`;
   }
 
@@ -215,16 +236,21 @@ export class UI {
     const showLobby = g.phase === 'lobby' || this.rulesForced;
     if (showLobby !== !this.lobby.hidden) this.lobby.hidden = !showLobby;
     if (showLobby) {
-      const key = `${g.phase}|${Math.ceil(g.phaseT)}|${this.rulesForced}|${this.settings.tiers.join()}|${this.save.data.week}`;
+      const key = `${g.mode}|${g.phase}|${Math.ceil(g.phaseT)}|${this.rulesForced}|${this.settings.tiers.join()}|${this.save.data.week}|${g.countTeam('red', true)}|${g.countTeam('blue', true)}`;
       if (key !== this.lobbyKey) {
         this.lobbyKey = key;
         const week = this.save.topWeek(5);
         const counts = { red: g.countTeam('red', true), blue: g.countTeam('blue', true) };
+        const pve = g.mode === 'pve';
+        const stage = g.teams.red.stage || this.save.data.pveStage || 1;
+        const join = pve
+          ? `<div class="join"><span class="pve">${emblemSvg('blue', 30)}讨伐 第${stage}关 · 母舰血量 ${bossMax(stage)} · 已集结 ${counts.blue}人</span></div>`
+          : `<div class="join"><span class="red">${emblemSvg('red', 30)}发「红」加入赤焰舰队 · ${counts.red}人</span><span class="blue">${emblemSvg('blue', 30)}发「蓝」加入苍穹舰队 · ${counts.blue}人</span></div>`;
         this.lobby.innerHTML = `
-          <div class="title">${logoSvg(150)}<span>星舰弹幕战</span><small>竖屏舰队对攻 · 观众自己当飞行员</small></div>
-          ${g.phase === 'lobby' ? `<div class="count">${Math.ceil(g.phaseT)}<small>秒后开战</small></div>` : ''}
-          <div class="join"><span class="red">${emblemSvg('red', 30)}发「红」加入赤焰舰队 · ${counts.red}人</span><span class="blue">${emblemSvg('blue', 30)}发「蓝」加入苍穹舰队 · ${counts.blue}人</span></div>
-          ${rulesHtml(this.settings)}
+          <div class="title">${logoSvg(150)}<span>星舰弹幕战</span><small>${pve ? '讨伐模式 · 全员一支舰队，对抗异形母舰' : '对战模式 · 红蓝舰队对攻'} · 观众自己当飞行员</small></div>
+          ${g.phase === 'lobby' ? `<div class="count">${Math.ceil(g.phaseT)}<small>${pve ? '秒后出击' : '秒后开战'}</small></div>` : ''}
+          ${join}
+          ${rulesHtml(this.settings, g.mode)}
           ${week.length ? `<div class="week"><h2>本周战功榜</h2>${week.map((p, i) => `<div><i>${i < 3 ? medalSvg(i, 22) : i + 1}</i>${esc(p.name)}<b>${p.weekMerit}</b><em>Lv.${p.level}</em></div>`).join('')}</div>` : ''}`;
       }
     }
@@ -234,11 +260,20 @@ export class UI {
     if (showRes && this.resKey !== res.round) {
       this.resKey = res.round;
       const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i>${esc(m.name)}<b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
-      this.resultEl.innerHTML = `
-        <div class="win ${res.winner || ''}">${res.winner ? `${TEAMS[res.winner].name} 获胜` : '平局'}</div>
-        <div class="reason">${res.reason === 'destroyed' ? '敌方旗舰核心被摧毁' : '时间到，比较旗舰剩余血量'}</div>
-        <div class="mvps">${col('red')}${col('blue')}</div>
-        <div class="next">经验已结算 · 下一局马上开始</div>`;
+      if (res.mode === 'pve') {
+        const list = (res.mvp.blue || []).map((m, i) => `<div><i>${i < 3 ? medalSvg(i, 30) : `<span class="rk">${i + 1}</span>`}</i>${esc(m.name)}<b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
+        this.resultEl.innerHTML = `
+          <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `第${res.stage}关 讨伐成功` : '讨伐失败'}</div>
+          <div class="reason">${res.clear ? `异形母舰被击毁 · 下一局挑战第${res.next}关` : `${res.reason === 'timeout' ? `${PVE.bossMinutes}分钟内没打爆母舰` : '苍穹要塞被摧毁'} · 退回第${res.next}关`}</div>
+          <div class="mvps"><div class="mvp blue wide"><h3>${emblemSvg('blue', 26)}本关战功榜</h3>${list}</div></div>
+          <div class="next">经验已结算 · 下一局马上开始</div>`;
+      } else {
+        this.resultEl.innerHTML = `
+          <div class="win ${res.winner || ''}">${res.winner ? `${TEAMS[res.winner].name} 获胜` : '平局'}</div>
+          <div class="reason">${res.reason === 'destroyed' ? '敌方旗舰核心被摧毁' : '时间到，比较旗舰剩余血量'}</div>
+          <div class="mvps">${col('red')}${col('blue')}</div>
+          <div class="next">经验已结算 · 下一局马上开始</div>`;
+      }
     }
   }
 }

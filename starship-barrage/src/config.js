@@ -96,3 +96,31 @@ export const SKINS = [
 export const NPC = { minPerTeam: 6 };
 
 export const LIMITS = { bullets: 3200, particles: 1600, fighters: 400 };
+
+// 讨伐模式（PvE）：全员一支舰队，先清虫群，再打异形母舰；打赢进下一关，失败退回一关
+export const PVE = {
+  zone: [560, 1090],          // 我方战机活动区
+  alienZone: [140, 540],      // 异形活动区
+  bossHp: 4000,
+  bossGrowth: 1.18,           // 每关母舰血量 ×1.18
+  bossY: 140,
+  bossHitW: 220,
+  coreDy: 10,
+  waveSeconds: stage => Math.min(75, 42 + stage * 3),
+  bossMinutes: 6,             // 母舰战限时，超时算失败
+  bossCannonEvery: 24,        // 母舰血量过半后每隔多少秒蓄力湮灭炮
+  bossCannonDamage: 0.12,     // 湮灭炮对我方要塞的伤害比例（可被拦截削弱）
+  playerCannonDamage: 0.1,    // 我方主炮对母舰的伤害比例
+  podOffsets: [[-200, 40], [200, 40], [-92, 88], [92, 88]],
+  podHp: 500,
+  podRespawn: 40,
+  diverDamage: 450,
+  alien: {
+    swarm:  { hp: 6,  r: 10, merit: 6 },
+    diver:  { hp: 8,  r: 10, merit: 10 },
+    gunner: { hp: 32, r: 18, merit: 25 },
+  },
+  stageClearMerit: 40,
+};
+
+export const MODE_NAMES = { pvp: '对战', pve: '讨伐' };

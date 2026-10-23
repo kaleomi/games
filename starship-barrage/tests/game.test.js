@@ -179,3 +179,79 @@ test('存档：导入校验、每周战功清零', () => {
   assert.throws(() => s.importJson('{"version":2}'));
   assert.equal(weekKeyOf(new Date(2026, 9, 25).getTime()), '2026-10-19');
 });
+
+test('弹幕「换讨伐」投票：在场一半人同意就切换，红蓝玩家进同一舰队；切回对战恢复原队伍', () => {
+  const { game, save } = newGame();
+  for (let i = 0; i < 4; i++) game.chat({ id: 'v' + i, name: 'V' + i }, i % 2 ? '红' : '蓝');
+  assert.deepEqual(parseCommand('换讨伐'), { type: 'mode', mode: 'pve' });
+  assert.deepEqual(parseCommand('换成对战'), { type: 'mode', mode: 'pvp' });
+  game.chat({ id: 'v0' }, '换讨伐');
+  assert.equal(game.mode, 'pvp');
+  assert.equal(game.voteView().votes, 1);
+  game.chat({ id: 'v1' }, '换讨伐');
+  assert.equal(game.mode, 'pve');
+  assert.equal(save.data.mode, 'pve');
+  assert.equal(game.phase, 'lobby');
+  assert.ok(game.humans().every(f => f.team === 'blue'));
+  assert.equal(game.teams.red.boss, true);
+  game.chat({ id: 'v0' }, '换对战'); game.chat({ id: 'v3' }, '换对战');
+  assert.equal(game.mode, 'pvp');
+  assert.equal(game.fighters.get('v1').team, 'red');
+  assert.equal(game.fighters.get('v0').team, 'blue');
+});
+
+test('讨伐模式：虫群后母舰现身，打爆进下一关，失败退回一关', () => {
+  const { game, save } = newGame();
+  game.setMode('pve');
+  save.data.pveStage = 3; game.startLobby();
+  game.chat({ id: 'p', name: '玩家' }, '加入');
+  toBattle(game);
+  assert.equal(game.pve.sub, 'wave');
+  assert.equal(game.teams.red.present, false);
+  game.pve.t = 0.001;
+  for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
+  assert.equal(game.pve.sub, 'boss');
+  assert.equal(game.teams.red.present, true);
+  game.teams.red.core = 0; game.step(1 / 60);
+  assert.equal(game.phase, 'result');
+  assert.equal(save.data.pveStage, 4);
+  assert.equal(save.data.pveBest, 3);
+  // 下一局失败
+  game.phaseT = 0.001; game.step(1 / 60); toBattle(game);
+  assert.equal(game.pve.stage, 4);
+  game.teams.blue.core = 0; game.step(1 / 60);
+  assert.equal(game.phase, 'result');
+  assert.equal(save.data.pveStage, 3);
+});
+
+test('讨伐模式：母舰没出现时送火箭，主炮蓄满等母舰现身再打', () => {
+  const { game } = newGame();
+  game.setMode('pve');
+  toBattle(game);
+  game.gift({ id: 'r', name: 'R' }, { name: '火箭', price: 1000, count: 1 });
+  const c = game.teams.blue.cannon;
+  for (let i = 0; i < 60 * 10; i++) game.step(1 / 60);
+  assert.equal(c.state, 'charging');
+  game.pve.t = 0.001;
+  for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
+  const before = game.teams.red.core;
+  for (let i = 0; i < 60 * 5 && c.state === 'charging'; i++) game.step(1 / 60);
+  assert.ok(before - game.teams.red.core >= game.teams.red.coreMax * 0.09);
+});
+
+test('讨伐模式整局能打完，异形会被击落且不进榜单', () => {
+  const { game } = newGame();
+  game.setMode('pve');
+  for (let i = 0; i < 12; i++) game.chat({ id: 'u' + i, name: 'U' + i }, '加入');
+  toBattle(game);
+  let sawAlien = false;
+  for (let i = 0; i < 60 * 60 * 8 && game.phase === 'battle'; i++) {
+    game.step(1 / 60);
+    if (!sawAlien && [...game.fighters.values()].some(f => f.alien)) sawAlien = true;
+    if (i % 600 === 0) game.gift({ id: 'u' + (i % 12) }, { name: 'x', price: [10, 50, 200][i % 3], count: 1 });
+  }
+  assert.ok(sawAlien);
+  assert.equal(game.phase, 'result');
+  assert.ok(game.roundBoard('blue', 20).every(f => !f.alien && !f.npc));
+  assert.ok(game.humans().some(f => f.kills > 0));
+});

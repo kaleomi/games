@@ -22,7 +22,7 @@ export class Save {
   constructor({ storage = null, now = () => Date.now() } = {}) {
     this.storage = storage;
     this.now = now;
-    this.data = { version: 1, players: {}, week: weekKeyOf(now()), rounds: 0 };
+    this.data = { version: 1, players: {}, week: weekKeyOf(now()), rounds: 0, mode: 'pvp', pveStage: 1, pveBest: 0 };
     this.dirty = false;
     if (storage) {
       try {
@@ -52,7 +52,10 @@ export class Save {
         seen: clampInt(p.seen, 0, 1e15, 0),
       };
     }
-    return { version: 1, players, week: typeof obj.week === 'string' ? obj.week : '', rounds: clampInt(obj.rounds, 0, 1e9, 0) };
+    return {
+      version: 1, players, week: typeof obj.week === 'string' ? obj.week : '', rounds: clampInt(obj.rounds, 0, 1e9, 0),
+      mode: obj.mode === 'pve' ? 'pve' : 'pvp', pveStage: clampInt(obj.pveStage, 1, 999, 1), pveBest: clampInt(obj.pveBest, 0, 999, 0),
+    };
   }
 
   rollWeek() {
@@ -113,7 +116,7 @@ export class Save {
     return Object.keys(next.players).length;
   }
 
-  clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0 }; this.dirty = true; this.flush(); }
+  clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0, mode: this.data.mode || 'pvp', pveStage: 1, pveBest: 0 }; this.dirty = true; this.flush(); }
 }
 
 function clampInt(v, lo, hi, d) { const n = Math.floor(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; }

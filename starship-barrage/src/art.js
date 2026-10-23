@@ -385,6 +385,131 @@ export function bulletSvg(shape, color, px) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-16 -16 32 32"><defs>${glow}</defs>${body}</svg>`;
 }
 
+// ───────── 异形（讨伐模式）：机头朝下（+y）绘制 ─────────
+const BIO = { shell: ['#b35ee6', '#5a1d80', '#1c0629'], glow: '#c45cff', acid: '#8dff5a', eye: '#ffe14d', dark: '#12041c' };
+
+export function alienSvg(kind, px) {
+  const head = `<defs>
+    <radialGradient id="c" cx="-3" cy="-6" r="22" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${BIO.shell[0]}"/><stop offset=".45" stop-color="${BIO.shell[1]}"/><stop offset="1" stop-color="${BIO.shell[2]}"/></radialGradient>
+    <radialGradient id="mag" cx="-2" cy="-6" r="20" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff9be6"/><stop offset=".45" stop-color="#c2268f"/><stop offset="1" stop-color="#3a0629"/></radialGradient>
+    <radialGradient id="eye"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="${BIO.eye}"/><stop offset="1" stop-color="#ff7a00"/></radialGradient>
+    <radialGradient id="acid"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="${BIO.acid}"/><stop offset="1" stop-color="${BIO.acid}" stop-opacity="0"/></radialGradient>
+    <filter id="g" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="1.4"/></filter></defs>`;
+  if (kind === 'diver') {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-18 -18 36 36">${head}
+      <ellipse cx="0" cy="-14" rx="5" ry="6" fill="url(#acid)"/>
+      ${both('M-4,-8 L-14,-15 L-11,-3 Z', `fill="${BIO.acid}" fill-opacity=".55" stroke="${BIO.acid}" stroke-width=".6"`)}
+      ${both('M-5,1 L-12,6 L-4,6 Z', `fill="#7a1a5a" stroke="${BIO.dark}" stroke-width=".6"`)}
+      <path d="M0,17 L5.6,2 L4.4,-11 L0,-16 L-4.4,-11 L-5.6,2 Z" fill="url(#mag)" stroke="${BIO.dark}" stroke-width=".9"/>
+      <path d="M-4,-4 Q0,-2 4,-4 M-4.6,3 Q0,5 4.6,3" stroke="#ff9be6" stroke-opacity=".6" stroke-width=".7" fill="none"/>
+      <ellipse cx="0" cy="9" rx="2.2" ry="3.4" fill="url(#eye)"/><ellipse cx="0" cy="9.4" rx=".7" ry="2.4" fill="${BIO.dark}"/>
+    </svg>`;
+  }
+  if (kind === 'gunner') {
+    const legs = both('M-12,-4 C-20,-10 -24,-4 -25,2 M-13,2 C-22,0 -25,8 -24,13 M-12,7 C-19,10 -20,17 -17,21', `stroke="${BIO.shell[1]}" stroke-width="2.4" fill="none" stroke-linecap="round"`);
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-28 -28 56 56">${head}
+      ${legs}
+      ${both('M-11,8 C-20,13 -19,23 -10,24 C-13,20 -12,15 -7,12 Z', `fill="url(#c)" stroke="${BIO.dark}" stroke-width=".8"`)}
+      <ellipse cx="0" cy="-2" rx="18" ry="15" fill="url(#c)" stroke="${BIO.dark}" stroke-width="1.1"/>
+      <path d="M-15,-8 Q0,-3 15,-8 M-17,0 Q0,5 17,0" stroke="${BIO.glow}" stroke-opacity=".55" stroke-width="1" fill="none"/>
+      <path d="M-6,-15 L-4,-9 M0,-17 L0,-10 M6,-15 L4,-9" stroke="${BIO.dark}" stroke-width="1.2"/>
+      ${[-7, -2.4, 2.4, 7].map(x => `<circle cx="${x}" cy="3" r="1.6" fill="url(#eye)"/>`).join('')}
+      <circle cx="0" cy="12" r="8" fill="url(#acid)" filter="url(#g)"/>
+      <circle cx="0" cy="12" r="5.4" fill="#244a12" stroke="${BIO.acid}" stroke-width="1.2"/>
+      <circle cx="0" cy="12" r="2.6" fill="#eaffd8"/>
+    </svg>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-16 -16 32 32">${head}
+    ${both('M-4,-6 C-14,-14 -16,-2 -12,4 C-9,0 -6,-2 -4,-2 Z', `fill="${BIO.acid}" fill-opacity=".35" stroke="${BIO.acid}" stroke-width=".6"`)}
+    ${both('M-5,2 L-11,6 L-12,10 M-5,5 L-9,11', `stroke="${BIO.shell[1]}" stroke-width="1.4" fill="none" stroke-linecap="round"`)}
+    <path d="M0,-12 C6,-10 7,-2 6,4 C5,9 2,13 0,14 C-2,13 -5,9 -6,4 C-7,-2 -6,-10 0,-12 Z" fill="url(#c)" stroke="${BIO.dark}" stroke-width=".8"/>
+    <path d="M-6,-3 Q0,-1 6,-3 M-5.6,3 Q0,5 5.6,3" stroke="${BIO.glow}" stroke-opacity=".6" stroke-width=".7" fill="none"/>
+    ${both('M-2,12 C-4,15 -3,17 -1,17', `stroke="${BIO.eye}" stroke-width="1" fill="none"`)}
+    <circle cx="-2.4" cy="8" r="1.8" fill="url(#eye)"/><circle cx="2.4" cy="8" r="1.8" fill="url(#eye)"/>
+  </svg>`;
+}
+
+// 母舰触手炮（眼柄朝上 = 瞄准方向，和炮台一样按目标旋转）
+export function podSvg(px, dead) {
+  if (dead) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-32 -32 64 64">
+      <circle r="20" fill="#1a0826" stroke="#3a1450" stroke-width="2"/>
+      <path d="M-14,-6 C-6,-2 -8,6 -2,10 M4,-12 C8,-4 14,-2 16,6" stroke="${BIO.acid}" stroke-opacity=".6" stroke-width="2" fill="none"/>
+      <circle cx="-6" cy="4" r="3" fill="${BIO.acid}" opacity=".5"/><circle cx="9" cy="-6" r="2" fill="${BIO.acid}" opacity=".5"/>
+    </svg>`;
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-32 -32 64 64">
+    <defs>
+      <radialGradient id="b" cx="-4" cy="-4" r="26" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9a45c8"/><stop offset=".55" stop-color="#4a1766"/><stop offset="1" stop-color="#12041c"/></radialGradient>
+      <linearGradient id="st" x1="-6" y1="0" x2="6" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3a1050"/><stop offset=".5" stop-color="#b061e0"/><stop offset="1" stop-color="#3a1050"/></linearGradient>
+      <radialGradient id="eye" cx="-1.5" cy="-25.5" r="8" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="${BIO.eye}"/><stop offset="1" stop-color="#e05a00"/></radialGradient>
+    </defs>
+    <circle r="22" fill="url(#b)" stroke="${BIO.dark}" stroke-width="1.4"/>
+    <path d="M-18,6 C-10,2 -12,-8 -4,-12 M18,6 C10,2 12,-8 4,-12 M-6,18 C-4,10 4,10 6,18" stroke="${BIO.glow}" stroke-opacity=".55" stroke-width="1.3" fill="none"/>
+    <path d="M-6.5,0 C-5.5,-12 -3.5,-19 0,-27 C3.5,-19 5.5,-12 6.5,0 Z" fill="url(#st)" stroke="${BIO.dark}" stroke-width=".9"/>
+    <circle cy="-25" r="7.5" fill="url(#eye)" stroke="${BIO.dark}" stroke-width="1"/>
+    <ellipse cy="-25" rx="1.6" ry="5" fill="${BIO.dark}"/>
+    <circle r="9" fill="#5a1f7a" stroke="${BIO.dark}" stroke-width="1"/>
+    <path d="M-6,-3 A6.5,6.5 0 0 1 2,-6.5" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+  </svg>`;
+}
+
+// 异形母舰（机头朝下），viewBox 原点就是母舰中心，核心在 (0,10)
+export const BOSS_VIEW = { left: -300, top: -130, w: 600, h: 290 };
+export function bossSvg(pxW, pxH) {
+  const shell = 'M0,-118 C70,-116 140,-82 160,-22 C170,18 152,68 112,98 C72,120 32,124 0,126 C-32,124 -72,120 -112,98 C-152,68 -170,18 -160,-22 C-140,-82 -70,-116 0,-118 Z';
+  const wing = 'M-138,-34 C-200,-96 -282,-66 -296,8 C-272,-4 -254,16 -240,50 C-214,30 -176,40 -146,62 Z';
+  const horn = 'M-48,-108 C-72,-136 -108,-134 -128,-108 C-102,-112 -82,-104 -68,-88 Z';
+  const tent = (x, y, bend, len) => `<path d="M${x - 8},${y} C${x - 9},${y + len * .4} ${x + bend - 5},${y + len * .7} ${x + bend},${y + len} C${x + bend + 4},${y + len * .7} ${x + 7},${y + len * .4} ${x + 8},${y} Z" fill="url(#tent)" stroke="${BIO.dark}" stroke-width="1"/>
+      ${[0.3, 0.55, 0.78].map(k => `<circle cx="${x + bend * k * k}" cy="${y + len * k}" r="${2.2 - k}" fill="${BIO.acid}" opacity=".85"/>`).join('')}`;
+  const teeth = Array.from({ length: 16 }, (_, i) => `<path d="M-4.5,-58 L0,-44 L4.5,-58 Z" fill="url(#bone)" stroke="${BIO.dark}" stroke-width=".6" transform="translate(0,10) rotate(${i * 22.5}) translate(0,-10)"/>`).join('');
+  const veins = ['M-120,-30 C-90,-20 -80,10 -54,14', 'M120,-30 C90,-20 80,10 54,14', 'M-104,62 C-74,42 -62,42 -44,54', 'M104,62 C74,42 62,42 44,54']
+    .map(d => `<path d="${d}" stroke="${BIO.glow}" stroke-width="6" stroke-opacity=".35" fill="none" filter="url(#s)"/><path d="${d}" stroke="#efc6ff" stroke-width="1.5" stroke-opacity=".85" fill="none"/>`).join('');
+  const mound = (x, y) => `<ellipse cx="${x}" cy="${y}" rx="31" ry="25" fill="url(#mound)" stroke="${BIO.dark}" stroke-width="1.5"/><ellipse cx="${x}" cy="${y}" rx="31" ry="25" fill="none" stroke="#c45cff" stroke-opacity=".45" stroke-width="1" stroke-dasharray="3 5"/>`;
+  const eyes = [-150, -125, -100, -80, -55, -30].map(a => { const r = (a * Math.PI) / 180; return [Math.cos(r) * 74, 10 - Math.sin(r) * 74]; })
+    .flatMap(([x, y]) => [[x, y], [-x, y]]).map(([x, y]) => `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="4.6" ry="3.4" fill="url(#eye)" stroke="${BIO.dark}" stroke-width=".8"/><ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="1" ry="2.6" fill="${BIO.dark}"/>`).join('');
+  const spine = Array.from({ length: 5 }, (_, i) => { const y = -112 + i * 13; const w = 12 - i * 1.4; return `<path d="M${-w},${y + 10} L0,${y} L${w},${y + 10} L0,${y + 6} Z" fill="url(#bone)" stroke="${BIO.dark}" stroke-width=".8"/>`; }).join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" viewBox="-300 -130 600 290">
+  <defs>
+    <radialGradient id="sh" cx="-20" cy="-60" r="210" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a65ad6"/><stop offset=".35" stop-color="#5a1d80"/><stop offset=".75" stop-color="#2a0b3d"/><stop offset="1" stop-color="#0e0216"/></radialGradient>
+    <linearGradient id="wg" x1="-300" y1="0" x2="-130" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8dff5a" stop-opacity=".3"/><stop offset=".55" stop-color="#6a2a96" stop-opacity=".7"/><stop offset="1" stop-color="#2a0b3d"/></linearGradient>
+    <linearGradient id="tent" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a1766"/><stop offset=".6" stop-color="#9a45c8"/><stop offset="1" stop-color="#e7b3ff"/></linearGradient>
+    <linearGradient id="bone" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#fff2ff"/><stop offset=".5" stop-color="#d7b0f0"/><stop offset="1" stop-color="#6a2a96"/></linearGradient>
+    <radialGradient id="mound" cx="-8" cy="-8" r="36" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#8a3dbf"/><stop offset=".6" stop-color="#3e1259"/><stop offset="1" stop-color="#14041f"/></radialGradient>
+    <radialGradient id="sock" cx="0" cy="10" r="60" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#050108"/><stop offset=".6" stop-color="#1a0626"/><stop offset=".8" stop-color="#7a33a8"/><stop offset="1" stop-color="#20082e"/></radialGradient>
+    <radialGradient id="eye"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="${BIO.eye}"/><stop offset="1" stop-color="#ff6a00"/></radialGradient>
+    <radialGradient id="vig" cx="0" cy="0" r="170" gradientUnits="userSpaceOnUse"><stop offset=".6" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".55"/></radialGradient>
+    <pattern id="scale" width="28" height="18" patternUnits="userSpaceOnUse" x="-14" y="-118">
+      <path d="M0,0 Q14,17 28,0" fill="#000" fill-opacity=".18" stroke="#000" stroke-opacity=".45" stroke-width="1.2"/>
+      <path d="M2,1.5 Q14,14 26,1.5" fill="none" stroke="#e2a6ff" stroke-opacity=".22" stroke-width="1"/>
+      <path d="M-14,9 Q0,26 14,9 M14,9 Q28,26 42,9" fill="none" stroke="#000" stroke-opacity=".35" stroke-width="1.1"/>
+    </pattern>
+    <clipPath id="clip"><path d="${shell}"/></clipPath>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="3"/></filter>
+    <filter id="o" x="-20%" y="-30%" width="140%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+  </defs>
+  <g filter="url(#o)" opacity=".85"><path d="${shell}" fill="none" stroke="${BIO.glow}" stroke-width="9"/>${both(wing, `fill="none" stroke="${BIO.acid}" stroke-width="4"`)}</g>
+  ${both(wing, 'fill="url(#wg)" stroke="#b35ee6" stroke-width="1.6"')}
+  ${both('M-142,-28 L-268,-64 M-142,-14 L-294,6 M-146,6 L-240,48', 'stroke="url(#bone)" stroke-width="4" stroke-linecap="round"')}
+  ${both('M-268,-64 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 M-294,6 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0 M-240,48 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0', 'fill="#efd6ff"')}
+  ${both(horn, 'fill="url(#bone)" stroke="#3a1450" stroke-width="1.4"')}
+  ${tent(-118, 92, -16, 46)}${tent(118, 92, 16, 46)}${tent(-60, 112, -10, 40)}${tent(60, 112, 10, 40)}${tent(-24, 120, -5, 36)}${tent(24, 120, 5, 36)}
+  ${both('M-62,102 C-86,130 -66,156 -30,152 C-48,142 -52,126 -42,108 Z', 'fill="url(#bone)" stroke="#3a1450" stroke-width="1.4"')}
+  <path d="${shell}" fill="url(#sh)" stroke="#c983ff" stroke-width="2.4"/>
+  <g clip-path="url(#clip)"><rect x="-170" y="-120" width="340" height="250" fill="url(#scale)"/></g>
+  <path d="${shell}" fill="url(#vig)"/>
+  ${both('M-152,-24 C-130,-8 -130,34 -150,62 M-138,-56 C-118,-38 -114,-10 -122,10', `stroke="${BIO.dark}" stroke-width="5" fill="none" opacity=".8"`)}
+  ${both('M-150,-22 C-128,-6 -128,32 -148,60', 'stroke="#d7a0ff" stroke-width="1.2" stroke-opacity=".5" fill="none"')}
+  ${spine}
+  ${veins}
+  ${mound(-200, 40)}${mound(200, 40)}${mound(-92, 88)}${mound(92, 88)}
+  <circle cx="0" cy="10" r="60" fill="url(#sock)" stroke="#efc6ff" stroke-width="2.6"/>
+  ${teeth}
+  <circle cx="0" cy="10" r="38" fill="none" stroke="${BIO.acid}" stroke-opacity=".55" stroke-width="1.6" stroke-dasharray="5 6"/>
+  ${eyes}
+</svg>`;
+}
+
 // ───────── 栅格化缓存 ─────────
 export class ArtCache {
   constructor() { this.map = new Map(); }
