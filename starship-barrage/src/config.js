@@ -113,6 +113,16 @@ export const PVE = {
   coreDy: 10,
   stageSeconds: 120,          // 每关限时（从出击算起，含虫群），超时算失败
   waveSeconds: stage => Math.min(30, 20 + stage),
+  // 怪物数量随关卡增加：每队虫子数、出怪间隔、同时双队概率、炮虫数量、场上怪物上限
+  waves: {
+    size: stage => 3 + Math.floor((stage - 1) * 0.7),          // 每队基础只数（再加人数加成），第1关3只、第5关5只、第10关9只
+    sizeCap: 16,
+    every: stage => Math.max(1.4, 3.4 - stage * 0.12),          // 虫群阶段出怪间隔（秒）
+    bossEvery: stage => Math.max(4, 11 - stage * 0.5),          // 母舰战护卫间隔（秒）
+    double: stage => Math.min(0.6, Math.max(0, (stage - 2) * 0.1)),  // 第3关起，有概率同时来两队
+    gunners: stage => Math.min(3, 1 + Math.floor(stage / 4)),
+    maxAlive: stage => Math.min(90, 36 + stage * 5),
+  },
   bossEnter: 3,
   respawn: 10,                // 战机阵亡后多少秒回来
   playerCannonDamage: 0.1,    // 我方舰队主炮对母舰的伤害比例

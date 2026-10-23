@@ -38,7 +38,7 @@ export function stepPve(game, dt) {
   for (let i = game.barriers.length - 1; i >= 0; i--) { game.barriers[i].t -= dt; if (game.barriers[i].t <= 0) game.barriers.splice(i, 1); }
   if (p.sub === 'wave') {
     p.t -= dt; p.spawnT -= dt;
-    if (p.spawnT <= 0) { p.spawnT = Math.max(2, 3.4 - p.stage * 0.08); spawnFormation(game, false); }
+    if (p.spawnT <= 0) { p.spawnT = PVE.waves.every(p.stage); spawnFormation(game, false); if (game.random() < PVE.waves.double(p.stage)) spawnFormation(game, false); }
     if (p.t <= 0) {
       p.sub = 'enter'; p.t = PVE.bossEnter;
       game.emit('banner', { team: 'red', text: `第${p.stage}关 · 异形母舰现身！`, tier: 4 });
@@ -51,7 +51,7 @@ export function stepPve(game, dt) {
   } else if (p.sub === 'boss') {
     p.t = p.left; p.spawnT -= dt;
     boss.x = 360 + Math.sin(game.time * 0.35) * 70;
-    if (p.spawnT <= 0) { p.spawnT = Math.max(7, 11 - p.stage * 0.2); spawnFormation(game, true); }
+    if (p.spawnT <= 0) { p.spawnT = PVE.waves.bossEvery(p.stage); spawnFormation(game, true); if (game.random() < PVE.waves.double(p.stage) * 0.6) spawnFormation(game, true); }
     const pct = boss.core / boss.coreMax;
     const rage = pct > 0.66 ? 1 : pct > 0.33 ? 2 : 3;
     if (rage > boss.rage) {
@@ -134,11 +134,14 @@ export function interceptZone(game, f) {
 export function spawnFormation(game, light) {
   const p = game.pve;
   const fleet = game.countTeam('blue');
-  const n = Math.max(2, Math.min(10, 3 + Math.floor(fleet / 6)) >> (light ? 1 : 0));
+  let alive = 0; for (const f of game.fighters.values()) if (f.alien && f.alive) alive++;
+  const room = PVE.waves.maxAlive(p.stage) - alive;
+  if (room <= 0) return;
+  const n = Math.min(room, Math.max(2, Math.min(PVE.waves.sizeCap, PVE.waves.size(p.stage) + Math.floor(fleet / 6)) >> (light ? 1 : 0)));
   const r = game.random();
   const gunnerP = Math.min(0.32, 0.14 + p.stage * 0.02);
   if (r < gunnerP) {
-    const k = 1 + (p.stage >= 4 && game.random() < 0.5 ? 1 : 0);
+    const k = Math.min(room, PVE.waves.gunners(p.stage) - (game.random() < 0.4 ? 1 : 0) || 1);
     for (let i = 0; i < k; i++) spawnAlien(game, 'gunner', 180 + game.random() * 360, -40 - i * 60);
     return;
   }
