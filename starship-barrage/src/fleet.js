@@ -30,14 +30,17 @@ export function parseClass(text) {
 
 // ───────── 装备 ─────────
 // 物品：{ slot, tier, roll, name, subs: [{ stat, v }] }；主属性值 = 主系数 × 品质倍率 × roll
+const plusMul = item => 1 + GEAR.plusPer * (item.plus || 0);
 export function itemMain(item) {
   const sl = GEAR.slots[item.slot], t = GEAR.tiers[item.tier] || GEAR.tiers[0];
-  return { stat: sl.stat, v: GEAR.stats[sl.stat].main * t.f * (item.roll || 1) };
+  return { stat: sl.stat, v: GEAR.stats[sl.stat].main * t.f * (item.roll || 1) * plusMul(item) };
 }
 export function itemStats(item) {
   if (!item || !GEAR.slots[item.slot]) return [];
-  return [itemMain(item), ...(item.subs || [])];
+  const m = plusMul(item);
+  return [itemMain(item), ...(item.subs || []).map(x => ({ stat: x.stat, v: x.v * m }))];
 }
+export function itemName(item) { return `${GEAR.slots[item.slot].names[item.tier]}${item.plus ? `+${item.plus}` : ''}`; }
 // 装备评分：每条属性按「同档主属性」折算成分数，用来决定是否自动穿上
 export function gearScore(item) {
   if (!item || !GEAR.slots[item.slot]) return 0;
@@ -54,15 +57,20 @@ export function gearBonus(gear) {
 export function rollItem(random, stage, bonusRolls = 0) {
   const slots = Object.keys(GEAR.slots);
   const slot = slots[Math.floor(random() * slots.length)];
-  const lift = 1 + 0.15 * Math.max(0, stage - 1);
+  const lift = 1 + GEAR.liftPer * Math.min(GEAR.liftCap - 1, Math.max(0, stage - 1));
+  const top = GEAR.tiers.length - 1;
   let best = 0;
   for (let k = 0; k <= bonusRolls; k++) {
-    const weights = GEAR.tiers.map((t, i) => t.w * lift ** i);
+    const weights = GEAR.tiers.map((t, i) => (i === top && stage < GEAR.redFrom ? 0 : t.w * lift ** i));
     const total = weights.reduce((a, b) => a + b, 0);
     let r = random() * total, tier = 0;
     for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r <= 0) { tier = i; break; } }
     best = Math.max(best, tier);
   }
+  return makeItem(random, slot, best);
+}
+// 生成一件指定部位、指定品质的装备（掉落和碎片合成共用）
+export function makeItem(random, slot, best) {
   const T = GEAR.tiers[best];
   const roll = Math.round((0.85 + random() * 0.3) * 100) / 100;
   // 副属性：不和主属性重复，彼此不重复
@@ -77,7 +85,7 @@ export function rollItem(random, stage, bonusRolls = 0) {
 const pct = v => `${Math.round(v * 1000) / 10}%`.replace('.0%', '%');
 export function statText({ stat, v }) { return `${GEAR.stats[stat].label}+${pct(v)}`; }
 export function describeItem(item) {
-  return `${GEAR.tiers[item.tier].name}·${item.name} ${itemStats(item).map(statText).join(' ')}`;
+  return `${GEAR.tiers[item.tier].name}·${itemName(item)} ${itemStats(item).map(statText).join(' ')}`;
 }
 
 // ───────── 属性 ─────────
@@ -694,16 +702,49 @@ export function rollDrops(game, stage) {
   list.forEach((f, rank) => {
     if (rank >= 3 && game.random() >= 0.6) return;
     const item = rollItem(game.random, stage, rank === 0 ? 1 : 0);
-    const gear = f.gear || (f.gear = {});
-    const cur = gear[item.slot];
-    const equipped = gearScore(item) > gearScore(cur && { ...cur, slot: item.slot });
-    if (equipped) { gear[item.slot] = { slot: item.slot, tier: item.tier, roll: item.roll, name: item.name, subs: item.subs.map(x => ({ ...x })) }; refreshStats(f); }
-    else {
-      const p = game.save?.peek(f.uid);
-      if (p && !f.test) { p.shards = (p.shards || 0) + GEAR.tiers[item.tier].f * 10; game.save.dirty = true; }
-    }
-    drops.push({ uid: f.uid, name: f.name, item, equipped });
-    game.emit('loot', { uid: f.uid, name: f.name, item, equipped, text: describeItem(item) });
+    const res = giveItem(game, f, item);
+    drops.push({ uid: f.uid, name: f.name, item, ...res });
   });
   return drops;
+}
+
+// 碎片：[白, 蓝, 紫, 橙, 金]，存在账号里（测试观众存在战机上）
+export function shardsOf(game, f) {
+  const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
+  if (p) { if (!Array.isArray(p.shards)) p.shards = [Number(p.shards) || 0, 0, 0, 0, 0]; return p.shards; }
+  return (f.shardsMem ||= [0, 0, 0, 0, 0]);
+}
+// 拿到一件装备：更好就穿上（旧的分解）；至尊红同部位重复 → 红+1；否则分解成1个同色碎片；碎片满100自动合成高一级
+export function giveItem(game, f, item, crafted = false) {
+  const gear = f.gear || (f.gear = {});
+  const cur = gear[item.slot], top = GEAR.tiers.length - 1;
+  const sh = shardsOf(game, f);
+  let result;
+  if (item.tier === top && cur && cur.tier === top) {
+    cur.plus = (cur.plus || 0) + 1;
+    refreshStats(f);
+    result = { equipped: true, plus: cur.plus };
+  } else if (gearScore(item) > gearScore(cur && { ...cur, slot: item.slot })) {
+    if (cur) sh[Math.min(cur.tier, top - 1)]++;
+    gear[item.slot] = { slot: item.slot, tier: item.tier, roll: item.roll, name: item.name, subs: item.subs.map(x => ({ ...x })), plus: 0 };
+    refreshStats(f);
+    result = { equipped: true, salvaged: cur ? cur.tier : -1 };
+  } else {
+    sh[Math.min(item.tier, top - 1)]++;
+    result = { equipped: false, shard: item.tier };
+  }
+  if (game.save && !f.test) game.save.dirty = true;
+  game.emit('loot', { uid: f.uid, name: f.name, item, ...result, crafted, text: describeItem(item) });
+  // 合成：100个碎片 → 1件高一级装备，补在最弱（没有或品质最低）的部位
+  for (let t = 0; t < top; t++) {
+    while (sh[t] >= GEAR.shardsPerCraft) {
+      sh[t] -= GEAR.shardsPerCraft;
+      const slots = Object.keys(GEAR.slots);
+      const weakest = slots.reduce((a, b) => (gearScore(gear[b] && { ...gear[b], slot: b }) < gearScore(gear[a] && { ...gear[a], slot: a }) ? b : a));
+      const made = makeItem(game.random, weakest, t + 1);
+      game.emit('craft', { uid: f.uid, name: f.name, from: t, item: made, text: describeItem(made) });
+      giveItem(game, f, made, true);
+    }
+  }
+  return result;
 }

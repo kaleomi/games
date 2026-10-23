@@ -6,7 +6,7 @@ import { queenSvg, colossusSvg, eyeSvg, bossPodSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR } from './config.js';
-import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, POD, barrelOffsets, nearestEnemy } from './fleet.js';
+import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
@@ -206,7 +206,16 @@ export class Renderer {
         case 'cd': { const f = g.fighters.get(e.uid); if (f) this.floaters.push({ x: f.x, y: f.y - 30, text: e.kind === 'auto' ? `小技能自动放 · ${e.left}s` : `大招冷却${e.left}s`, color: '#aab4cc', t: 0, nop: true }); break; }
         case 'slash': this.slashes.push({ uid: e.uid, x: e.x, y: e.y, ang: e.ang, wt: e.wt, t: 0, flip: (this.slashFlip = !this.slashFlip) }); this.shake = Math.max(this.shake, 2.5); break;
         case 'strike': this.shake = Math.max(this.shake, e.kind === 'cannon' ? 20 : 10); for (const l of e.lanes) this.laneFlashes.push({ lane: l, t: 0.6, kind: e.kind }); break;
-        case 'loot': this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: g.teams.red.x, y0: Math.max(120, g.teams.red.y) }); this.toast(`${e.name} 获得 ${e.text}${e.equipped ? ' · 已自动装备' : ' · 分解为星核碎片'}`, null, GEAR.tiers[e.item.tier].color); if (e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `获得${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: e.item.tier >= 3 ? 4 : 2, gear: e.item }); break;
+        case 'loot': {
+          const T = GEAR.tiers[e.item.tier], nm = `${T.name}·${e.item.name}`;
+          if (!e.crafted) this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: g.teams.red.x, y0: Math.max(120, g.teams.red.y) });
+          const how = e.plus ? `至尊重复 → 强化为 +${e.plus}！` : e.equipped ? '已自动装备' : `分解成1个${GEAR.tiers[Math.min(e.item.tier, 4)].name}碎片`;
+          this.toast(`${e.name} ${e.crafted ? '合成' : '获得'} ${nm} · ${how}`, null, T.color);
+          if (e.plus) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `至尊「${e.item.name}」强化到 +${e.plus}！`, tier: 5, gear: e.item });
+          else if (e.equipped && e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `${e.crafted ? '合成了' : '获得'}${T.name}装备「${e.item.name}」`, tier: e.item.tier >= 4 ? 5 : e.item.tier >= 3 ? 4 : 2, gear: e.item });
+          break;
+        }
+        case 'craft': this.toast(`${e.name} 用${GEAR.shardsPerCraft}个${GEAR.tiers[e.from].name}碎片合成了${GEAR.tiers[e.item.tier].name}装备`, null, GEAR.tiers[e.item.tier].color); break;
         default: break;
       }
     }
@@ -1249,7 +1258,7 @@ export class Renderer {
         x.font = `700 13px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(d.name, px + 42, py - 8);
         x.font = `12px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(GEAR.stats[d.stat].label, px + 42, py + 10);
       });
-      x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('主炮紫色2管、金色3管 · 品质越高副属性越多', cx, y0 + 168);
+      x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('多余自动分解，100碎片合高一级 · 红装重复+1', cx, y0 + 168);
     } else if (name === '礼物效果') {
       const rng = i => (i < 4 ? `${t[i]}–${t[i + 1] - 1}` : `${t[i]}+`);
       const rows = [['任意', '自动躲弹：每1抖币6秒，不设上限'], [rng(0), '火力+1、护盾+10%'], [rng(1), '弹幕阵型'], [rng(2), '激光网格 + 2架护卫僚机'], [rng(3), '召唤战舰50秒，写着你的名字'], [rng(4), '主炮轰掉母舰10%血量']];
@@ -1263,7 +1272,8 @@ export class Renderer {
       '贡献＝打伤害＋给队友回血＋替队友挨打，不看消费',
       '经验＝贡献值，战斗中实时升级，每级攻击生命+2%',
       '战力＝等级＋装备，左边战力榜按战力排',
-      '打爆母舰：贡献前三必掉装备，其余60%',
+      '打爆BOSS：贡献前三必掉装备，其余60%；前5关不出红装',
+      '多余装备自动分解成同色碎片，100个自动合成高一级',
       '灰色NPC是补位电脑，不进榜单',
     ], 14, 4);
     x.restore(); x.globalAlpha = 1;
@@ -1424,7 +1434,7 @@ export class Renderer {
       const P = v => `${Math.round((v || 0) * 100)}%`;
       x.fillStyle = '#c8d2ee'; x.font = `14px ${FONT}`;
       const dodge = hasAutoDodge(this.game, f) ? `自动躲弹 ${fmtDuration(f.dodgeLeft)}` : '手动躲弹';
-      x.fillText(`Lv.${lv}  ${c.name}  ${dodge}  碎片 ${p?.shards || 0}`, 180, 758);
+      x.fillText(`Lv.${lv}  ${c.name}  ${dodge}`, 180, 758);
       x.fillText(`本局贡献 ${Math.floor(f.merit)}  技能${f.skillCd > 0 ? `冷却${Math.ceil(f.skillCd)}s` : '就绪'}  大招${f.ultCd > 0 ? `冷却${Math.ceil(f.ultCd)}s` : '就绪'}`, 180, 784);
       x.font = `13px ${FONT}`; x.fillStyle = '#ffe28a';
       x.fillText(`生命${Math.round(f.maxHp)}  攻击${(st.atk || 0).toFixed(1)}  防御${P(st.armor)}  攻速+${P(st.aspd)}  暴击${P(st.crit)}  爆伤${P(st.critDmg)}`, 146, 846);
@@ -1433,7 +1443,7 @@ export class Renderer {
         x.textAlign = 'center';
         if (it) {
           const ic = this.gearIcon(sl, it.tier, 64); if (ic) this.blit(x, ic, cx, cy);
-          x.font = `11px ${FONT}`; x.fillStyle = GEAR.tiers[it.tier].color; x.fillText(trim(GEAR.slots[sl].names[it.tier], 5), cx, cy + 30);
+          x.font = `11px ${FONT}`; x.fillStyle = GEAR.tiers[it.tier].color; x.fillText(trim(itemName({ ...it, slot: sl }), 6), cx, cy + 30);
         } else {
           x.strokeStyle = 'rgba(255,255,255,.18)'; x.lineWidth = 1; roundRect(x, cx - 21, cy - 21, 42, 42, 9); x.stroke();
           x.font = `11px ${FONT}`; x.fillStyle = '#6f7894'; x.fillText(GEAR.slots[sl].name, cx, cy);
@@ -1488,13 +1498,16 @@ export class Renderer {
     x.fillText(`攻击${(st.atk || 0).toFixed(1)}  生命${Math.round(st.maxHp || f.maxHp)}  防御${P(st.armor)}  攻速+${P(st.aspd)}  暴击${P(st.crit)}  爆伤${P(st.critDmg)}`, L + 20, T + 56);
     x.fillStyle = '#9fb0d0';
     x.fillText(`技能急速${P(st.haste)}  技能强度+${P((st.power || 1) - 1)}`, L + 20, T + 78);
+    const sh = shardsOf(g, f); let sx = L + 230;
+    x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText('碎片', sx, T + 78); sx += 30;
+    sh.forEach((n, i) => { x.fillStyle = GEAR.tiers[i].color; x.fillText(`${GEAR.tiers[i].name.slice(0, 1)}${n}`, sx, T + 78); sx += x.measureText(`${GEAR.tiers[i].name.slice(0, 1)}${n}`).width + 8; });
     Object.keys(GEAR.slots).forEach((sl, i) => {
       const it = f.gear?.[sl], y = T + 98 + i * rowH + rowH / 2;
       x.fillStyle = i % 2 ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.06)'; x.fillRect(L + 10, y - rowH / 2 + 2, Wd - 20, rowH - 4);
       if (it) {
         const ic = this.gearIcon(sl, it.tier, 66); if (ic) this.blit(x, ic, L + 44, y);
         const tier = GEAR.tiers[it.tier];
-        const name = `${tier.name}·${GEAR.slots[sl].names[it.tier]}`;
+        const name = `${tier.name}·${itemName({ ...it, slot: sl })}`;
         x.font = `700 15px ${FONT}`; x.fillStyle = tier.color; x.fillText(name, L + 80, y - 11);
         const lines = itemStats({ ...it, slot: sl }).map(statText);
         const nw = x.measureText(name).width;

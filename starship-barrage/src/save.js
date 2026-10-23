@@ -51,7 +51,7 @@ export class Save {
         weekMerit: clampInt(p.weekMerit, 0, 1e12, 0),
         seen: clampInt(p.seen, 0, 1e15, 0),
         cls: ['dps', 'tank', 'healer', 'carrier'].includes(p.cls) ? p.cls : null,
-        shards: clampInt(p.shards, 0, 1e12, 0),
+        shards: Array.isArray(p.shards) ? [0, 1, 2, 3, 4].map(i => clampInt(p.shards[i], 0, 1e9, 0)) : [clampInt(p.shards, 0, 1e9, 0), 0, 0, 0, 0],
         dodgeLeft: clampInt(p.dodgeLeft, 0, 1e12, 0),
         gear: validGear(p.gear),
       };
@@ -74,7 +74,7 @@ export class Save {
   get(uid, name, avatar) {
     let p = this.data.players[uid];
     if (!p) {
-      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: 0, gear: {}, dodgeLeft: 0 };
+      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: [0, 0, 0, 0, 0], gear: {}, dodgeLeft: 0 };
       this.prune();
     }
     if (name) p.name = String(name).slice(0, 24);
@@ -132,7 +132,7 @@ function validGear(g) {
     if (!it || typeof it !== 'object') continue;
     const tier = clampInt(it.tier, 0, GEAR.tiers.length - 1, 0), roll = Number(it.roll);
     const subs = Array.isArray(it.subs) ? it.subs.filter(x => x && GEAR.stats[x.stat] && Number.isFinite(Number(x.v))).slice(0, 5).map(x => ({ stat: x.stat, v: Math.max(0, Math.min(2, Number(x.v))) })) : [];
-    out[slot] = { slot, tier, roll: Number.isFinite(roll) ? Math.max(0.5, Math.min(1.5, roll)) : 1, name: GEAR.slots[slot].names[tier], subs };
+    out[slot] = { slot, plus: clampInt(it.plus, 0, 999, 0), tier, roll: Number.isFinite(roll) ? Math.max(0.5, Math.min(1.5, roll)) : 1, name: GEAR.slots[slot].names[tier], subs };
   }
   return out;
 }

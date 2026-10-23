@@ -526,3 +526,31 @@ test('经验＝贡献值：讨伐战斗中实时到账并当场升级，结算�
   assert.equal(p.level, lv0);
   assert.ok(p.xp - xp0 <= 20 + Math.ceil(f.merit) - (LEVEL.need(1) + LEVEL.need(2) + 10) + 1, '结算只补没到账的部分');
 });
+
+test('装备经济：前5关不出红；多余分解成同色碎片，100个合成高一级；至尊重复变+1', async () => {
+  const { rollItem, giveItem, shardsOf, makeItem, itemStats } = await import('../src/fleet.js');
+  let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let i = 0; i < 3000; i++) assert.ok(rollItem(rnd, 5, 1).tier < 5, '前5关不出红');
+  let red = 0; for (let i = 0; i < 3000; i++) if (rollItem(rnd, 6).tier === 5) red++;
+  assert.ok(red > 0, '第6关开始会出红');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'k', name: 'K' }, '输出');
+  const f = game.fighters.get('k');
+  // 先穿一身紫，再塞白装：全部分解成白碎片，满100自动合成一件蓝装
+  for (const slot of ['weapon', 'armor', 'engine', 'scope', 'core', 'generator']) giveItem(game, f, makeItem(rnd, slot, 2));
+  for (let i = 0; i < 99; i++) giveItem(game, f, makeItem(rnd, 'weapon', 0));
+  assert.equal(shardsOf(game, f)[0], 99);
+  game.drainEvents();
+  giveItem(game, f, makeItem(rnd, 'armor', 0));
+  const ev = game.drainEvents();
+  assert.ok(ev.some(e => e.type === 'craft' && e.from === 0 && e.item.tier === 1), '100个白碎片合成蓝装');
+  assert.equal(shardsOf(game, f)[0], 0);
+  assert.equal(shardsOf(game, f)[1], 1, '合出的蓝装不如身上的紫装 → 变成1个蓝碎片');
+  // 至尊重复 → +1，属性 +10%
+  giveItem(game, f, makeItem(rnd, 'weapon', 5));
+  const v0 = itemStats({ ...f.gear.weapon })[0].v;
+  giveItem(game, f, makeItem(rnd, 'weapon', 5));
+  assert.equal(f.gear.weapon.plus, 1);
+  assert.ok(Math.abs(itemStats({ ...f.gear.weapon })[0].v - v0 * 1.1) < 1e-9);
+});

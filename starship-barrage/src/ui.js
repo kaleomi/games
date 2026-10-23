@@ -315,7 +315,7 @@ export class UI {
         const list = (res.mvp.blue || []).map((m, i) => `<div class="row"><i>${i < 3 ? medalSvg(i, 28) : `<span class="rk">${i + 1}</span>`}</i>${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span><b>${m.merit}</b></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
         const drops = (res.drops || []).slice(0, 8).map(d => {
           const st = itemStats(d.item), T = GEAR.tiers[d.item.tier];
-          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(GEAR.slots[d.item.slot].names[d.item.tier])}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.equipped ? '已装备' : '分解'}</em></div>`;
+          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.plus ? `红+${d.plus}` : d.equipped ? '已装备' : `→${GEAR.tiers[Math.min(d.item.tier, 4)].name}碎片`}</em></div>`;
         }).join('') || `<div class="empty">${res.clear ? '这关没人掉装备' : '讨伐失败，没有掉落'}</div>`;
         this.resultEl.innerHTML = `
           <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `第${res.stage}关 讨伐成功` : '讨伐失败'}</div>
