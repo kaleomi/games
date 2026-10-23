@@ -122,7 +122,7 @@ export class Game {
 
   startLobby() {
     this.phase = 'lobby';
-    this.phaseT = ROUND.lobbySeconds;
+    this.phaseT = this.mode === 'pve' ? ROUND.pveLobbySeconds : ROUND.lobbySeconds;
     this.roundNo++;
     this.time = 0;
     this.winner = null;
@@ -783,7 +783,7 @@ export class Game {
   respawnFighter(f) {
     if (this.mode === 'pve' && f.team === 'blue') {
       f.alive = true; f.hp = f.maxHp; f.invuln = 2; f.shieldHp = 0;
-      f.x = laneCenter(f.lane) + (f.slotDx || 0); f.y = 1230; f.vx = f.vy = 0;
+      f.x = laneCenter(f.lane) + (f.slotDx || 0); f.y = PVE.zone[1]; f.vx = f.vy = 0;
       return;
     }
     const def = TEAMS[f.team], zone = this.zoneOf(f.team);

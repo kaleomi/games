@@ -8,6 +8,7 @@ export const TEAMS = {
 
 export const ROUND = {
   lobbySeconds: 20,          // 开局前倒计时
+  pveLobbySeconds: 10,       // 讨伐：下一关出击前倒计时
   battleMinutes: 15,         // 单局上限，超时比旗舰剩余血量
   resultSeconds: 12,         // 结算展示
 };
@@ -100,8 +101,8 @@ export const LIMITS = { bullets: 3200, particles: 1600, fighters: 400 };
 
 // 讨伐模式（PvE）：全员一支舰队（没有要塞），先清虫群，再打异形母舰；打爆进下一关，全队阵亡或超时退回一关
 export const PVE = {
-  zone: [600, 1200],          // 我方战机活动区
-  rows: { tank: 650, dps: 820, carrier: 930, healer: 1040 },   // 机甲在前排，输出居中，航母和医疗在后排
+  zone: [600, 1040],          // 我方战机活动区（下方留给战力榜和礼物说明）
+  rows: { tank: 640, dps: 790, carrier: 890, healer: 990 },   // 机甲在前排，输出居中，航母和医疗在后排
   lanes: { L: [24, 244], M: [250, 470], R: [476, 696] },
   wander: { x: 80, y: 40, speed: 30 },   // 战机在自己航道内慢慢随机游走（像素、像素/秒）
   alienZone: [140, 520],

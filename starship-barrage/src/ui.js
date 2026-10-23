@@ -35,7 +35,7 @@ export function rulesHtml(settings, mode = 'pvp') {
     <ul>${how}
     </ul>
     ${pve ? classTable() : ''}
-    <h2>礼物效果 <small>按单个礼物价值（抖币）</small></h2>
+    ${pve ? '' : `    <h2>礼物效果 <small>按单个礼物价值（抖币）</small></h2>
     <table>
       ${pve ? `<tr><td>任意</td><td><b>自动躲弹</b>：每1抖币${PVE.autoDodgePerValue}秒，不设上限，可累积，开战时才扣，跟着账号保存；战机下方显示剩余时间（不送礼要自己发「左/中/右」）</td></tr>` : ''}
       <tr><td>${range(0)}</td><td>${pve ? `火力+1、护盾+10%血量，持续${GIFT.powerSeconds}秒` : `火力+1、护盾+1，持续${GIFT.powerSeconds}秒`}；每${GIFT.smallComboEvery}个放一组环形弹幕</td></tr>
@@ -43,11 +43,12 @@ export function rulesHtml(settings, mode = 'pvp') {
       <tr><td>${range(2)}</td><td>激光网格或分裂弹 + 2架护卫僚机${GIFT.droneSeconds}秒</td></tr>
       <tr><td>${range(3)}</td><td>召唤战舰${GIFT.battleshipSeconds}秒，舰体写着你的名字</td></tr>
       <tr><td>${range(4)}</td><td>${pve ? `旗舰主炮：轰掉母舰${Math.round(PVE.playerCannonDamage * 100)}%血量，母舰没出现时先蓄满等着` : `旗舰主炮：蓄力${GIFT.cannonCharge}秒，对面发「拦截」最多削弱${Math.round(GIFT.interceptCap * 100)}%`}</td></tr>
-    </table>
+    </table>`}
     ${pve ? gearTable() : ''}
     <h2>榜单与成长</h2>
     <ul>
-      ${pve ? `<li><b>贡献值</b>＝打伤害 + 给队友回血 + 替队友挨打，过关全员+${PVE.stageClearContrib}，<b>不显示消费金额</b></li>
+      ${pve ? `<li>左下角 <b>战力榜</b>（战力＝等级+装备，带每人6件装备），右下角是 <b>礼物效果</b>；送任意礼物都送自动躲弹时间</li>
+      <li><b>贡献值</b>＝打伤害 + 给队友回血 + 替队友挨打，过关全员+${PVE.stageClearContrib}，<b>不显示消费金额</b></li>
       <li>打爆母舰掉装备：贡献前三必掉，其余60%；更好的自动穿上，差的分解成星核碎片 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
       <li><b>经验＝获得的${pve ? '贡献值' : '战功'}</b>（讨伐战斗中实时到账、当场升级），等级跟着抖音账号保存，满${LEVEL.max}级；${pve ? '每级攻击、生命+2%' : '等级越高AI躲弹越灵活'}；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
       <li>灰色「NPC」战机是人少时的补位电脑，不是真人，不进榜单</li>
@@ -80,14 +81,13 @@ function classTable() {
 }
 
 function gearTable() {
-  const S = GEAR.stats, T = GEAR.tiers;
-  const rows = Object.entries(GEAR.slots).map(([id, sl]) => `
-      <div class="gslot"><div class="gicons">${T.map((t, i) => svgImg(gearIconSvg(id, i, 72), 30)).join('')}</div>
-        <b>${sl.name}</b><small>${S[sl.stat].label} +${Math.round(S[sl.stat].main * 100)}%~${Math.round(S[sl.stat].main * T[T.length - 1].f * 115)}%</small></div>`).join('');
-  return `<h2>装备 <small>打爆母舰掉落，自动穿戴更好的</small></h2>
-    <div class="gtiers">${T.map(t => `<span style="color:${t.color};border-color:${t.color}">${t.name}${t.subs ? `·${t.subs}条副属性` : ''}</span>`).join('')}</div>
-    <div class="gear">${rows}</div>
-    <div class="gnote">副属性随机：攻击、防御、生命、攻速、暴击率、暴击伤害、技能急速、技能强度。基础暴击率5%、暴击伤害150%；防御上限75%</div>`;
+  const S = GEAR.stats, T = GEAR.tiers, top = T.length - 1;
+  const cols = Object.entries(GEAR.slots).map(([id, sl]) => `
+      <div class="gslot">${svgImg(gearIconSvg(id, 0, 72), 30)}<span class="arrow">→</span>${svgImg(gearIconSvg(id, top, 72), 40)}
+        <b>${sl.name}</b><small>${S[sl.stat].label}</small></div>`).join('');
+  return `<h2>装备 <small>打爆母舰掉落，自动穿更好的 · 发「装备」查看</small></h2>
+    <div class="gtiers">${T.map(t => `<span style="color:${t.color};border-color:${t.color}">${t.name}${t.subs ? `+${t.subs}副` : ''}</span>`).join('')}</div>
+    <div class="gear">${cols}</div>`;
 }
 
 export class UI {
@@ -290,6 +290,7 @@ export class UI {
         const week = this.save.topWeek(5);
         const counts = { red: g.countTeam('red', true), blue: g.countTeam('blue', true) };
         const pve = g.mode === 'pve';
+        this.lobby.classList.toggle('pve', pve);
         const stage = g.teams.red.stage || this.save.data.pveStage || 1;
         const join = pve
           ? `<div class="join"><span class="pve">${emblemSvg('blue', 30)}讨伐 第${stage}关 · 母舰血量 ${bossMax(stage)} · 已集结 ${counts.blue}人</span></div>`
@@ -299,7 +300,7 @@ export class UI {
           ${g.phase === 'lobby' ? `<div class="count">${Math.ceil(g.phaseT)}<small>${pve ? '秒后出击' : '秒后开战'}</small></div>` : ''}
           ${join}
           ${rulesHtml(this.settings, g.mode)}
-          ${week.length ? `<div class="week"><h2>本周战功榜</h2>${week.map((p, i) => `<div><i>${i < 3 ? medalSvg(i, 22) : i + 1}</i>${esc(p.name)}<b>${p.weekMerit}</b><em>Lv.${p.level}</em></div>`).join('')}</div>` : ''}`;
+          ${week.length && !pve ? `<div class="week"><h2>本周战功榜</h2>${week.map((p, i) => `<div><i>${i < 3 ? medalSvg(i, 22) : i + 1}</i>${esc(p.name)}<b>${p.weekMerit}</b><em>Lv.${p.level}</em></div>`).join('')}</div>` : ''}`;
       }
     }
     const res = renderer.result;

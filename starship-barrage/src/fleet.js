@@ -105,6 +105,12 @@ export function rollCrit(game, f, dmg) {
 }
 export function critAvg(f) { const st = f.stats; return st ? 1 + st.crit * (st.critDmg - 1) : 1; }
 // 自动索敌：附近（260内）有异形先打异形；母舰在场就打母舰核心；否则打最近的异形
+// 战力：等级 + 装备评分（和职业无关，方便横向比较）
+export function combatPower(f) {
+  let sc = 0;
+  if (f.gear) for (const slot of Object.keys(GEAR.slots)) if (f.gear[slot]) sc += gearScore({ ...f.gear[slot], slot });
+  return Math.round((f.level || 1) * 50 + sc * 120);
+}
 export function nearestEnemy(game, x, y, maxD = 1e9, near = 260) {
   let best = null, bd = maxD * maxD;
   for (const e of game.fighters.values()) {
