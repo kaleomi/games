@@ -49,7 +49,7 @@ export function rulesHtml(settings, mode = 'pvp') {
     <ul>
       ${pve ? `<li>左下角 <b>战力榜</b>（战力＝等级+装备，带每人6件装备），右下角是 <b>礼物效果</b>；送任意礼物都送自动躲弹时间</li>
       <li><b>贡献值</b>＝打伤害 + 给队友回血 + 替队友挨打，过关全员+${PVE.stageClearContrib}，<b>不显示消费金额</b></li>
-      <li>打爆母舰掉装备：贡献前三必掉，其余60%；更好的自动穿上，差的分解成星核碎片 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
+      <li>打爆BOSS掉装备：本局送礼的优先，再按贡献；前三必掉，其余60%；有保底 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
       <li><b>经验＝获得的${pve ? '贡献值' : '战功'}</b>（讨伐战斗中实时到账、当场升级），等级跟着抖音账号保存，满${LEVEL.max}级；${pve ? '每级攻击、生命+2%' : '等级越高AI躲弹越灵活'}；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
       <li>灰色「NPC」战机是人少时的补位电脑，不是真人，不进榜单</li>
       <li>礼物效果固定、没有抽奖；理性消费，未成年人请勿打赏</li>
@@ -315,7 +315,7 @@ export class UI {
         const list = (res.mvp.blue || []).map((m, i) => `<div class="row"><i>${i < 3 ? medalSvg(i, 28) : `<span class="rk">${i + 1}</span>`}</i>${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span><b>${m.merit}</b></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
         const drops = (res.drops || []).slice(0, 8).map(d => {
           const st = itemStats(d.item), T = GEAR.tiers[d.item.tier];
-          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.plus ? `红+${d.plus}` : d.equipped ? '已装备' : `→${GEAR.tiers[Math.min(d.item.tier, 4)].name}碎片`}</em></div>`;
+          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}${d.pity ? '<i class="tag">保底</i>' : ''}${d.gifted ? '<i class="tag gift">礼</i>' : ''}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.plus ? `红+${d.plus}` : d.equipped ? '已装备' : `→${GEAR.tiers[Math.min(d.item.tier, 4)].name}碎片`}</em></div>`;
         }).join('') || `<div class="empty">${res.clear ? '这关没人掉装备' : '讨伐失败，没有掉落'}</div>`;
         this.resultEl.innerHTML = `
           <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `第${res.stage}关 讨伐成功` : '讨伐失败'}</div>

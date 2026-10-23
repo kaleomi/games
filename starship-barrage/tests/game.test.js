@@ -554,3 +554,26 @@ test('装备经济：前5关不出红；多余分解成同色碎片，100个合�
   assert.equal(f.gear.weapon.plus, 1);
   assert.ok(Math.abs(itemStats({ ...f.gear.weapon })[0].v - v0 * 1.1) < 1e-9);
 });
+
+test('掉落顺序：本局送礼的排前面（送得多的第1），其余按贡献；保底必出金/红', async () => {
+  const { dropOrder, rollDrops, pityOf } = await import('../src/fleet.js');
+  const { GEAR } = await import('../src/config.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  for (const id of ['a', 'b', 'c', 'd']) game.chat({ id, name: id }, '输出');
+  toBattle(game);
+  const [a, b, c, d] = ['a', 'b', 'c', 'd'].map(id => game.fighters.get(id));
+  a.merit = 900; b.merit = 50; c.merit = 300; d.merit = 10;
+  game.gift({ id: 'd' }, { name: 'x', price: 52, count: 1 });
+  game.gift({ id: 'b' }, { name: 'x', price: 1, count: 10 });
+  assert.deepEqual(dropOrder(game).map(f => f.uid), ['d', 'b', 'a', 'c'], '送礼多的第1、送礼的第2，后面按贡献');
+  // 保底：金差1件就到 → 必出金或更好
+  pityOf(game, a).gold = GEAR.pity.gold - 1;
+  pityOf(game, b).red = GEAR.pity.red - 1;
+  const drops = rollDrops(game, 8);
+  const da = drops.find(x => x.uid === 'a'), db = drops.find(x => x.uid === 'b');
+  assert.ok(da.item.tier >= 4, '金保底');
+  assert.equal(db.item.tier, 5, '红保底');
+  assert.equal(pityOf(game, b).red, 0);
+  assert.ok(drops.find(x => x.uid === 'd').gifted);
+});

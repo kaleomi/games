@@ -6,7 +6,7 @@ import { queenSvg, colossusSvg, eyeSvg, bossPodSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR } from './config.js';
-import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
+import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, pityOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
@@ -215,6 +215,7 @@ export class Renderer {
           else if (e.equipped && e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `${e.crafted ? '合成了' : '获得'}${T.name}装备「${e.item.name}」`, tier: e.item.tier >= 4 ? 5 : e.item.tier >= 3 ? 4 : 2, gear: e.item });
           break;
         }
+        case 'pity': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `触发保底！必出${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: 5, gear: e.item }); break;
         case 'craft': this.toast(`${e.name} 用${GEAR.shardsPerCraft}个${GEAR.tiers[e.from].name}碎片合成了${GEAR.tiers[e.item.tier].name}装备`, null, GEAR.tiers[e.item.tier].color); break;
         default: break;
       }
@@ -1272,7 +1273,8 @@ export class Renderer {
       '贡献＝打伤害＋给队友回血＋替队友挨打，不看消费',
       '经验＝贡献值，战斗中实时升级，每级攻击生命+2%',
       '战力＝等级＋装备，左边战力榜按战力排',
-      '打爆BOSS：贡献前三必掉装备，其余60%；前5关不出红装',
+      '掉落顺序：本局送礼的排前面（送得多的在前），再按贡献；前三必掉，其余60%',
+      `保底：${GEAR.pity.gold}件必出金，${GEAR.pity.red}件必出红；前5关不出红`,
       '多余装备自动分解成同色碎片，100个自动合成高一级',
       '灰色NPC是补位电脑，不进榜单',
     ], 14, 4);
@@ -1501,6 +1503,8 @@ export class Renderer {
     const sh = shardsOf(g, f); let sx = L + 230;
     x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText('碎片', sx, T + 78); sx += 30;
     sh.forEach((n, i) => { x.fillStyle = GEAR.tiers[i].color; x.fillText(`${GEAR.tiers[i].name.slice(0, 1)}${n}`, sx, T + 78); sx += x.measureText(`${GEAR.tiers[i].name.slice(0, 1)}${n}`).width + 8; });
+    const pt = pityOf(g, f);
+    x.textAlign = 'right'; x.fillStyle = '#ffd86b'; x.fillText(`保底 金${pt.gold}/${GEAR.pity.gold} 红${pt.red}/${GEAR.pity.red}`, L + Wd - 20, T + 56); x.textAlign = 'left';
     Object.keys(GEAR.slots).forEach((sl, i) => {
       const it = f.gear?.[sl], y = T + 98 + i * rowH + rowH / 2;
       x.fillStyle = i % 2 ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.06)'; x.fillRect(L + 10, y - rowH / 2 + 2, Wd - 20, rowH - 4);

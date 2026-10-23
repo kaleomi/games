@@ -169,6 +169,7 @@ export class Game {
       this.memStage = next;
       Object.assign(result, { stage, clear, next, bossName: this.teams.red.bossName });
       result.drops = clear ? rollDrops(this, stage) : [];
+      for (const f of this.humans()) f.giftRound = 0;   // 结算后清零，结算期间送的算下一局
     }
     for (const f of this.humans()) {
       const p = f.test ? null : this.save?.get(f.uid);
@@ -375,6 +376,7 @@ export class Game {
     if (this.mode === 'pve') {
       const price = Number(gift.price);
       const value = (Number.isFinite(price) && price > 0 ? price : 1) * amount;
+      f.giftRound = (f.giftRound || 0) + value;   // 本局礼物榜（只用来排掉落顺序，不显示金额）
       const had = (f.dodgeLeft || 0) > 0;
       f.dodgeLeft = (f.dodgeLeft || 0) + value * PVE.autoDodgePerValue;
       syncDodge(this, f);

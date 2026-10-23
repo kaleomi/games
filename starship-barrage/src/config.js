@@ -191,7 +191,7 @@ export const GEAR = {
     { id: 'purple', name: '史诗', color: '#b066ff', f: 3.5, w: 15, subs: 2 },
     { id: 'orange', name: '传说', color: '#ff8a2a', f: 6,   w: 7,  subs: 3 },
     { id: 'gold',   name: '神话', color: '#ffd23a', f: 9,   w: 1.2, subs: 4 },
-    { id: 'red',    name: '至尊', color: '#ff3b4e', f: 13,  w: 0.017, subs: 5 },
+    { id: 'red',    name: '至尊', color: '#ff3b4e', f: 13,  w: 0.012, subs: 5 },
   ],
   // 属性：main=作为主属性时每档系数，sub=作为副属性时每档系数（实际值 = 系数 × 品质倍率 f × 浮动0.85~1.15）
   stats: {
@@ -210,6 +210,8 @@ export const GEAR = {
   liftPer: 0.08, liftCap: 10, redFrom: 6,
   // 碎片：多余装备自动分解，1件=1个同色碎片；100个碎片自动合成1件高一级装备（补在最弱的部位）
   shardsPerCraft: 100,
+  // 保底：连续100件没出金（或更好）→ 下一件必出金；第6关起连续1500件没出红 → 下一件必出红（合成的不算）
+  pity: { gold: 100, red: 1500 },
   // 至尊红装重复（同部位）→ 红+1，每+1全部属性 +10%
   plusPer: 0.1,
   // 主炮品质决定炮管数：白/蓝1管、紫/橙2管、金/红3管，每管每次打1发（输出舰每管打双发）；多管总伤害 ×1 / ×1.5 / ×1.95

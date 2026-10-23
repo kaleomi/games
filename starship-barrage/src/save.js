@@ -53,6 +53,7 @@ export class Save {
         cls: ['dps', 'tank', 'healer', 'carrier'].includes(p.cls) ? p.cls : null,
         shards: Array.isArray(p.shards) ? [0, 1, 2, 3, 4].map(i => clampInt(p.shards[i], 0, 1e9, 0)) : [clampInt(p.shards, 0, 1e9, 0), 0, 0, 0, 0],
         dodgeLeft: clampInt(p.dodgeLeft, 0, 1e12, 0),
+        pity: { gold: clampInt(p.pity?.gold, 0, 1e6, 0), red: clampInt(p.pity?.red, 0, 1e6, 0) },
         gear: validGear(p.gear),
       };
     }

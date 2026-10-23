@@ -696,14 +696,33 @@ export function hurt(game, f, dmg, ownerUid) {
 }
 
 // 母舰被打爆后掉装备：贡献前三必掉，其余60%；第一名多抽一次取好的
+// 掉落顺序：本局送了礼的排前面（按本局礼物价值从高到低），其余按贡献排；前三必掉、其余60%，第1位抽两次取高
+export function dropOrder(game) {
+  const all = game.humans().filter(f => f.team === 'blue');
+  const gifters = all.filter(f => (f.giftRound || 0) > 0).sort((a, b) => b.giftRound - a.giftRound || b.merit - a.merit);
+  const others = all.filter(f => !(f.giftRound > 0) && f.merit > 0).sort((a, b) => b.merit - a.merit);
+  return [...gifters, ...others];
+}
+export function pityOf(game, f) {
+  const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
+  if (p) return (p.pity ||= { gold: 0, red: 0 });
+  return (f.pityMem ||= { gold: 0, red: 0 });
+}
 export function rollDrops(game, stage) {
-  const list = game.humans().filter(f => f.merit > 0).sort((a, b) => b.merit - a.merit);
   const drops = [];
-  list.forEach((f, rank) => {
+  dropOrder(game).forEach((f, rank) => {
     if (rank >= 3 && game.random() >= 0.6) return;
-    const item = rollItem(game.random, stage, rank === 0 ? 1 : 0);
+    let item = rollItem(game.random, stage, rank === 0 ? 1 : 0);
+    // 保底
+    const pity = pityOf(game, f), P = GEAR.pity, red = GEAR.tiers.length - 1;
+    let pityHit = null;
+    if (stage >= GEAR.redFrom && pity.red + 1 >= P.red && item.tier < red) { item = makeItem(game.random, item.slot, red); pityHit = 'red'; }
+    else if (pity.gold + 1 >= P.gold && item.tier < red - 1) { item = makeItem(game.random, item.slot, red - 1); pityHit = 'gold'; }
+    pity.gold = item.tier >= red - 1 ? 0 : pity.gold + 1;
+    if (stage >= GEAR.redFrom) pity.red = item.tier >= red ? 0 : pity.red + 1;
+    if (pityHit) game.emit('pity', { uid: f.uid, name: f.name, kind: pityHit, item });
     const res = giveItem(game, f, item);
-    drops.push({ uid: f.uid, name: f.name, item, ...res });
+    drops.push({ uid: f.uid, name: f.name, item, gifted: (f.giftRound || 0) > 0, pity: pityHit, ...res });
   });
   return drops;
 }
