@@ -996,3 +996,13 @@ test('战鼓弹幕雨：每个5秒可叠加，每发=送礼人攻击×2', () => 
   assert.ok(rain.length > 0);
   assert.ok(Math.abs(rain[0].dmg - f.stats.atk * 2) < 1e-6);
 });
+
+test('礼花筒双倍期间送跑车：每个跑车2件红装', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'r', name: 'R' }, '输出');
+  toBattle(game);
+  const f = game.fighters.get('r');
+  game.gift({ id: 'r' }, { name: '礼花筒', price: 199, count: 1 });
+  game.gift({ id: 'r' }, { name: '跑车', price: 1200, count: 1 });
+  assert.equal(Object.values(f.gear).filter(it => it.tier === 5).length, 2);
+});

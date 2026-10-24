@@ -98,9 +98,9 @@ export function applyPveGift(game, f, kind, amount) {
     }
     case 'treasure': {  // 召唤宝箱魔王：打死后在场所有人开箱，参与者额外拿10倍BOSS经验；送礼人保底1件红装
       for (let i = 0; i < Math.min(n, G.treasure.maxAlive); i++) summonChest(game, f);
-      // 送跑车的人：每个跑车保底给自己1件至尊红装（优先补还没有红装的部位）
+      // 送跑车的人：每个跑车保底给自己1件至尊红装（优先补还没有红装的部位）；礼花筒双倍期间每个跑车2件
       const red = GEAR.tiers.length - 1;
-      for (let i = 0; i < n; i++) {
+      for (let i = 0; i < n * dropTimes(game, f); i++) {
         const missing = Object.keys(GEAR.slots).filter(sl => !(f.gear?.[sl]?.tier >= red));
         const pool = missing.length ? missing : Object.keys(GEAR.slots);
         const item = makeItem(game.random, pool[Math.floor(game.random() * pool.length)], red);
