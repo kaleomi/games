@@ -928,3 +928,17 @@ test('送跑车：自己保底1件红装，优先补没有红装的部位', () =
   const reds = Object.values(f.gear).filter(it => it.tier === 5);
   assert.equal(reds.length, 2, '两个跑车两件红装，在不同部位');
 });
+
+test('锻造至尊保底：同一种战舰连续200次没出至尊，第200次必出', async () => {
+  const { game, save } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'y', name: 'Y' }, '输出');
+  toBattle(game);
+  game.random = () => 0.01;   // 永远抽到普通
+  game.gift({ id: 'y' }, { name: '加油鸭', price: 15, count: 99 });
+  game.gift({ id: 'y' }, { name: '加油鸭', price: 15, count: 99 });
+  assert.equal(save.peek('y').forge.dps, 0);
+  assert.equal(save.peek('y').forgePity.dps, 198);
+  game.gift({ id: 'y' }, { name: '加油鸭', price: 15, count: 2 });
+  assert.equal(save.peek('y').forge.dps, 5, '第200次必出至尊');
+  assert.equal(save.peek('y').forgePity.dps, 0);
+});

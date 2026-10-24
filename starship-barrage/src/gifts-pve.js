@@ -176,13 +176,23 @@ export function forgeShip(game, f, times = 1) {
   const T = PVE.forge.tiers, cls = f.cls;
   const forge = f.forge || (f.forge = {});
   const from = forgeTier(f, cls);
-  const rolls = []; for (let i = 0; i < times; i++) rolls.push(rollForge(game.random));
+  // 至尊保底（每种战舰各自计数）：连续200次没出至尊，这一次必出至尊
+  const pityAll = f.forgePity || (f.forgePity = {}), top = T.length - 1;
+  const rolls = [];
+  let pityHit = false;
+  for (let i = 0; i < times; i++) {
+    let r = rollForge(game.random);
+    pityAll[cls] = (pityAll[cls] || 0) + 1;
+    if (r < top && pityAll[cls] >= PVE.forge.pity) { r = top; pityHit = true; }
+    if (r === top) pityAll[cls] = 0;
+    rolls.push(r);
+  }
   const best = Math.max(...rolls), to = Math.max(from, best);
   forge[cls] = to;
   const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
-  if (p) { p.forge = forge; game.save.dirty = true; }
+  if (p) { p.forge = forge; p.forgePity = pityAll; game.save.dirty = true; }
   refreshStats(f);
-  game.emit('forge', { uid: f.uid, name: f.name, cls, from, to, best, rolls, up: to > from });
+  game.emit('forge', { uid: f.uid, name: f.name, cls, from, to, best, rolls, up: to > from, pityHit, pity: pityAll[cls] || 0 });
   return { from, to, rolls };
 }
 

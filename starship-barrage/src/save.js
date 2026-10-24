@@ -57,6 +57,7 @@ export class Save {
         gear: validGear(p.gear),
         seenClear: clampInt(p.seenClear, 0, 1e12, 0),
         forge: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forge?.[c], 0, 5, 0)])),
+        forgePity: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forgePity?.[c], 0, 1e6, 0)])),
         gv: 3,
       };
       // 旧存档迁移：红+1 原来是+10%，现在每级+2% → 等级×5 保持强度；中间版本的「余料」按白碎片折算（10余料=1白碎片）

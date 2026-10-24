@@ -174,7 +174,7 @@ export const PVE = {
     { name: '传说', mul: 2.2, w: 5,   color: '#ff8a2a' },
     { name: '神话', mul: 2.6, w: 1.5, color: '#ffd23a' },
     { name: '至尊', mul: 3,   w: 0.5, color: '#ff3b4e' },
-  ], maxPerGift: 99 },
+  ], maxPerGift: 99, pity: 200 },   // 至尊保底：同一种战舰连续锻造200次没出至尊，第200次必出至尊
   // 点赞聚集士气：满500全队伤害+10% 15秒
   morale: { need: 500, dmg: 0.1, sec: 15, capPerSec: 20 },
   gunnerSkillEvery: 14,

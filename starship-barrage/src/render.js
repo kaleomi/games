@@ -738,6 +738,7 @@ export class Renderer {
     x.textAlign = 'center'; x.textBaseline = 'middle';
     x.font = `700 20px ${FONT}`; x.fillStyle = '#fff';
     x.fillText(`${trim(e.name, 8)} 锻造${CLASSES[e.cls].name}${e.rolls.length > 1 ? ` ×${e.rolls.length}` : ''}`, cx, cy - 150);
+    x.font = `12px ${FONT}`; x.fillStyle = '#c8a860'; x.fillText(e.pityHit ? '触发至尊保底！' : `至尊保底 ${e.pity}/${PVE.forge.pity}`, cx, cy - 128);
     if (rolling) { x.font = `800 30px ${FONT}`; x.fillStyle = col; x.fillText(`${T[spin].name}…`, cx, cy + 150); }
     else {
       const R = T[e.best];
@@ -1339,7 +1340,7 @@ export class Renderer {
     } else if (name.startsWith('礼物效果')) {
       const G = PVE.gifts;
       const all = [
-        ['加油鸭', '15抖币', '#ffd23a', `战舰锻造1次（送几个锻几次取最好）：普通/精良/史诗/传说/神话/至尊，全属性×1~3，每种战舰各自品质`],
+        ['加油鸭', '15抖币', '#ffd23a', `战舰锻造1次（送几个锻几次取最好）：普通/精良/史诗/传说/神话/至尊，全属性×1~3，每种战舰各自品质；${PVE.forge.pity}次必出至尊`],
         ['小心心', '1抖币', '#ff9ec4', `自己经验+${G.heart.xp * 100}%，每个${G.heart.sec}秒、时间叠加不设上限；立即放一次小技能`],
         ['鲜花', '10抖币', '#ffb3c8', `召唤佣兵机甲${G.flower.sec}秒（一次最多${G.flower.maxPerGift}台），立即放大招；跨关保留`],
         ['爱你哟·战鼓', '52抖币', '#ff8a2a', `全队攻击+${G.drum.atk * 100}% ${G.drum.sec}秒，全屏弹幕雨；自己掉落保底传说装${G.drum.floorSec}秒`],
