@@ -7,7 +7,7 @@ import { GIFT, MERIT } from '../src/config.js';
 
 function seeded(seed = 7) { return () => ((seed = (seed * 16807) % 2147483647) / 2147483647); }
 function memStorage() { const m = new Map(); return { getItem: k => m.get(k) ?? null, setItem: (k, v) => m.set(k, String(v)) }; }
-function newGame(opts = {}) { const save = new Save({ storage: memStorage() }); return { save, game: new Game({ save, random: seeded(), ...opts }) }; }
+function newGame(opts = {}) { const save = new Save({ storage: memStorage() }); return { save, game: new Game({ save, random: seeded(), ...opts, settings: { pvpEnabled: true, ...(opts.settings || {}) } }) }; }
 function toBattle(game) { game.phaseT = 0.001; game.step(1 / 60); assert.equal(game.phase, 'battle'); }
 
 test('弹幕指令解析', () => {
@@ -797,4 +797,16 @@ test('讨伐礼物对照：主播在设置里追加「礼物名=效果」优先'
   assert.equal(pveGiftKind({ name: '棒棒糖', price: 1 }), 'heart');
   assert.equal(pveGiftKind({ name: '棒棒糖', price: 1 }, { 棒棒糖: 'treasure' }), 'treasure');
   assert.equal(pveGiftKind({ name: '墨镜', price: 99 }, {}), 'hero');
+});
+
+test('对战模式关闭时：开局就是讨伐，「换对战」投票和切换都无效', () => {
+  const save = new Save({ storage: memStorage() });
+  save.data.mode = 'pvp';
+  const game = new Game({ save, random: seeded(), settings: { pvpEnabled: false } });
+  assert.equal(game.mode, 'pve');
+  game.chat({ id: 'a', name: 'A' }, '输出');
+  game.chat({ id: 'a' }, '换对战');
+  assert.equal(game.mode, 'pve');
+  assert.equal(game.setMode('pvp'), false);
+  assert.equal(game.mode, 'pve');
 });

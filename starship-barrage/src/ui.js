@@ -1,5 +1,5 @@
 // 设置面板、开局规则页、结算页（DOM）
-import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR } from './config.js';
+import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR, PVP_ENABLED } from './config.js';
 import { bossMax, bossFor, stageLabel, stageKind, KIND_NAMES, bossTitle, leaderMax } from './pve.js';
 import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, dpsSvg, carrierSvg } from './art.js';
 import { describeItem, itemStats, statText } from './fleet.js';
@@ -30,7 +30,7 @@ export function rulesHtml(settings, mode = 'pvp') {
       <li>异形放技能时航道会出现<b>红色区域，10秒倒计时</b>：发 <b>左 / 中 / 右</b> 换航道躲开（总有一条是安全的）</li>
       <li><b>点赞</b>充能，满了打出超载炮 · 母舰「湮灭炮」锁定时全员发 <b>拦截</b> 削弱</li>
       <li><b>每章5关</b>：1–3关虫群+精英头目（打死头目过关），第4关精英，第5关首领；每关限时${PVE.stageSeconds / 60}分钟，过关<b>掉落装备</b>、自动进下一关</li>
-      <li>全队阵亡或超时：从本章第1关重来（第2章起在1–3关失败退回上一章第1关），已拿的经验和装备不收回 · 发 <b>换对战</b> 切回红蓝对战</li>`
+      <li>全队阵亡或超时：从本章第1关重来（第2章起在1–3关失败退回上一章第1关），已拿的经验和装备不收回${PVP_ENABLED ? ' · 发 <b>换对战</b> 切回红蓝对战' : ''}</li>`
     : `
       <li>发 <b>红</b> 或 <b>蓝</b> 加入舰队，头像变成你的战机，<b>AI自动驾驶、躲弹、开火</b></li>
       <li><b>激光 / 散弹 / 蓄力</b> 换武器 · <b>左 / 中 / 右</b> 换编队 · <b>核心 / 炮台</b> 选目标</li>
@@ -142,8 +142,8 @@ export class UI {
       <section>
         <h3>模式</h3>
         <div class="row wrap"><span id="mode-info"></span></div>
-        <div class="row wrap"><button data-act="mode-pvp">切到对战（红蓝对攻）</button><button data-act="mode-pve">切到讨伐（打母舰）</button><button data-act="stage-reset">讨伐回到第1关</button></div>
-        <div class="note">观众也能随时发「换讨伐」「换对战」投票切换，在场一半人同意就换（和暴力摩托一样）。</div>
+        <div class="row wrap">${PVP_ENABLED ? '<button data-act="mode-pvp">切到对战（红蓝对攻）</button><button data-act="mode-pve">切到讨伐（打母舰）</button>' : ''}<button data-act="stage-reset">讨伐回到第1关</button></div>
+        <div class="note">${PVP_ENABLED ? '观众也能随时发「换讨伐」「换对战」投票切换，在场一半人同意就换（和暴力摩托一样）。' : '红蓝对战模式暂时关闭，只开讨伐（开关在 src/config.js 的 PVP_ENABLED）。'}</div>
         <h3>对局</h3>
         <div class="row">对战每局上限 <input id="cfg-minutes" type="number" min="3" max="30" value="${s.battleMinutes}"> 分钟</div>
         <div class="row">人少时补位NPC到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMinPerTeam}"> 架</div>
@@ -159,7 +159,7 @@ export class UI {
         <div class="note">默认：${esc(Object.entries(PVE.gifts.byName).filter(([k]) => k !== '爱的爆炸').map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('、'))}；认不出的按单价：1+经验 10+佣兵 52+战鼓 99+英雄 199+双倍 1200+宝箱。</div>
         <div class="row">追加 / 改礼物（每行「礼物名=效果」，效果填 经验 / 佣兵 / 战鼓 / 英雄 / 双倍 / 宝箱）：</div>
         <textarea id="cfg-pvegifts" rows="3" placeholder="棒棒糖=经验&#10;嘉年华=宝箱">${esc(Object.entries(s.pveGiftByName || {}).map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('\n'))}</textarea>
-        <details class="pvp-tiers"><summary>对战模式礼物分档（只在红蓝对战里用）</summary>
+        <details class="pvp-tiers" ${PVP_ENABLED ? '' : 'hidden'}><summary>对战模式礼物分档（只在红蓝对战里用）</summary>
           <div class="row tiers">${[1, 2, 3, 4].map(i => `${i + 1}档起 <input data-tier="${i}" type="number" min="1" value="${s.tiers[i]}">`).join(' ')}</div>
           <div class="row">按礼物名指定档位（每行「礼物名=档位」，优先于价值）：</div>
           <textarea id="cfg-names" rows="3" placeholder="小心心=1&#10;墨镜=3">${esc(Object.entries(s.giftTierByName).map(([k, v]) => `${k}=${v}`).join('\n'))}</textarea>

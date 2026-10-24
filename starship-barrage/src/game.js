@@ -1,6 +1,6 @@
 // 星舰弹幕战 · 战斗模拟（不依赖页面，可在 Node 里测试）
 import {
-  W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES,
+  W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES, PVP_ENABLED,
 } from './config.js';
 import { skinFor } from './save.js';
 import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul, failStage, stageKind, stageLabel, smallKill } from './pve.js';
@@ -66,6 +66,7 @@ export class Game {
       npcMinPerTeam: NPC.minPerTeam,
       tiers: GIFT_TIERS.map(t => t.min),
       giftTierByName: {},
+      pvpEnabled: PVP_ENABLED,
       ...settings,
     };
     this.events = [];
@@ -83,7 +84,7 @@ export class Game {
     this.fGrid = new Map();
     this.bGrid = new Map();
     this.stats = { gifts: 0, giftUnits: 0, chats: 0, likes: 0 };
-    this.mode = save?.data?.mode === 'pve' ? 'pve' : 'pvp';
+    this.mode = save?.data?.mode === 'pve' || !this.settings.pvpEnabled ? 'pve' : 'pvp';
     this.modeVote = null;
     this.pve = null;
     this.alienSeq = 0;
@@ -578,6 +579,7 @@ export class Game {
   // ───────── 模式切换（和暴力摩托一样：弹幕投票，在场一半人同意就换） ─────────
   voteMode(f, mode) {
     const name = MODE_NAMES[mode];
+    if (mode === 'pvp' && !this.settings.pvpEnabled) { this.emit('toast', { uid: f.uid, text: '对战模式暂未开放' }); return false; }
     if (mode === this.mode) { this.emit('toast', { uid: f.uid, text: `现在就是${name}模式` }); return false; }
     if (!this.modeVote || this.modeVote.mode !== mode || this.modeVote.until < this.clock) this.modeVote = { mode, voters: new Set(), until: this.clock + 90 };
     const v = this.modeVote;
@@ -596,6 +598,7 @@ export class Game {
 
   setMode(mode, { by = null } = {}) {
     mode = mode === 'pve' ? 'pve' : 'pvp';
+    if (mode === 'pvp' && !this.settings.pvpEnabled) return false;
     if (mode === this.mode) return false;
     this.mode = mode;
     this.modeVote = null;

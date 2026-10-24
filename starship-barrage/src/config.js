@@ -259,3 +259,5 @@ export const GEAR = {
 };
 
 export const MODE_NAMES = { pvp: '对战', pve: '讨伐' };
+// 对战（红蓝对抗）模式开关：暂时关闭，只开讨伐。改成 true 就恢复「换对战」投票和设置里的切换按钮
+export const PVP_ENABLED = false;

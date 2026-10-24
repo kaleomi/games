@@ -5,7 +5,7 @@ import { bossTimeText, rayHits, stageKind, chapterOf, stepOf, KIND_NAMES, leader
 import { queenSvg, colossusSvg, eyeSvg, bossPodSvg, chestSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
-import { PVE, CLASSES, GEAR } from './config.js';
+import { PVE, CLASSES, GEAR, PVP_ENABLED } from './config.js';
 import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, growthE, pityOf, lootFloorOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
@@ -1260,7 +1260,7 @@ export class Renderer {
       '湮灭炮锁定时全员发「拦截」· 点赞充能打超载炮',
     ], 14, 4);
     else if (name === '弹幕指令') {
-      const cmds = [['输出 / 机甲 / 医疗 / 航母', '选战舰、换战舰'], ['大招', '放大招（冷却45秒）'], ['签到', '每天领一次每日战利品'], ['左 / 中 / 右', '换航道躲红区'], ['拦截', '削弱母舰湮灭炮'], ['装备', '看自己的装备'], ['我的', '看等级、贡献、属性'], ['换对战', '投票切到红蓝对战']];
+      const cmds = [['输出 / 机甲 / 医疗 / 航母', '选战舰、换战舰'], ['大招', '放大招（冷却45秒）'], ['签到', '每天领一次每日战利品'], ['左 / 中 / 右', '换航道躲红区'], ['拦截', '削弱母舰湮灭炮'], ['装备', '看自己的装备'], ['我的', '看等级、贡献、属性']].concat(PVP_ENABLED ? [['换对战', '投票切到红蓝对战']] : []);
       cmds.forEach(([a, b], i) => {
         const y = y0 + i * 25;
         if (i % 2) { x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(L + 6, y - 12, Wd - 12, 24); }
