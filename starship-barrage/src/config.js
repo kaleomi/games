@@ -8,9 +8,10 @@ export const TEAMS = {
 
 export const ROUND = {
   lobbySeconds: 20,          // 开局前倒计时
-  pveLobbySeconds: 10,       // 讨伐：下一关出击前倒计时
+  pveLobbySeconds: 3,        // 讨伐：下一关出击前倒计时（结算后短暂备战）
   battleMinutes: 15,         // 单局上限，超时比旗舰剩余血量
-  resultSeconds: 12,         // 结算展示
+  resultSeconds: 12,         // 结算展示（对战）
+  pveResultSeconds: 5,       // 讨伐：每关结算展示
 };
 
 export const FLAGSHIP = {
@@ -220,7 +221,7 @@ export const GEAR = {
     { id: 'purple', name: '史诗', color: '#b066ff', f: 3.5, w: 15, subs: 2 },
     { id: 'orange', name: '传说', color: '#ff8a2a', f: 6,   w: 7,  subs: 3 },
     { id: 'gold',   name: '神话', color: '#ffd23a', f: 9,   w: 1.2, subs: 4 },
-    { id: 'red',    name: '至尊', color: '#ff3b4e', f: 13,  w: 0.06, subs: 5 },
+    { id: 'red',    name: '至尊', color: '#ff3b4e', f: 13,  w: 0.05, subs: 5 },
   ],
   // 属性：main=作为主属性时每档系数，sub=作为副属性时每档系数（实际值 = 系数 × 品质倍率 f × 浮动0.85~1.15）
   stats: {
@@ -235,7 +236,7 @@ export const GEAR = {
   },
   baseCrit: 0.05, baseCritDmg: 1.5,
   // 掉率：关卡越高好装备越多（每关 +8%，白~金算到第10关封顶，红装不封顶）；前5关不出至尊红装
-  // 按「每天直播18小时、每小时通关约15次、每次72%拿到装备」模拟（含保底、碎片合成、小怪白装）：一直在的人约7天（中位数）凑齐一身红
+  // 按「每天直播18小时、每天通关约650关、正常关72%拿到装备」模拟（含保底、碎片合成、小怪白装）：一直在的人约5天（中位数）凑齐一身红
   liftPer: 0.08, liftCap: 10, redFrom: 6,
   // 强化：所有品质都能强化。同部位同品质重复 → +1级；每级 +2% 基础属性（加法叠加，+10 = 120%），没有上限
   //   换上更高品质的装备时，旧装备的强化投入按基础属性折算继承到新装备（新的一定更强）

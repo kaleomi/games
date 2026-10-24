@@ -159,7 +159,7 @@ export class Game {
 
   endBattle(winner, reason) {
     this.phase = 'result';
-    this.phaseT = ROUND.resultSeconds;
+    this.phaseT = this.mode === 'pve' ? ROUND.pveResultSeconds : ROUND.resultSeconds;
     this.winner = winner;
     const result = { winner, reason, round: this.roundNo, mvp: {}, players: 0, mode: this.mode };
     for (const id of TEAM_IDS) {
