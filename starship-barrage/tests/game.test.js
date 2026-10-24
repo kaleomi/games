@@ -854,3 +854,11 @@ test('机甲：附近没怪时冲到BOSS身下近战砍核心', () => {
   assert.ok(minY < boss.y + 140, `机甲冲到了BOSS身下 ${Math.round(minY)}`);
   assert.ok(boss.core < c0, '砍到了BOSS');
 });
+
+test('难度按章算：同一章5关首领血量一样，第2章首领＝原来第2关的BOSS', async () => {
+  const { bossMax, leaderMax, stageMul } = await import('../src/pve.js');
+  assert.equal(stageMul(6), stageMul(10));
+  assert.equal(bossMax(10), Math.round(16000 * 1.18));
+  assert.equal(leaderMax(7), Math.round(16000 * 1.18 * 0.35));
+  assert.ok(bossMax(15) > bossMax(10));
+});

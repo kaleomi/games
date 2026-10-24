@@ -3,7 +3,7 @@ import {
   W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES, PVP_ENABLED,
 } from './config.js';
 import { skinFor } from './save.js';
-import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul, failStage, stageKind, stageLabel, smallKill } from './pve.js';
+import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul, failStage, stageKind, stageLabel, smallKill, chapterOf } from './pve.js';
 import { syncDodge, fmtDuration, score, giveItem, makeItem } from './fleet.js';
 import { nearestEnemy } from './fleet.js';
 import { pveGiftKind, applyPveGift, stepPveGifts, moraleLike, dailyCheckin, chestKilled, xpMul, pauseSummons, resumeSummons } from './gifts-pve.js';
@@ -174,7 +174,7 @@ export class Game {
       if (this.save) { this.save.data.pveStage = next; this.save.data.pveBest = Math.max(this.save.data.pveBest || 0, clear ? stage : 0); this.save.dirty = true; }
       this.memStage = next;
       Object.assign(result, { stage, clear, next, kind: stageKind(stage), bossName: this.teams.red.bossName, small: this.pve?.smallDrops || 0 });
-      result.drops = clear ? rollDrops(this, stage) : [];
+      result.drops = clear ? rollDrops(this, chapterOf(stage)) : [];
       if (clear) result.reserve = this.clearReward(stage);
       for (const f of this.humans()) f.giftRound = 0;   // 结算后清零，结算期间送的算下一局
     }
@@ -313,7 +313,7 @@ export class Game {
     if (this.save) { this.save.data.clearNo = (this.save.data.clearNo || 0) + 1; this.save.dirty = true; } else this.memClearNo++;
     const no = this.clearNo(), R = PVE.reserve;
     for (const f of this.humans()) { const p = !f.test && this.save?.peek(f.uid); if (p) p.seenClear = no; }
-    const kind = stageKind(stage), xp = kind === 'wave' ? Math.round(R.baseXp(stage) * R.xpRate) : 0;
+    const kind = stageKind(stage), xp = kind === 'wave' ? Math.round(R.baseXp(chapterOf(stage)) * R.xpRate) : 0;
     let n = 0;
     for (const f of this.reserve.values()) {
       const p = !f.test && this.save?.peek(f.uid);
@@ -336,7 +336,7 @@ export class Game {
     const missed = Math.min(PVE.reserve.catchupMax, Math.max(0, no - (p.seenClear ?? no)));
     p.seenClear = no;
     if (!missed) return null;
-    const R = PVE.reserve, stage = currentStage(this);
+    const R = PVE.reserve, stage = chapterOf(currentStage(this));
     const xp = Math.round(R.baseXp(stage) * R.xpRate) * missed;
     const before = p.level;
     this.grantReserve(f, p, missed, xp);
@@ -952,7 +952,7 @@ export class Game {
     const b = { x, y, vx, vy, r, dmg, team, kind, owner, pierce: pierce || 0, life: 6, split: 0, hue: 0, laser: false, orb: false, overload: false, gift: false, hit: null };
     if (extra) Object.assign(b, extra);
     if (this.mode === 'pve' && team === 'blue') { b.seek = true; if (b.life > 3.5 && !b.missile) b.life = 3.5; }
-    if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * ((this.pve?.stage || 1) - 1)) * lateMul(this.pve?.stage || 1) : PVE.giftDmg;
+    if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * (chapterOf(this.pve?.stage || 1) - 1)) * lateMul(this.pve?.stage || 1) : PVE.giftDmg;
     this.bullets.push(b);
     return b;
   }

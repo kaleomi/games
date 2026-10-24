@@ -1312,7 +1312,7 @@ export class Renderer {
       '经验＝贡献值，战斗中实时升级；E随等级和装备变高',
       '战力＝等级＋装备，左边战力榜按战力排',
       '掉落顺序：本局送礼的排前面（送得多的在前），再按贡献；前三必掉，其余60%',
-      `保底：${GEAR.pity.gold}件必出金，${GEAR.pity.red}件必出红；前5关不出红`,
+      `保底：${GEAR.pity.gold}件必出金，${GEAR.pity.red}件必出红；前5章不出红`,
       `场上最多${PVE.reserve.cap}人，5分钟没互动进后援，过关照样拿一半经验+白装`,
       '前三关真人打小怪10%额外掉白装（每关最多3件）',
     ], 14, 4);
@@ -1329,7 +1329,7 @@ export class Renderer {
     const kind = stageKind(stage);
     x.font = `900 24px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(`第${chapterOf(stage)}章 ${chapterOf(stage)}-${stepOf(stage)}`, 75, 22);
     x.font = `700 11px ${FONT}`; x.fillStyle = kind === 'boss' ? '#ff7a8a' : kind === 'elite' ? '#d79bff' : '#c8a860';
-    x.fillText(`${KIND_NAMES[kind]}关 · 最高${g.save?.data?.pveBest || 0}关`, 75, 46);
+    { const best = g.save?.data?.pveBest || 0; x.fillText(`${KIND_NAMES[kind]}关 · 最高${best ? `${chapterOf(best)}-${stepOf(best)}` : '无'}`, 75, 46); }
     // 1–3关：血条显示精英头目
     const leader = p?.sub === 'leader' ? g.fighters.get(p.leader) : null;
     const hp = leader ? Math.max(0, leader.hp) : t.core, hpMax = leader ? leader.maxHp : t.coreMax;

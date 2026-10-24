@@ -2,7 +2,7 @@
 // 礼物不直接给随机装备：只加 BUFF、召唤帮手，或者给「正常玩法掉落」加保底品质 / 翻倍。
 import { PVE, GEAR } from './config.js';
 import { castUlt, rollItem, giveItem, makeItem, refreshStats, laneCenter, LANES } from './fleet.js';
-import { bossMax, spawnAlien } from './pve.js';
+import { bossMax, spawnAlien, chapterOf } from './pve.js';
 
 export const GIFT_KINDS = {
   heart:    { name: '小心心',   title: '经验加速' },
@@ -132,14 +132,14 @@ function summonChest(game, owner) {
   a.hitters = new Set();
 }
 export function chestKilled(game, chest) {
-  const stage = game.pve?.stage || 1;
-  const xp = Math.round(bossXp(stage) * PVE.gifts.treasure.xpMul);
+  const stage = game.pve?.stage || 1, lv = chapterOf(stage);
+  const xp = Math.round(bossXp(lv) * PVE.gifts.treasure.xpMul);
   const ppl = game.humans().filter(f => f.team === 'blue');
   game.emit('banner', { team: 'blue', text: `宝箱魔王被击败！在场${ppl.length}人开箱`, tier: 5 });
   for (const f of ppl) {
     // 开箱 = 一次正常的怪物掉落（吃保底品质和双倍）
     for (let k = 0; k < dropTimes(game); k++) {
-      let item = rollItem(game.random, stage);
+      let item = rollItem(game.random, lv);
       const fl = lootFloor(game, f);
       if (fl > item.tier) item = makeItem(game.random, item.slot, fl);
       giveItem(game, f, item);
@@ -179,7 +179,7 @@ export function dailyCheckin(game, f) {
   holder.checkinDay = day;
   if (p) game.save.dirty = true;
   const stage = Math.max(game.pve?.stage || 0, game.save?.data?.pveStage || 1);
-  const item = rollItem(game.random, stage, 1);
+  const item = rollItem(game.random, chapterOf(stage), 1);
   game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: '签到成功，领取每日战利品', tier: 1 });
   giveItem(game, f, item);
   return true;

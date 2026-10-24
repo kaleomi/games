@@ -19,12 +19,15 @@ export function bossFor(stage) {
   const ch = chapterOf(stage) - 1 + (stageKind(stage) === 'elite' ? 1 : 0);
   return PVE.bosses[ch % PVE.bosses.length];
 }
+// 难度按「章」算：第N章 = 原来的第N关（BOSS血量曲线、怪物强度、掉落品质、经验都看章）
 export function stageMul(stage) {
+  stage = chapterOf(stage);
   let m = 1, prev = 1;
   for (const seg of PVE.bossCurve) { const n = Math.max(0, Math.min(stage, seg.to) - prev); m *= seg.mul ** n; prev = Math.max(prev, Math.min(stage, seg.to)); if (stage <= seg.to) break; }
   return m;
 }
-export function lateMul(stage) { return PVE.lateDmg ** Math.max(0, stage - 10); }
+export function lateMul(stage) { return PVE.lateDmg ** Math.max(0, chapterOf(stage) - 10); }
+export function lvOf(game) { return chapterOf(game.pve?.stage || currentStage(game)); }
 export function bossMax(stage) { return Math.round(PVE.bossHp * stageMul(stage) * bossFor(stage).hp * (stageKind(stage) === 'elite' ? PVE.chapter.eliteStageHp : 1)); }
 export function leaderMax(stage) { return Math.round(PVE.bossHp * stageMul(stage) * PVE.chapter.eliteLeaderHp); }
 export function bossTitle(stage) { const B = bossFor(stage); return stageKind(stage) === 'elite' ? `精英·${B.name}` : stageKind(stage) === 'wave' ? '精英头目' : B.name; }
@@ -37,7 +40,7 @@ export function setupBoss(game, t) {
   t.core = t.coreMax = bossMax(stage);
   t.shield = t.shieldMax = 0;
   t.x = 360; t.y = -170; t.present = false; t.coreDy = PVE.coreDy; t.hitW = PVE.bossHitW;
-  const podHp = Math.round(PVE.podHp * (1 + 0.12 * (stage - 1)));
+  const podHp = Math.round(PVE.podHp * (1 + 0.12 * (chapterOf(stage) - 1)));
   t.turrets = B.pods.map(([dx, dy]) => ({ dx, dy, x: t.x + dx, y: t.y + dy, hp: podHp, max: podHp, dead: false, respawn: 0, cd: 3 + game.random() * 3, pod: true, podKind: B.podKind }));
   t.patT = 4; t.skillT = 8; t.rage = 1;
 }
@@ -51,7 +54,7 @@ export function setupFleetSide(t) {
 export function startPve(game) {
   const stage = currentStage(game);
   const kind = stageKind(stage);
-  game.pve = { stage, kind, sub: 'wave', t: PVE.waveSeconds(stage), spawnT: 1.2, left: PVE.stageSeconds, smallDrops: 0 };
+  game.pve = { stage, lv: chapterOf(stage), kind, sub: 'wave', t: PVE.waveSeconds(chapterOf(stage)), spawnT: 1.2, left: PVE.stageSeconds, smallDrops: 0 };
   game.emit('announce', { text: `${stageLabel(stage)}，${kind === 'wave' ? '虫群来袭！' : kind === 'elite' ? '精英关！' : '首领关！'}`, voice: true });
 }
 
@@ -64,7 +67,7 @@ export function stepPve(game, dt) {
   for (let i = game.barriers.length - 1; i >= 0; i--) { game.barriers[i].t -= dt; if (game.barriers[i].t <= 0) game.barriers.splice(i, 1); }
   if (p.sub === 'wave') {
     p.t -= dt; p.spawnT -= dt;
-    if (p.spawnT <= 0) { p.spawnT = PVE.waves.every(p.stage); spawnFormation(game, false); if (game.random() < PVE.waves.double(p.stage)) spawnFormation(game, false); }
+    if (p.spawnT <= 0) { p.spawnT = PVE.waves.every(p.lv); spawnFormation(game, false); if (game.random() < PVE.waves.double(p.lv)) spawnFormation(game, false); }
     if (p.t <= 0 && p.kind === 'wave') {   // 1–3关：精英头目带队，打死头目过关
       p.sub = 'leader'; p.spawnT = 6;
       const a = spawnAlien(game, 'elite', 360, -60);
@@ -78,7 +81,7 @@ export function stepPve(game, dt) {
     }
   } else if (p.sub === 'leader') {
     p.spawnT -= dt;
-    if (p.spawnT <= 0) { p.spawnT = PVE.waves.bossEvery(p.stage); spawnFormation(game, true); }
+    if (p.spawnT <= 0) { p.spawnT = PVE.waves.bossEvery(p.lv); spawnFormation(game, true); }
     const L = game.fighters.get(p.leader);
     if (!L || !L.alive) p.cleared = true;
   } else if (p.sub === 'enter') {
@@ -88,7 +91,7 @@ export function stepPve(game, dt) {
   } else if (p.sub === 'boss') {
     p.t = p.left; p.spawnT -= dt;
     boss.x = 360 + Math.sin(game.time * 0.35) * 70;
-    if (p.spawnT <= 0) { p.spawnT = PVE.waves.bossEvery(p.stage); spawnFormation(game, true); if (game.random() < PVE.waves.double(p.stage) * 0.6) spawnFormation(game, true); }
+    if (p.spawnT <= 0) { p.spawnT = PVE.waves.bossEvery(p.lv); spawnFormation(game, true); if (game.random() < PVE.waves.double(p.lv) * 0.6) spawnFormation(game, true); }
     const pct = boss.core / boss.coreMax;
     const rage = pct > 0.66 ? 1 : pct > 0.33 ? 2 : 3;
     if (rage > boss.rage) {
@@ -247,8 +250,8 @@ function stepZones(game, dt) {
     }
     game.zones.splice(i, 1);
     dodgeScore(game, z);
-    const stage = game.pve?.stage || 1;
-    const mult = (1 - Math.min(0.6, z.intercept)) * (1 + 0.04 * (stage - 1)) * lateMul(stage);
+    const stage = game.pve?.stage || 1, lv = chapterOf(stage);
+    const mult = (1 - Math.min(0.6, z.intercept)) * (1 + 0.04 * (lv - 1)) * lateMul(stage);
     let hit = 0;
     for (const f of [...game.fighters.values()]) {
       if (f.alien || f.team !== 'blue' || !f.alive || !z.lanes.includes(f.lane)) continue;
@@ -279,17 +282,17 @@ export function spawnFormation(game, light, forceKind = null, ox = null, oy = nu
   const p = game.pve;
   const fleet = game.countTeam('blue');
   let alive = 0; for (const f of game.fighters.values()) if (f.alien && f.alive) alive++;
-  const room = PVE.waves.maxAlive(p.stage) - alive;
+  const room = PVE.waves.maxAlive(p.lv) - alive;
   if (room <= 0) return;
-  const n = Math.min(room, Math.max(2, Math.min(PVE.waves.sizeCap, PVE.waves.size(p.stage) + Math.floor(fleet / 6)) >> (light ? 1 : 0)));
+  const n = Math.min(room, Math.max(2, Math.min(PVE.waves.sizeCap, PVE.waves.size(p.lv) + Math.floor(fleet / 6)) >> (light ? 1 : 0)));
   const r = forceKind ? 1 : game.random();
-  const gunnerP = Math.min(0.32, 0.14 + p.stage * 0.02);
+  const gunnerP = Math.min(0.32, 0.14 + p.lv * 0.02);
   if (forceKind) {   // 虫后召唤 / 卵囊孵化：从指定位置散开
     for (let i = 0; i < n; i++) { const a = spawnAlien(game, forceKind, ox + (i - (n - 1) / 2) * 30, oy); if (a) { a.vy = 120; a.yStop = Math.max(a.yStop, oy + 60); } }
     return;
   }
   if (r < gunnerP) {
-    const k = Math.min(room, PVE.waves.gunners(p.stage) - (game.random() < 0.4 ? 1 : 0) || 1);
+    const k = Math.min(room, PVE.waves.gunners(p.lv) - (game.random() < 0.4 ? 1 : 0) || 1);
     for (let i = 0; i < k; i++) spawnAlien(game, 'gunner', 180 + game.random() * 360, -40 - i * 60);
     return;
   }
@@ -307,8 +310,8 @@ export function spawnFormation(game, light, forceKind = null, ox = null, oy = nu
 export function spawnAlien(game, kind, x, y) {
   if (game.fighters.size >= 520) return null;
   const def = PVE.alien[kind];
-  const stage = game.pve?.stage || 1;
-  const hp = Math.round(def.hp * (1 + 0.15 * (stage - 1)));
+  const lv = chapterOf(game.pve?.stage || 1);
+  const hp = Math.round(def.hp * (1 + 0.15 * (lv - 1)));
   const [z0, z1] = PVE.alienZone;
   const f = {
     uid: `alien:${++game.alienSeq}`, alien: true, npc: true, kind, team: 'red', name: '',
@@ -365,10 +368,10 @@ export function stepAlien(game, f, dt) {
       const dx = f.tx - f.x, dy = f.ty - f.y, d = Math.hypot(dx, dy) || 1;
       f.vx = dx / d * 520; f.vy = dy / d * 520;
       if (d < 18) {
-        const stage = game.pve?.stage || 1;
+        const lv = chapterOf(game.pve?.stage || 1);
         for (const s of [...game.fighters.values()]) {
           if (s.alien || s.team !== 'blue' || !s.alive) continue;
-          if (Math.hypot(s.x - f.tx, s.y - f.ty) < PVE.diver.radius) hurt(game, s, PVE.diver.blast * (1 + 0.1 * (stage - 1)), null);
+          if (Math.hypot(s.x - f.tx, s.y - f.ty) < PVE.diver.radius) hurt(game, s, PVE.diver.blast * (1 + 0.1 * (lv - 1)), null);
         }
         game.emit('explode', { x: f.x, y: f.y, size: 2, team: 'red' });
         game.fighters.delete(f.uid);
