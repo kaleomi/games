@@ -90,7 +90,7 @@ export function applyPveGift(game, f, kind, amount) {
       game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: `英雄战机出击！普攻+30% · 自己掉落保底${tName(G.hero.floor)}`, tier: 4 });
       break;
     }
-    case 'double': {  // 自己掉落×2 20分钟；自己战利品保底金装10分钟（可叠加）
+    case 'double': {  // 自己掉落×2 10分钟；自己战利品保底金装10分钟（可叠加）
       f.doubleUntil = extend(f.doubleUntil, game, G.double.sec * n);
       addFloor(game, f, G.double.floor, G.double.floorSec * n);
       game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: `双倍掉落 ${Math.ceil((f.doubleUntil - now(game)) / 60)}分钟！保底${tName(G.double.floor)}${Math.round(G.double.floorSec * n / 60)}分钟`, tier: 5 });
