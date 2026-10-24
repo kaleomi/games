@@ -161,7 +161,7 @@ export const PVE = {
     byValue: [[1200, 'treasure'], [199, 'double'], [99, 'hero'], [52, 'drum'], [15, 'forge'], [10, 'flower'], [1, 'heart']],
     heart: { xp: 0.5, sec: 30 },                                     // 每个小心心：自己经验+50% 30秒（叠加时间，不设上限），立即放小技能
     flower: { sec: 120, maxPerGift: 3 },                             // 佣兵机甲120秒，立即放大招
-    drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 3, rainPerSec: 70 },   // 全队攻击+30%；自己掉落保底橙装；全屏弹幕雨
+    drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 9, rainPerSec: 70, rainAtk: 2 },   // 弹幕雨：每个战鼓9秒（叠加），每发=送礼人攻击×2，打BOSS不打折   // 全队攻击+30%；自己掉落保底橙装；全屏弹幕雨
     hero: { atk: 0.3, sec: 300, floor: 2, floorSec: 300, superSec: 300 },            // 自己普攻+30%、超级战机5分钟；保底紫装5分钟
     double: { sec: 600, floor: 4, floorSec: 300 },                   // 只有自己掉落×2 10分钟；自己保底金装5分钟
     treasure: { hpFrac: 0.4, xpMul: 10, maxAlive: 2 },              // 宝箱魔王血量=当前关BOSS×40%；参与者10倍BOSS经验；送礼人每个跑车保底1件红装

@@ -78,7 +78,7 @@ export function applyPveGift(game, f, kind, amount) {
     case 'drum': {    // 全队攻击+30% 60秒；自己战利品保底橙装60秒；全屏弹幕雨
       game.drumUntil = extend(game.drumUntil, game, G.drum.sec * n);
       addFloor(game, f, G.drum.floor, G.drum.floorSec * n);
-      game.rainT = Math.max(game.rainT || 0, G.drum.rainSec); game.rainOwner = f.uid;
+      game.rainT = (game.rainT || 0) + G.drum.rainSec * n; game.rainOwner = f.uid;
       game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: `敲响战鼓！全队攻击+30% · 自己掉落保底${tName(G.drum.floor)}`, tier: 3 });
       game.emit('announce', { text: '战鼓响起，全队攻击提升', voice: true });
       break;
@@ -253,7 +253,8 @@ export function stepPveGifts(game, dt) {
   if (game.rainT > 0) {   // 全屏弹幕雨：从底部往上铺满追踪弹
     game.rainT -= dt;
     const n = Math.round(PVE.gifts.drum.rainPerSec * dt + game.random());
-    for (let i = 0; i < n; i++) game.addBullet(20 + game.random() * 680, PVE.zone[1] + 20, (game.random() - 0.5) * 60, -520 - game.random() * 160, 5, 1, 'blue', 'danmaku', game.rainOwner, 0, { gift: true, hue: Math.floor(game.random() * 5) });
+    const o = game.fighters.get(game.rainOwner), dmg = (o?.stats?.atkBase || 10) * teamAtkMul(game) * PVE.gifts.drum.rainAtk;   // 每发 = 送礼人攻击×2
+    for (let i = 0; i < n; i++) game.addBullet(20 + game.random() * 680, PVE.zone[1] + 20, (game.random() - 0.5) * 60, -520 - game.random() * 160, 5, dmg, 'blue', 'shot', game.rainOwner, 0, { gift: true, pveScaled: true, rain: true, hue: Math.floor(game.random() * 5) });
   }
 }
 

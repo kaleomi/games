@@ -983,3 +983,16 @@ test('个人BUFF（经验加成、英雄、双倍、保底、英雄战机）刷�
   const m = [...g2.fighters.values()].find(x => x.merc && x.owner === 'b');
   assert.ok(m && Math.abs((m.until - g2.clock) - 60) < 2, '佣兵还剩约60秒');
 });
+
+test('战鼓弹幕雨：每个9秒可叠加，每发=送礼人攻击×2', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'd', name: 'D' }, '输出');
+  toBattle(game);
+  const f = game.fighters.get('d');
+  game.gift({ id: 'd' }, { name: '爱你哟', price: 52, count: 2 });
+  assert.equal(game.rainT, 18);
+  game.step(1 / 60); game.step(1 / 60);
+  const rain = game.bullets.filter(b => b.rain);
+  assert.ok(rain.length > 0);
+  assert.ok(Math.abs(rain[0].dmg - f.stats.atk * 2) < 1e-6);
+});
