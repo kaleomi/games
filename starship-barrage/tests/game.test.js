@@ -775,3 +775,19 @@ test('掉落顺序：本局送礼的排前面（送得多的第1），其余按�
   assert.equal(pityOf(game, b).red, 0);
   assert.ok(drops.find(x => x.uid === 'd').gifted);
 });
+
+test('机神附体：每1抖币6秒，自动放大招（不用发「大招」）', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'm', name: 'M' }, '输出');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  const m = game.fighters.get('m');
+  m.ultCd = 0; m.ultReadyFor = 0;
+  for (let i = 0; i < 60 * 5; i++) game.step(1 / 60);
+  assert.equal(m.ultCd, 0, '没有BUFF：真人不会自己放大招');
+  game.gift({ id: 'm' }, { name: '小心心', price: 1, count: 2 });
+  assert.equal(m.dodgeLeft, 12);
+  for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
+  assert.ok(m.ultCd > 30, '机神附体自动放了大招');
+});

@@ -490,7 +490,7 @@ export class Game {
       const had = (f.dodgeLeft || 0) > 0;
       f.dodgeLeft = (f.dodgeLeft || 0) + value * PVE.autoDodgePerValue;
       syncDodge(this, f);
-      this.emit('toast', { uid: f.uid, text: `${f.name} ${had ? '自动躲弹延长到' : '开启自动躲弹'} ${fmtDuration(f.dodgeLeft)}` });
+      this.emit('toast', { uid: f.uid, text: `${f.name} ${had ? '机神附体延长到' : '机神附体！'} ${fmtDuration(f.dodgeLeft)}（自动躲弹躲技能、自动放技能和大招）` });
     }
     this.emit('gift', { uid: f.uid, name: f.name, team: f.team, gift: gift.name || '礼物', count: amount, tier });
     if (this.phase !== 'battle') {

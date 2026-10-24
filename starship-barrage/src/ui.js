@@ -38,7 +38,7 @@ export function rulesHtml(settings, mode = 'pvp') {
     ${pve ? classTable() : ''}
     ${pve ? '' : `    <h2>礼物效果 <small>按单个礼物价值（抖币）</small></h2>
     <table>
-      ${pve ? `<tr><td>任意</td><td><b>自动躲弹</b>：每1抖币${PVE.autoDodgePerValue}秒，不设上限，可累积，开战时才扣，跟着账号保存；战机下方显示剩余时间（不送礼要自己发「左/中/右」）</td></tr>` : ''}
+      ${pve ? `<tr><td>任意</td><td><b>机神附体</b>：每1抖币${PVE.autoDodgePerValue}秒，自动躲子弹、躲技能，自动放技能和大招；不设上限，可累积，开战时才扣，跟着账号保存；名字上方显示剩余时间（不送礼要自己发「左/中/右」「大招」）</td></tr>` : ''}
       <tr><td>${range(0)}</td><td>${pve ? `火力+1、护盾+10%血量，持续${GIFT.powerSeconds}秒` : `火力+1、护盾+1，持续${GIFT.powerSeconds}秒`}；每${GIFT.smallComboEvery}个放一组环形弹幕</td></tr>
       <tr><td>${range(1)}</td><td>弹幕阵型（螺旋 / 扇形）</td></tr>
       <tr><td>${range(2)}</td><td>激光网格或分裂弹 + 2架护卫僚机${GIFT.droneSeconds}秒</td></tr>
@@ -48,7 +48,7 @@ export function rulesHtml(settings, mode = 'pvp') {
     ${pve ? gearTable() : ''}
     <h2>榜单与成长</h2>
     <ul>
-      ${pve ? `<li>左下角 <b>战力榜</b>（战力＝等级+装备，带每人6件装备），右下角是 <b>礼物效果</b>；送任意礼物都送自动躲弹时间</li>
+      ${pve ? `<li>左下角 <b>战力榜</b>（战力＝等级+装备，带每人6件装备），右下角是 <b>礼物效果</b>；送任意礼物都送机神附体时间（每1抖币6秒）</li>
       <li><b>贡献值＝成长分E × 有效行为</b>：在场存活每${PVE.score.aliveEvery}秒+1E、技能+${PVE.score.skill}E、大招+${PVE.score.ult}E、躲开红区+${PVE.score.dodge}E、送礼按抖币×E；E由等级和装备决定，<b>不显示消费金额</b></li>
       <li>场上最多${PVE.reserve.cap}人，${PVE.reserve.idle / 60}分钟没互动进<b>后援</b>（每关拿一半基础经验+1件白装），发言/点赞/送礼回来；离开后回来补发错过的关</li>
       <li>打爆BOSS掉装备：本局送礼的优先，再按贡献；前三必掉，其余60%；有保底 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}

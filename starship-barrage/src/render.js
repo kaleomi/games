@@ -589,12 +589,6 @@ export class Renderer {
     x.fillStyle = 'rgba(0,0,0,.65)'; x.fillRect(f.x - bw / 2 - 1, by - 1, bw + 2, 7);
     x.fillStyle = pct > 0.6 ? '#4dff88' : pct > 0.3 ? '#ffd24a' : '#ff4d5e'; x.fillRect(f.x - bw / 2, by, bw * pct, 3.5);
     if (f.shieldHp > 0) { x.fillStyle = '#bfefff'; x.fillRect(f.x - bw / 2, by, bw * Math.min(1, f.shieldHp / f.maxHp), 1.5); }
-    if (hasAutoDodge(g, f)) {
-      x.font = `700 11px ${NUM}`; x.textAlign = 'center'; x.textBaseline = 'middle';
-      const tx = `躲 ${fmtDuration(f.dodgeLeft)}`;
-      x.lineWidth = 3; x.strokeStyle = 'rgba(0,10,30,.9)'; x.strokeText(tx, f.x, by + 13);
-      x.fillStyle = '#7fe3ff'; x.fillText(tx, f.x, by + 13);
-    }
     const ultK = 1 - Math.min(1, (f.ultCd || 0) / PVE.ultCooldown);
     x.fillStyle = ultK >= 1 ? '#ffe28a' : 'rgba(255,226,138,.55)'; x.fillRect(f.x - bw / 2, by + 4, bw * ultK, 1.6);
     if (ultK >= 1) { x.strokeStyle = `rgba(255,216,107,${0.5 + 0.4 * Math.sin(g.clock * 8)})`; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 30, 0, Math.PI * 2); x.stroke(); }
@@ -612,6 +606,15 @@ export class Renderer {
     const rank = this.rankOf.get(f.uid);
     if (f.merc) this.label(x, `${f.name} ${Math.max(0, Math.ceil(f.until - g.clock))}s`, f.x, f.y - 36, 12, '#ffd8a0', true);
     const show = !f.npc && (top.has(f.uid) || f.labelUntil > g.clock || (this.card && this.card.uid === f.uid));
+    // 机神附体：名字上方显示BUFF和剩余时间（一直显示）
+    if (hasAutoDodge(g, f)) {
+      const ty = show ? f.y - 54 : f.y - 38, tx = `⚡机神附体 ${fmtDuration(f.dodgeLeft)}`;
+      x.font = `800 12px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+      const w = x.measureText(tx).width + 14, pulse = 0.55 + 0.35 * Math.sin(g.clock * 5);
+      x.fillStyle = 'rgba(40,10,60,.82)'; roundRect(x, f.x - w / 2, ty - 9, w, 18, 9); x.fill();
+      x.strokeStyle = `rgba(255,210,90,${pulse})`; x.lineWidth = 1.5; x.stroke();
+      x.fillStyle = '#ffe28a'; x.fillText(tx, f.x, ty + 0.5);
+    }
     if (show) {
       const ly = f.y - 36;
       const text = `Lv.${f.level || 1} ${f.name}·${CLASSES[f.cls].short}`;
@@ -1303,7 +1306,7 @@ export class Renderer {
         x.font = `700 13px ${FONT}`; x.fillStyle = i === 6 ? '#ff9ec4' : '#ffd86b'; x.fillText(a2, cx, y);
         x.font = `12.5px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(b2, cx + 68, y);
       });
-      x.font = `11px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('爱你哟/墨镜/礼花筒：自己掉落保底橙/紫/金 · 任意礼物送自动躲弹', cx, y0 + 182);
+      x.font = `11px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('爱你哟/墨镜/礼花筒：保底橙/紫/金 · 每1抖币机神附体6秒', cx, y0 + 182);
     } else bullets([
       '贡献＝成长分E×有效行为：存活5秒1E、技能6E、大招12E、躲红区3E',
       '经验＝贡献值，战斗中实时升级；E随等级和装备变高',
@@ -1489,7 +1492,7 @@ export class Renderer {
       const c = CLASSES[f.cls], st = f.stats || {};
       const P = v => `${Math.round((v || 0) * 100)}%`;
       x.fillStyle = '#c8d2ee'; x.font = `14px ${FONT}`;
-      const dodge = hasAutoDodge(this.game, f) ? `自动躲弹 ${fmtDuration(f.dodgeLeft)}` : '手动躲弹';
+      const dodge = hasAutoDodge(this.game, f) ? `机神附体 ${fmtDuration(f.dodgeLeft)}` : '手动躲弹';
       x.fillText(`Lv.${lv}  ${c.name}  ${dodge}`, 180, 758);
       x.fillText(`本局贡献 ${Math.floor(f.merit)}  技能${f.skillCd > 0 ? `冷却${Math.ceil(f.skillCd)}s` : '就绪'}  大招${f.ultCd > 0 ? `冷却${Math.ceil(f.ultCd)}s` : '就绪'}`, 180, 784);
       x.font = `13px ${FONT}`; x.fillStyle = '#ffe28a';

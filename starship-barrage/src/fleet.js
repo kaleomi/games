@@ -191,7 +191,7 @@ export function teamAtkMul(game) {
 export function lootFloorOf(game, f) { let t = -1; for (const fl of f.floors || []) if (fl.until > game.clock) t = Math.max(t, fl.tier); return t; }
 
 export function hasAutoDodge(game, f) { return !f.npc && (f.dodgeLeft || 0) > 0; }
-// 自动躲弹剩余时间写回账号存档（不设上限）
+// 机神附体剩余时间写回账号存档（不设上限）
 export function syncDodge(game, f) {
   const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
   if (p) { p.dodgeLeft = Math.max(0, Math.round(f.dodgeLeft || 0)); game.save.dirty = true; }
@@ -286,7 +286,9 @@ export function stepShip(game, f, dt, combat) {
   f.ultCd = Math.max(0, f.ultCd - dt);
   f.skillCd = Math.max(0, f.skillCd - dt);
   if (f.ultCd <= 0) f.ultReadyFor += dt; else f.ultReadyFor = 0;
-  if (f.ultCd <= 0 && (f.npc ? wantsUlt(game, f) : f.ultReq > game.clock) && castUlt(game, f)) score(game, f, PVE.score.ult);
+  // 机神附体（送礼）：大招也自动放（看时机放，就绪3秒还没好时机也直接放）
+  const autoUlt = f.npc ? wantsUlt(game, f) : f.ultReq > game.clock || (auto && (wantsUlt(game, f) || f.ultReadyFor > 3));
+  if (f.ultCd <= 0 && autoUlt && castUlt(game, f)) score(game, f, PVE.score.ult);
   if (f.skillCd <= 0) {
     if (castSkill(game, f)) { f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste); if (f.freeSkill) f.freeSkill = false; else score(game, f, PVE.score.skill); }
     else f.skillCd = 0.5;
