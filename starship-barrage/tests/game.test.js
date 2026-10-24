@@ -918,3 +918,13 @@ test('小心心经验加成时间叠加，不设上限', () => {
   const f = game.fighters.get('x');
   assert.ok(f.xpUntil - game.clock > 1790, `叠到30分钟 ${f.xpUntil - game.clock}`);
 });
+
+test('送跑车：自己保底1件红装，优先补没有红装的部位', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'r', name: 'R' }, '输出');
+  toBattle(game);
+  const f = game.fighters.get('r');
+  game.gift({ id: 'r' }, { name: '跑车', price: 1200, count: 2 });
+  const reds = Object.values(f.gear).filter(it => it.tier === 5);
+  assert.equal(reds.length, 2, '两个跑车两件红装，在不同部位');
+});

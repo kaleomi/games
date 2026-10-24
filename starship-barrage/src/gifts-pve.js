@@ -97,8 +97,17 @@ export function applyPveGift(game, f, kind, amount) {
       game.emit('announce', { text: '全场双倍掉落', voice: true });
       break;
     }
-    case 'treasure': {  // 召唤宝箱魔王：打死后在场所有人开箱，参与者额外拿10倍BOSS经验
+    case 'treasure': {  // 召唤宝箱魔王：打死后在场所有人开箱，参与者额外拿10倍BOSS经验；送礼人保底1件红装
       for (let i = 0; i < Math.min(n, G.treasure.maxAlive); i++) summonChest(game, f);
+      // 送跑车的人：每个跑车保底给自己1件至尊红装（优先补还没有红装的部位）
+      const red = GEAR.tiers.length - 1;
+      for (let i = 0; i < n; i++) {
+        const missing = Object.keys(GEAR.slots).filter(sl => !(f.gear?.[sl]?.tier >= red));
+        const pool = missing.length ? missing : Object.keys(GEAR.slots);
+        const item = makeItem(game.random, pool[Math.floor(game.random() * pool.length)], red);
+        giveItem(game, f, item, { source: 'gift' });
+        game.emit('pity', { uid: f.uid, name: f.name, kind: 'red', item, gift: true });
+      }
       game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: '召唤宝箱魔王！打死它全员开箱', tier: 5 });
       game.emit('announce', { text: '宝箱魔王出现了', voice: true });
       break;

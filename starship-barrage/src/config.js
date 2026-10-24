@@ -163,7 +163,7 @@ export const PVE = {
     drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 3, rainPerSec: 70 },   // 全队攻击+30%；自己掉落保底橙装；全屏弹幕雨
     hero: { atk: 0.3, sec: 180, floor: 2, floorSec: 180, superSec: 180 },            // 自己普攻+30%；超级战机；保底紫装
     double: { sec: 300, floor: 4, floorSec: 300 },                   // 全场掉落×2；自己保底金装
-    treasure: { hpFrac: 0.4, xpMul: 10, maxAlive: 2 },              // 宝箱魔王血量=当前关BOSS×40%；参与者10倍BOSS经验
+    treasure: { hpFrac: 0.4, xpMul: 10, maxAlive: 2 },              // 宝箱魔王血量=当前关BOSS×40%；参与者10倍BOSS经验；送礼人每个跑车保底1件红装
   },
   // 战舰锻造（礼物「加油鸭」×1 = 锻造1次）：每种战舰各自一个品质，互不相通；锻出更高品质才替换，锻出更低的保留原品质
   //   全属性（攻击、生命、治疗）倍率：普通×1 精良×1.4 史诗×1.8 传说×2.2 神话×2.6 至尊×3

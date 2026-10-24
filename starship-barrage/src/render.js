@@ -221,7 +221,7 @@ export class Renderer {
         case 'forge': if (this.forges.length < 12) this.forges.push({ ...e, t: 0 }); break;
         case 'catchup': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `欢迎回来！成长汇总：错过${e.stages}关，补发经验${e.xp}${e.levels ? `（升${e.levels}级）` : ''}、装备${e.items}件`, tier: 3 }); break;
         case 'reserve': break;
-        case 'pity': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `触发保底！必出${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: 5, gear: e.item }); break;
+        case 'pity': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: e.gift ? `跑车保底！获得至尊红装「${e.item.name}」` : `触发保底！必出${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: 5, gear: e.item }); break;
         default: break;
       }
     }
@@ -1345,7 +1345,7 @@ export class Renderer {
         ['爱你哟·战鼓', '52抖币', '#ff8a2a', `全队攻击+${G.drum.atk * 100}% ${G.drum.sec}秒，全屏弹幕雨；自己掉落保底传说装${G.drum.floorSec}秒`],
         ['墨镜·英雄战机', '99抖币', '#7fe3ff', `自己普攻+${G.hero.atk * 100}%、英雄战机跟随${G.hero.sec / 60}分钟（跨关保留）；自己掉落保底史诗装`],
         ['礼花筒·双倍掉落', '199抖币', '#ffd23a', `全场装备掉落×2 ${G.double.sec / 60}分钟；自己掉落保底神话装${G.double.floorSec / 60}分钟`],
-        ['跑车·宝箱魔王', '1200抖币', '#ff6b7a', `召唤宝箱魔王（当前BOSS血量的${G.treasure.hpFrac * 100}%），打死后在场全员开箱，打过它的人拿${G.treasure.xpMul}倍BOSS经验`],
+        ['跑车·宝箱魔王', '1200抖币', '#ff6b7a', `召唤宝箱魔王（当前BOSS血量的${G.treasure.hpFrac * 100}%），打死后在场全员开箱，打过它的人拿${G.treasure.xpMul}倍BOSS经验；送礼人保底1件红装`],
         ['任意礼物·机神附体', '每1抖币6秒', '#c58bff', '自动躲子弹、自动躲红区技能、自动放技能和大招；可累积，跟账号保存'],
         ['点赞·士气', '免费', '#ff9ec4', `全场点赞满${PVE.morale.need}，全队伤害+${PVE.morale.dmg * 100}% ${PVE.morale.sec}秒`],
       ];
@@ -1485,7 +1485,7 @@ export class Renderer {
       ['爱你哟', '战鼓 全队攻击+30%', '#ff8a2a'],
       ['墨镜', '英雄战机 普攻+30%', '#7fe3ff'],
       ['礼花筒', '全场双倍掉落', '#ffd23a'],
-      ['跑车', '宝箱魔王 全员开箱', '#ff6b7a'],
+      ['跑车', '宝箱魔王 · 保底红装', '#ff6b7a'],
       ['任意礼物', '机神附体 1币6秒', '#c58bff'],
       ['点赞', '满500 全队伤害+10%', '#ff9ec4'],
     ];
