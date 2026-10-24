@@ -157,7 +157,7 @@ export const PVE = {
   // 讨伐礼物：先按礼物名认，认不出按单个礼物价值（抖币）
   gifts: {
     byName: { '加油鸭': 'forge', '小心心': 'heart', '鲜花': 'flower', '爱你哟': 'drum', '墨镜': 'hero', '礼花筒': 'double', '爱的爆炸': 'double', '跑车': 'treasure' },
-    byValue: [[1200, 'treasure'], [199, 'double'], [99, 'hero'], [52, 'drum'], [10, 'flower'], [1, 'heart']],
+    byValue: [[1200, 'treasure'], [199, 'double'], [99, 'hero'], [52, 'drum'], [15, 'forge'], [10, 'flower'], [1, 'heart']],
     heart: { xp: 0.5, sec: 30, cap: 300 },                          // 自己30秒经验+50%（最多300秒），立即放小技能
     flower: { sec: 120, maxPerGift: 3 },                             // 佣兵机甲120秒，立即放大招
     drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 3, rainPerSec: 70 },   // 全队攻击+30%；自己掉落保底橙装；全屏弹幕雨

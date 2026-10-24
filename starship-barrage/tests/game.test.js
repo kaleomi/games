@@ -798,6 +798,7 @@ test('讨伐礼物对照：主播在设置里追加「礼物名=效果」优先'
   assert.equal(pveGiftKind({ name: '棒棒糖', price: 1 }), 'heart');
   assert.equal(pveGiftKind({ name: '棒棒糖', price: 1 }, { 棒棒糖: 'treasure' }), 'treasure');
   assert.equal(pveGiftKind({ name: '墨镜', price: 99 }, {}), 'hero');
+  assert.equal(pveGiftKind({ name: '没见过的礼物', price: 15 }), 'forge', '15抖币按价格认成锻造');
 });
 
 test('对战模式关闭时：开局就是讨伐，「换对战」投票和切换都无效', () => {
