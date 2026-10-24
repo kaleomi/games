@@ -337,18 +337,20 @@ export class UI {
       if (res.mode === 'pve') {
         const shipArt = { dps: dpsSvg, tank: mechSvg, healer: healerSvg, carrier: carrierSvg };
         const face = m => m.avatar ? `<img class="av" src="${esc(m.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="av ship">${svgImg((shipArt[m.cls] || dpsSvg)(0, 96), 40)}</span>`;
-        const list = (res.mvp.blue || []).map((m, i) => `<div class="row"><i>${i < 3 ? medalSvg(i, 28) : `<span class="rk">${i + 1}</span>`}</i>${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span><b>${m.merit}</b></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
-        const drops = (res.drops || []).slice(0, 8).map(d => {
+        // 一张表：名次 · 飞行员 · 贡献 · 掉落，一眼看到谁第几、掉了什么
+        const dropsOf = uid => (res.drops || []).filter(d => d.uid === uid);
+        const rowsData = [...(res.mvp.blue || [])];
+        for (const d of res.drops || []) if (!rowsData.some(m => m.uid === d.uid)) rowsData.push({ uid: d.uid, name: d.name, merit: null });
+        const dropCell = list => list.length ? list.map(d => {
           const st = itemStats(d.item), T = GEAR.tiers[d.item.tier];
-          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}${d.pity ? '<i class="tag">保底</i>' : ''}${d.gifted ? '<i class="tag gift">礼</i>' : ''}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.plus ? `强化+${d.plus}` : d.equipped ? '已装备' : `→${GEAR.tiers[Math.min(d.item.tier, 4)].name}碎片`}</em></div>`;
-        }).join('') || `<div class="empty">${res.clear ? '这关没人掉装备' : '讨伐失败，没有掉落'}</div>`;
+          const how = d.plus ? `强化+${d.plus}` : d.equipped ? '已装备' : `→${GEAR.tiers[Math.min(d.item.tier, 4)].name}碎片`;
+          return `<div class="drop">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 40)}<span class="dn"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}${d.pity ? '<i class="tag">保底</i>' : ''}${d.gifted ? '<i class="tag gift">礼</i>' : ''}</b><small>${statText(st[0])} · <em class="${d.equipped ? 'on' : ''}">${how}</em></small></span></div>`;
+        }).join('') : '<span class="nodrop">—</span>';
+        const table = rowsData.length ? rowsData.map((m, i) => `<tr><td class="rkc">${i < 3 && m.merit != null ? medalSvg(i, 28) : `<span class="rk">${m.merit != null ? i + 1 : ''}</span>`}</td><td class="who"><div class="whoin">${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span></div></td><td class="mer">${m.merit ?? ''}</td><td class="lootc">${dropCell(dropsOf(m.uid))}</td></tr>`).join('') : '<tr><td colspan="4" class="empty">暂无真人飞行员</td></tr>';
         this.resultEl.innerHTML = `
           <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `${stageLabel(res.stage)} 讨伐成功` : '讨伐失败'}</div>
           <div class="reason">${res.clear ? `${res.bossName || '异形母舰'}被击毁${res.small ? ` · 小怪额外掉落${res.small}件` : ''}${res.reserve?.players ? ` · 后援${res.reserve.players}人领奖` : ''} · 下一关 ${stageLabel(res.next)}` : `${res.reason === 'timeout' ? `${PVE.stageSeconds / 60}分钟内没打赢${res.bossName || 'BOSS'}` : '舰队全员阵亡'} · 退回 ${stageLabel(res.next)}`}</div>
-          <div class="pvecols">
-            <div class="col"><h3>${emblemSvg('blue', 24)}本关贡献榜</h3>${list}</div>
-            <div class="col loot"><h3>装备掉落</h3>${drops}</div>
-          </div>
+          <table class="pvetable"><thead><tr><th></th><th>飞行员</th><th>贡献</th><th>掉落${res.clear && !(res.drops || []).length ? '（这关没人掉装备）' : !res.clear ? '（失败没有掉落）' : ''}</th></tr></thead><tbody>${table}</tbody></table>
           <div class="next">经验已结算 · 下一关马上开始</div>`;
       } else {
         this.resultEl.innerHTML = `

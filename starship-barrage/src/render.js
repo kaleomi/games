@@ -1149,7 +1149,7 @@ export class Renderer {
       this.infoPanel(x);
     }
     // 本局战功榜
-    if (pve) this.board(x, 'blue', 520, 300);
+    if (pve) { this.board(x, 'blue', 520, 300); this.giftBox(x, 14, 300); }
     else { this.board(x, 'red', 520, 196); this.board(x, 'blue', 520, 1000); }
     // 模式投票
     const v = g.voteView();
@@ -1230,7 +1230,7 @@ export class Renderer {
   infoPanel(x) {
     const g = this.game;
     const L = 364, T = BOTTOM_Y, Wd = 348, Hh = H - 8 - T;
-    const pages = ['怎么玩', '弹幕指令', '礼物效果', '四种战舰', '装备', '榜单与成长'];
+    const pages = ['怎么玩', '弹幕指令', '四种战舰', '装备', '榜单与成长'];   // 礼物效果单独一个框一直显示（左侧）
     const DUR = 7, page = Math.floor(g.clock / DUR) % pages.length, ph = g.clock % DUR;
     this.panelBox(x, L, T, Wd, Hh);
     // 翻页：新页面从右边滑进来
@@ -1407,6 +1407,30 @@ export class Renderer {
     const c = g.teams.blue.cannon;
     x.font = `12px ${FONT}`; x.fillStyle = c.state === 'idle' ? '#7f8aa6' : '#ffe28a';
     x.fillText(c.state === 'cool' ? `主炮冷却${Math.ceil(c.t)}s` : c.state === 'charging' ? '主炮蓄力' : c.state === 'firing' ? '主炮发射' : '主炮待命', W - 14, y + 39);
+  }
+
+  // 讨伐：礼物效果框，一直显示在左边（和右边贡献榜对称）
+  giftBox(x, px, py) {
+    const rows = [
+      ['小心心', '经验+50% · 放技能', '#ff9ec4'],
+      ['鲜花', '佣兵机甲 · 放大招', '#ffb3c8'],
+      ['爱你哟', '战鼓 全队攻击+30%', '#ff8a2a'],
+      ['墨镜', '英雄战机 普攻+30%', '#7fe3ff'],
+      ['礼花筒', '全场双倍掉落', '#ffd23a'],
+      ['跑车', '宝箱魔王 全员开箱', '#ff6b7a'],
+      ['任意礼物', '机神附体 1币6秒', '#c58bff'],
+      ['点赞', '满500 全队伤害+10%', '#ff9ec4'],
+    ];
+    const w = 196, rh = 21;
+    x.textAlign = 'left'; x.textBaseline = 'middle';
+    x.fillStyle = 'rgba(4,6,16,.5)'; roundRect(x, px, py, w, 24 + rows.length * rh, 10); x.fill();
+    x.font = `600 13px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText('礼物效果', px + 10, py + 12);
+    rows.forEach(([name, eff, col], i) => {
+      const y = py + 34 + i * rh;
+      x.fillStyle = col; x.beginPath(); x.arc(px + 13, y, 3, 0, Math.PI * 2); x.fill();
+      x.font = `600 12px ${FONT}`; x.fillStyle = col; x.fillText(name, px + 21, y);
+      x.font = `11.5px ${FONT}`; x.fillStyle = '#dfe6ff'; x.textAlign = 'right'; x.fillText(eff, px + w - 8, y); x.textAlign = 'left';
+    });
   }
 
   board(x, team, px, py) {

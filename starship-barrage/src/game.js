@@ -165,7 +165,7 @@ export class Game {
     const result = { winner, reason, round: this.roundNo, mvp: {}, players: 0, mode: this.mode };
     for (const id of TEAM_IDS) {
       const list = this.humans().filter(f => f.team === id).sort((a, b) => b.merit - a.merit);
-      result.mvp[id] = list.slice(0, this.mode === 'pve' ? 8 : 3).map(f => ({ uid: f.uid, name: f.name, avatar: f.avatar || '', merit: Math.floor(f.merit), kills: f.kills, cls: f.cls || null }));
+      result.mvp[id] = list.slice(0, this.mode === 'pve' ? 10 : 3).map(f => ({ uid: f.uid, name: f.name, avatar: f.avatar || '', merit: Math.floor(f.merit), kills: f.kills, cls: f.cls || null }));
     }
     if (this.mode === 'pve') {
       const stage = this.pve?.stage || currentStage(this);

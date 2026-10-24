@@ -178,3 +178,29 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 #panel .audio label { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 #panel .audio input[type=range] { width: 110px; }
 #panel details.pvp-tiers summary { cursor: pointer; color: var(--dim); margin-top: 6px; }
+
+/* 讨伐结算：一张表（名次 · 飞行员 · 贡献 · 掉落） */
+#result .pvetable { width: 680px; border-collapse: collapse; background: rgba(13,18,34,.9); border-radius: 16px; overflow: hidden; border-top: 4px solid var(--gold); }
+#result .pvetable th { font-size: 13px; color: #8fa3c8; font-weight: 600; text-align: left; padding: 8px 8px 6px; border-bottom: 1px solid rgba(255,255,255,.1); }
+#result .pvetable td { padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,.05); vertical-align: middle; }
+#result .pvetable tr:nth-child(even) td { background: rgba(255,255,255,.025); }
+#result .pvetable .rkc { width: 36px; text-align: center; }
+#result .pvetable .rk { color: var(--dim); font-weight: 800; font-size: 16px; }
+#result .pvetable .who { width: 210px; }
+#result .pvetable .whoin { display: flex; align-items: center; gap: 8px; }
+#result .pvetable .av { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #7fe3ff; object-fit: cover; flex: none; background: #0a1020; display: inline-flex; align-items: center; justify-content: center; overflow: hidden; }
+#result .pvetable .nm { display: flex; flex-direction: column; min-width: 0; max-width: 160px; font-size: 15px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+#result .pvetable .nm small { font-size: 11.5px; color: #8fa3c8; }
+#result .pvetable .mer { width: 56px; color: var(--gold); font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; text-align: right; }
+#result .pvetable .lootc { padding-left: 14px; }
+#result .pvetable .drop { display: flex; align-items: center; gap: 6px; }
+#result .pvetable .drop + .drop { margin-top: 3px; }
+#result .pvetable .dn { display: flex; flex-direction: column; line-height: 1.25; white-space: nowrap; overflow: hidden; }
+#result .pvetable .dn b { font-size: 14px; }
+#result .pvetable .dn small { font-size: 11.5px; color: #8fa3c8; }
+#result .pvetable .dn em { font-style: normal; }
+#result .pvetable .dn em.on { color: #7dffb0; }
+#result .pvetable .nodrop { color: rgba(255,255,255,.25); font-size: 16px; }
+#result .pvetable .empty { color: var(--dim); padding: 12px; text-align: center; }
+#result .pvetable .tag { font-style: normal; font-size: 11px; color: #1a1200; background: #ffd86b; border-radius: 6px; padding: 0 4px; margin-left: 5px; vertical-align: 1px; }
+#result .pvetable .tag.gift { background: #ff7aa8; color: #2a0012; }
