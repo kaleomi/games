@@ -942,3 +942,19 @@ test('锻造至尊保底：同一种战舰连续200次没出至尊，第200次�
   assert.equal(save.peek('y').forge.dps, 5, '第200次必出至尊');
   assert.equal(save.peek('y').forgePity.dps, 0);
 });
+
+test('刷新页面：有机神附体的观众自动上场，且不会因挂机进后援', () => {
+  let t = 1e7;
+  const save = new Save({ storage: memStorage(), now: () => t });
+  const g1 = new Game({ save, random: seeded(), now: () => t, settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  g1.chat({ id: 'm', name: 'M' }, '输出');
+  g1.chat({ id: 'n', name: 'N' }, '输出');
+  g1.gift({ id: 'm' }, { name: '小心心', price: 1, count: 100 });
+  save.flush();
+  const g2 = new Game({ save, random: seeded(3), now: () => t, settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  assert.ok(g2.fighters.has('m'), '有机神附体的自动上场');
+  assert.ok(!g2.fighters.has('n'), '没有的不自动上场');
+  t += 10 * 60 * 1000;
+  for (let i = 0; i < 70; i++) g2.step(1 / 60);
+  assert.ok(g2.fighters.has('m'), '不进后援');
+});

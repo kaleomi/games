@@ -94,6 +94,16 @@ export class Game {
     this.teams = {};
     for (const id of TEAM_IDS) this.teams[id] = this.makeTeam(id);
     this.startLobby();
+    this.autoJoinBuffed();
+  }
+
+  // 刷新页面后：还有机神附体时间、最近3小时来过的观众自动上场（不用再发弹幕）
+  autoJoinBuffed() {
+    if (this.mode !== 'pve' || !this.save) return 0;
+    const nowMs = this.now();
+    const list = Object.values(this.save.data.players).filter(p => (p.dodgeLeft || 0) > 0 && nowMs - (p.seen || 0) < 3 * 3600 * 1000).sort((a, b) => b.dodgeLeft - a.dodgeLeft).slice(0, PVE.reserve.cap);
+    for (const p of list) this.join({ id: p.uid, name: p.name, avatar: p.avatar });
+    return list.length;
   }
 
   // ───────── 回合 ─────────
@@ -304,7 +314,7 @@ export class Game {
   // 每秒：5分钟没互动进后援；超员进后援；有空位让想上场的人上；后援里太久没动静的移出（回来时按错过的关补发）
   stepReserve() {
     const R = PVE.reserve, nowMs = this.now();
-    for (const f of [...this.fighters.values()]) if (!f.npc && nowMs - f.lastActive > R.idle * 1000) this.toReserve(f, 'idle');
+    for (const f of [...this.fighters.values()]) if (!f.npc && !(f.dodgeLeft > 0) && nowMs - f.lastActive > R.idle * 1000) this.toReserve(f, 'idle');   // 有机神附体的自动战斗，不算挂机
     while (this.activeHumans() > R.cap) { let idle = null; for (const f of this.fighters.values()) if (!f.npc && (!idle || f.lastActive < idle.lastActive)) idle = f; this.toReserve(idle, 'full'); }
     const want = [...this.reserve.values()].filter(f => f.wantIn || f.fresh).filter(f => nowMs - f.lastActive < R.idle * 1000).sort((a, b) => b.lastActive - a.lastActive);
     for (const f of want) { if (this.activeHumans() >= R.cap) break; this.fromReserve(f, null, false); }
