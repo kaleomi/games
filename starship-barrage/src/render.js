@@ -739,7 +739,8 @@ export class Renderer {
     const shown = final ? e.best : i >= 0 ? e.rolls[i] : 0;
     // 单次锻造：前1.7秒品质颜色滚动
     const rollingOne = n === 1 && !final;
-    const spin = rollingOne ? Math.floor((e.t * (14 - e.t * 6)) * 3) % T.length : shown;
+    // 滚动越来越慢（相位只增不减，取模保证在 0~5）
+    const spin = rollingOne ? Math.floor(e.t * 36 * (1 - 0.45 * Math.min(1, e.t / P.end))) % T.length : shown;
     const col = T[spin].color;
     x.save(); x.globalAlpha = k * (1 - out);
     x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(0, cy - 185, W, n > 1 ? (n > 10 && n <= 20 ? 440 : 410) : 380);
@@ -1272,7 +1273,7 @@ export class Renderer {
       void hint;   // 讨伐：指令提示都放在右下角轮播里
     } else { x.font = `15px ${FONT}`; x.fillStyle = 'rgba(200,215,255,.75)'; x.fillText(hint, 360, hy); }
     this.drawBanners(x, dt);
-    this.drawForge(x, dt);
+    try { this.drawForge(x, dt); } catch (err) { console.error('锻造动画出错，已跳过', err); this.forges.shift(); x.setTransform(this.pxScale, 0, 0, this.pxScale, 0, 0); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over'; }
     this.drawToasts(x, dt);
     if (this.card && this.card.until > g.clock) { if (this.card.gear) this.drawGearCard(x); else this.drawCard(x); }
   }

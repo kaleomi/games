@@ -62,9 +62,11 @@ setTimeout(() => {
 
 const STEP = 1 / 60;
 let last = performance.now(), acc = 0;
+let errCount = 0;
 function frame(now) {
+  requestAnimationFrame(frame);   // 先排下一帧：这一帧哪里出错也不会把画面卡死
   const dt = Math.min(0.25, (now - last) / 1000); last = now;
-  if (!blocked) {
+  if (!blocked) try {
     acc += dt;
     let n = 0;
     while (acc >= STEP && n < 5) { game.step(STEP); acc -= STEP; n++; }
@@ -75,8 +77,10 @@ function frame(now) {
     for (const e of events) { audio.event(e); if (e.type === 'announce' && e.voice) audio.say(e.text); }
     renderer.draw(dt);
     ui.update(renderer);
+  } catch (err) {
+    if (errCount++ < 20) console.error('画面这一帧出错（已跳过，游戏继续）', err);
+    try { const c = renderer.ctx; for (let i = 0; i < 16; i++) c.restore(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; } catch { /* 忽略 */ }
   }
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
