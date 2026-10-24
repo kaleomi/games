@@ -107,7 +107,10 @@ export const PVE = {
   wander: { x: 80, y: 40, speed: 30 },   // 战机在自己航道内慢慢随机游走（像素、像素/秒）
   alienZone: [140, 520],
   bossHp: 16000,
-  bossGrowth: 1.18,           // 每关母舰血量 ×1.18
+  bossGrowth: 1.18,           // （旧）每关BOSS血量 ×1.18，现在按 bossCurve 分段
+  // BOSS血量分段增长：1–5关每关×1.18（新人友好），6–10关每关×1.5，11关起每关翻倍
+  bossCurve: [{ to: 5, mul: 1.18 }, { to: 10, mul: 1.5 }, { to: 9999, mul: 2 }],
+  lateDmg: 1.12,              // 11关起，敌方子弹和红区伤害每关再 ×1.12
   bossY: 140,
   bossHitW: 220,
   coreDy: 10,

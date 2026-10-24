@@ -3,7 +3,7 @@ import {
   W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES,
 } from './config.js';
 import { skinFor } from './save.js';
-import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation } from './pve.js';
+import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul } from './pve.js';
 import { syncDodge, fmtDuration } from './fleet.js';
 import { nearestEnemy } from './fleet.js';
 import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter } from './fleet.js';
@@ -825,7 +825,7 @@ export class Game {
     const b = { x, y, vx, vy, r, dmg, team, kind, owner, pierce: pierce || 0, life: 6, split: 0, hue: 0, laser: false, orb: false, overload: false, gift: false, hit: null };
     if (extra) Object.assign(b, extra);
     if (this.mode === 'pve' && team === 'blue') { b.seek = true; if (b.life > 3.5 && !b.missile) b.life = 3.5; }
-    if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * ((this.pve?.stage || 1) - 1)) : PVE.giftDmg;
+    if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * ((this.pve?.stage || 1) - 1)) * lateMul(this.pve?.stage || 1) : PVE.giftDmg;
     this.bullets.push(b);
     return b;
   }

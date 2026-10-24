@@ -4,7 +4,13 @@ import { LANES, LANE_NAMES, laneCenter, hurt, stepDrones } from './fleet.js';
 
 export function currentStage(game) { return Math.max(1, game.save?.data?.pveStage || game.memStage || 1); }
 export function bossFor(stage) { return PVE.bosses[(Math.max(1, stage) - 1) % PVE.bosses.length]; }
-export function bossMax(stage) { return Math.round(PVE.bossHp * PVE.bossGrowth ** (stage - 1) * bossFor(stage).hp); }
+export function stageMul(stage) {
+  let m = 1, prev = 1;
+  for (const seg of PVE.bossCurve) { const n = Math.max(0, Math.min(stage, seg.to) - prev); m *= seg.mul ** n; prev = Math.max(prev, Math.min(stage, seg.to)); if (stage <= seg.to) break; }
+  return m;
+}
+export function lateMul(stage) { return PVE.lateDmg ** Math.max(0, stage - 10); }
+export function bossMax(stage) { return Math.round(PVE.bossHp * stageMul(stage) * bossFor(stage).hp); }
 
 // 把红方换成异形母舰
 export function setupBoss(game, t) {
@@ -210,7 +216,7 @@ function stepZones(game, dt) {
     }
     game.zones.splice(i, 1);
     const stage = game.pve?.stage || 1;
-    const mult = (1 - Math.min(0.6, z.intercept)) * (1 + 0.04 * (stage - 1));
+    const mult = (1 - Math.min(0.6, z.intercept)) * (1 + 0.04 * (stage - 1)) * lateMul(stage);
     let hit = 0;
     for (const f of [...game.fighters.values()]) {
       if (f.alien || f.team !== 'blue' || !f.alive || !z.lanes.includes(f.lane)) continue;
