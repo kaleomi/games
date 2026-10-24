@@ -200,7 +200,7 @@ test('弹幕「换讨伐」投票：在场一半人同意就切换，红蓝玩�
   assert.equal(game.fighters.get('v0').team, 'blue');
 });
 
-test('讨伐模式：精英关虫群后BOSS现身，打爆进下一关；首领关失败退回本章第1关', () => {
+test('讨伐模式：精英关虫群后BOSS现身，打爆进下一关；失败退回上一章第1关', () => {
   const { game, save } = newGame();
   game.setMode('pve');
   save.data.pveStage = 4; game.startLobby();
@@ -686,8 +686,9 @@ test('章节：1–3关精英头目带队、第4关精英、第5关首领；失�
   const { stageKind, failStage, bossFor, bossMax, stageLabel } = await import('../src/pve.js');
   assert.deepEqual([1, 2, 3, 4, 5, 6, 10].map(stageKind), ['wave', 'wave', 'wave', 'elite', 'boss', 'wave', 'boss']);
   assert.equal(failStage(3), 1); assert.equal(failStage(5), 1);
-  assert.equal(failStage(7), 1, '第2章1–3关失败退回上一章第1关');
-  assert.equal(failStage(9), 6); assert.equal(failStage(10), 6);
+  assert.equal(failStage(7), 1, '第2章失败退回1-1');
+  assert.equal(failStage(30), 21, '6-5没打过回5-1');
+  assert.equal(failStage(26), 21);
   assert.equal(bossFor(4).id, bossFor(10).id, '第4关精英是下一章BOSS');
   assert.ok(bossMax(4) < bossMax(5));
   assert.equal(stageLabel(7), '第2章 2-2');
@@ -858,7 +859,8 @@ test('机甲：附近没怪时冲到BOSS身下近战砍核心', () => {
 test('难度按章算：同一章5关首领血量一样，第2章首领＝原来第2关的BOSS', async () => {
   const { bossMax, leaderMax, stageMul } = await import('../src/pve.js');
   assert.equal(stageMul(6), stageMul(10));
-  assert.equal(bossMax(10), Math.round(16000 * 1.18));
-  assert.equal(leaderMax(7), Math.round(16000 * 1.18 * 0.35));
+  assert.equal(bossMax(10), Math.round(16000 * 1.5));
+  assert.equal(leaderMax(7), Math.round(16000 * 1.5 * 0.35));
+  assert.equal(Math.round(stageMul(30)), Math.round(1.5 ** 4 * 1.8));
   assert.ok(bossMax(15) > bossMax(10));
 });

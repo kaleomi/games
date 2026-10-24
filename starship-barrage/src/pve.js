@@ -9,10 +9,10 @@ export function stepOf(stage) { return (Math.max(1, stage) - 1) % PVE.chapter.si
 export function stageKind(stage) { const k = stepOf(stage); return k === PVE.chapter.size ? 'boss' : k === PVE.chapter.size - 1 ? 'elite' : 'wave'; }
 export const KIND_NAMES = { wave: '虫群', elite: '精英', boss: '首领' };
 export function stageLabel(stage) { return `第${chapterOf(stage)}章 ${chapterOf(stage)}-${stepOf(stage)}`; }
-// 失败退到哪：本章第1关；第2章起在1–3关失败，退回上一章第1关
+// 失败退到哪：上一章第1关（6-5没打过 → 5-1；第1章 → 1-1）
 export function failStage(stage) {
-  const ch = chapterOf(stage), size = PVE.chapter.size;
-  return stageKind(stage) === 'wave' && ch >= 2 ? (ch - 2) * size + 1 : (ch - 1) * size + 1;
+  const ch = chapterOf(stage);
+  return Math.max(0, ch - 2) * PVE.chapter.size + 1;
 }
 // 章节BOSS按章轮换；第4关的精英是下一章BOSS的精英形态（半血）
 export function bossFor(stage) {
