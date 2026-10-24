@@ -174,3 +174,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 #result .pvecols .empty { color: var(--dim); padding: 10px 0; }
 #result .pvecols .tag { font-style: normal; font-size: 11px; color: #1a1200; background: #ffd86b; border-radius: 6px; padding: 0 4px; margin-left: 5px; vertical-align: 1px; }
 #result .pvecols .tag.gift { background: #ff7aa8; color: #2a0012; }
+
+#panel .audio label { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+#panel .audio input[type=range] { width: 110px; }
+#panel details.pvp-tiers summary { cursor: pointer; color: var(--dim); margin-top: 6px; }

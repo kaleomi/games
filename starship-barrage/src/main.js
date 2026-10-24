@@ -8,10 +8,10 @@ import { UI, loadSettings, storeSettings } from './ui.js';
 const settings = loadSettings();
 const save = new Save({ storage: window.localStorage });
 const game = new Game({ save, settings: {
-  battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName,
+  battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName,
 } });
 const audio = new Audio();
-audio.tts = settings.tts; audio.sfx = settings.sfx;
+audio.tts = settings.tts; audio.sfx = settings.sfx; audio.setBgm(settings.bgm, settings.bgmVol / 100);
 
 let ui = null;
 const relay = new Relay({
@@ -25,8 +25,9 @@ const relay = new Relay({
 });
 
 function applySettings() {
-  Object.assign(game.settings, { battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName });
-  audio.tts = settings.tts; audio.sfx = settings.sfx;
+  Object.assign(game.settings, { battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName });
+  audio.tts = settings.tts; audio.sfx = settings.sfx; audio.setBgm(settings.bgm, settings.bgmVol / 100);
+  if (!settings.tts && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   game.syncNpcs();
   storeSettings(settings);
 }
@@ -70,6 +71,7 @@ function frame(now) {
     if (n === 5) acc = 0;
     const events = game.drainEvents();
     renderer.consume(events);
+    audio.setIntensity(game.phase === 'battle');
     for (const e of events) { audio.event(e); if (e.type === 'announce' && e.voice) audio.say(e.text); }
     renderer.draw(dt);
     ui.update(renderer);

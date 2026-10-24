@@ -14,8 +14,9 @@ export const GIFT_KINDS = {
 };
 
 // 先按礼物名认，认不出就按单个礼物价值
-export function pveGiftKind(gift) {
+export function pveGiftKind(gift, custom = null) {
   const G = PVE.gifts, name = String(gift?.name || '');
+  if (custom && custom[name]) return custom[name];   // 设置面板里主播追加的「礼物名=效果」优先
   for (const [k, v] of Object.entries(G.byName)) if (name.includes(k)) return v;
   const price = Number(gift?.price) || 1;
   for (const [min, kind] of G.byValue) if (price >= min) return kind;

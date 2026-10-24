@@ -96,7 +96,7 @@ export const SKINS = [
   { lv: 45, name: '黑洞' },
 ];
 
-export const NPC = { minPerTeam: 6 };
+export const NPC = { minPerTeam: 4 };
 
 export const LIMITS = { bullets: 3200, particles: 1600, fighters: 400 };
 

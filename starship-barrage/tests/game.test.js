@@ -791,3 +791,10 @@ test('机神附体：每1抖币6秒，自动放大招（不用发「大招」）
   for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
   assert.ok(m.ultCd > 30, '机神附体自动放了大招');
 });
+
+test('讨伐礼物对照：主播在设置里追加「礼物名=效果」优先', async () => {
+  const { pveGiftKind } = await import('../src/gifts-pve.js');
+  assert.equal(pveGiftKind({ name: '棒棒糖', price: 1 }), 'heart');
+  assert.equal(pveGiftKind({ name: '棒棒糖', price: 1 }, { 棒棒糖: 'treasure' }), 'treasure');
+  assert.equal(pveGiftKind({ name: '墨镜', price: 99 }, {}), 'hero');
+});

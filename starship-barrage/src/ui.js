@@ -7,11 +7,17 @@ import { describeItem, itemStats, statText } from './fleet.js';
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
 
 export function loadSettings() {
-  const d = { port: 8765, autoConnect: true, battleMinutes: 15, npcMinPerTeam: 6, tts: true, sfx: true, tiers: [1, 10, 50, 200, 1000], giftTierByName: {} };
-  try { return { ...d, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch { return d; }
+  const d = { v: 2, port: 8765, autoConnect: true, battleMinutes: 15, npcMinPerTeam: 4, tts: false, sfx: true, bgm: true, bgmVol: 50, tiers: [1, 10, 50, 200, 1000], giftTierByName: {}, pveGiftByName: {} };
+  try {
+    const old = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    // 旧设置升级一次：语音播报默认关、补位NPC默认4架
+    if (!(old.v >= 2)) { delete old.tts; delete old.npcMinPerTeam; }
+    return { ...d, ...old, v: 2 };
+  } catch { return d; }
 }
 export function storeSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* 忽略 */ } }
 
+const PVE_GIFT_WORD = { heart: '经验', flower: '佣兵', drum: '战鼓', hero: '英雄', double: '双倍', treasure: '宝箱' };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export function rulesHtml(settings, mode = 'pvp') {
@@ -142,15 +148,22 @@ export class UI {
         <div class="row">对战每局上限 <input id="cfg-minutes" type="number" min="3" max="30" value="${s.battleMinutes}"> 分钟</div>
         <div class="row">人少时补位NPC到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMinPerTeam}"> 架</div>
         <div class="note">真人不够这个数时，自动补灰色NPC战机凑数（对战每队各补；讨伐只补我方舰队）；真人越多NPC越少，填0就不补。NPC不进榜单。</div>
-        <div class="row"><label><input id="cfg-tts" type="checkbox" ${s.tts ? 'checked' : ''}> 语音播报</label>
-          <label><input id="cfg-sfx" type="checkbox" ${s.sfx ? 'checked' : ''}> 音效</label></div>
+        <div class="row wrap audio"><label><input id="cfg-bgm" type="checkbox" ${s.bgm ? 'checked' : ''}> 背景音乐</label>
+          <label>音量 <input id="cfg-bgmvol" type="range" min="0" max="100" value="${s.bgmVol}"></label>
+          <label><input id="cfg-sfx" type="checkbox" ${s.sfx ? 'checked' : ''}> 音效</label>
+          <label><input id="cfg-tts" type="checkbox" ${s.tts ? 'checked' : ''}> 语音播报</label></div>
+        <div class="note">浏览器要求先点一下页面才能出声：开播前在游戏画面上点一下鼠标。</div>
       </section>
       <section>
-        <h3>礼物分档（单个礼物价值，抖币）</h3>
-        <div class="row tiers">${[1, 2, 3, 4].map(i => `${i + 1}档起 <input data-tier="${i}" type="number" min="1" value="${s.tiers[i]}">`).join(' ')}</div>
-        <div class="row">按礼物名指定档位（每行「礼物名=档位」，优先于价值）：</div>
-        <textarea id="cfg-names" rows="3" placeholder="小心心=1&#10;墨镜=3">${esc(Object.entries(s.giftTierByName).map(([k, v]) => `${k}=${v}`).join('\n'))}</textarea>
-
+        <h3>讨伐礼物对照</h3>
+        <div class="note">默认：${esc(Object.entries(PVE.gifts.byName).filter(([k]) => k !== '爱的爆炸').map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('、'))}；认不出的按单价：1+经验 10+佣兵 52+战鼓 99+英雄 199+双倍 1200+宝箱。</div>
+        <div class="row">追加 / 改礼物（每行「礼物名=效果」，效果填 经验 / 佣兵 / 战鼓 / 英雄 / 双倍 / 宝箱）：</div>
+        <textarea id="cfg-pvegifts" rows="3" placeholder="棒棒糖=经验&#10;嘉年华=宝箱">${esc(Object.entries(s.pveGiftByName || {}).map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('\n'))}</textarea>
+        <details class="pvp-tiers"><summary>对战模式礼物分档（只在红蓝对战里用）</summary>
+          <div class="row tiers">${[1, 2, 3, 4].map(i => `${i + 1}档起 <input data-tier="${i}" type="number" min="1" value="${s.tiers[i]}">`).join(' ')}</div>
+          <div class="row">按礼物名指定档位（每行「礼物名=档位」，优先于价值）：</div>
+          <textarea id="cfg-names" rows="3" placeholder="小心心=1&#10;墨镜=3">${esc(Object.entries(s.giftTierByName).map(([k, v]) => `${k}=${v}`).join('\n'))}</textarea>
+        </details>
       </section>
       <section>
         <h3>测试（只在没连熙梦时可用）</h3>
@@ -176,7 +189,7 @@ export class UI {
     // 设置项改完自动保存生效，不用找保存按钮
     this.panel.addEventListener('change', e => {
       const el = e.target;
-      if (!el.matches('#cfg-port, #cfg-auto, #cfg-minutes, #cfg-npc, #cfg-tts, #cfg-sfx, input[data-tier], #cfg-names')) return;
+      if (!el.matches('#cfg-port, #cfg-auto, #cfg-minutes, #cfg-npc, #cfg-tts, #cfg-sfx, #cfg-bgm, #cfg-bgmvol, input[data-tier], #cfg-names, #cfg-pvegifts')) return;
       try { this.readSettings(); this.onSettings(); this.note(el.id === 'cfg-npc' ? `已保存：人少时补位NPC到${this.settings.npcMinPerTeam}架` : '已自动保存'); } catch (err) { this.note(err.message); }
     });
     document.getElementById('import-file').addEventListener('change', e => this.importFile(e.target.files[0]));
@@ -188,9 +201,18 @@ export class UI {
     s.port = num('cfg-port', 1024, 65535, 8765);
     s.autoConnect = document.getElementById('cfg-auto').checked;
     s.battleMinutes = num('cfg-minutes', 3, 30, 15);
-    s.npcMinPerTeam = num('cfg-npc', 0, 30, 6);
+    s.npcMinPerTeam = num('cfg-npc', 0, 30, 4);
     s.tts = document.getElementById('cfg-tts').checked;
     s.sfx = document.getElementById('cfg-sfx').checked;
+    s.bgm = document.getElementById('cfg-bgm').checked;
+    s.bgmVol = num('cfg-bgmvol', 0, 100, 50);
+    const pg = {}, words = Object.fromEntries(Object.entries(PVE_GIFT_WORD).map(([k, v]) => [v, k]));
+    for (const line of document.getElementById('cfg-pvegifts').value.split('\n')) {
+      const m = line.trim().match(/^(.{1,30}?)\s*[=＝]\s*(\S+)$/);
+      if (m && words[m[2]]) pg[m[1].trim()] = words[m[2]];
+      else if (line.trim()) throw new Error(`看不懂这一行：${line.trim()}（效果填 经验/佣兵/战鼓/英雄/双倍/宝箱）`);
+    }
+    s.pveGiftByName = pg;
     const tiers = [1];
     this.panel.querySelectorAll('input[data-tier]').forEach(el => { tiers[Number(el.dataset.tier)] = Math.max(1, Math.floor(Number(el.value)) || 1); });
     for (let i = 1; i < 5; i++) if (tiers[i] <= tiers[i - 1]) throw new Error(`${i + 1}档起点必须大于${i}档`);

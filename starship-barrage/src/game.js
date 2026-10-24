@@ -517,7 +517,7 @@ export class Game {
   applyGift(user, gift, amount, tier) {
     const f = this.fighters.get(String(user.id)) || this.join(user);
     if (!f) return;
-    if (this.mode === 'pve') { f.labelUntil = this.clock + 4; applyPveGift(this, f, pveGiftKind(gift), amount); return; }
+    if (this.mode === 'pve') { f.labelUntil = this.clock + 4; applyPveGift(this, f, pveGiftKind(gift, this.settings.pveGiftByName), amount); return; }
     const team = this.teams[f.team];
     f.labelUntil = this.clock + 4;
     if (tier === 1) {
