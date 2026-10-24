@@ -709,42 +709,94 @@ export class Renderer {
 
   // 歼灭光束：自动瞄准，沿 beamAngle 方向；先蓄能 0.5 秒
   // 装备外观：装甲紫色以上脚下光晕；护盾发生器橙色以上外圈护环；瞄准器橙色以上瞄准激光
-  // 锻造动画：熔炉光环里战舰闪过各种品质颜色，锤击火花，最后定格在锻出的品质
+  // 锻造动画：送几个就锤几下——每一锤都亮出这一次锻出的品质（传说以上停顿+爆闪），下方一格一格攒出结果，最后定格最佳品质
+  forgePlan(e) {
+    if (e.plan) return e.plan;
+    const n = e.rolls.length, step = n <= 1 ? 1.7 : n <= 10 ? 0.75 : Math.max(0.3, 7.5 / n);
+    const at = []; let t = 0.35;
+    for (const r of e.rolls) { at.push(t); t += step + (r >= 3 ? 0.6 : 0); }
+    return (e.plan = { at, step, end: t, dur: t + 2.2 });
+  }
   drawForge(x, dt) {
     const e = this.forges[0];
     if (!e) return;
-    const DUR = 3.4, REVEAL = 1.7;
+    const P = this.forgePlan(e), T = PVE.forge.tiers, n = e.rolls.length;
     e.t += dt;
-    if (e.t > DUR) { this.forges.shift(); return; }
-    const T = PVE.forge.tiers, cx = 360, cy = 380, k = Math.min(1, e.t / 0.25), out = Math.max(0, (e.t - DUR + 0.4) / 0.4);
+    if (e.t > P.dur) { this.forges.shift(); return; }
+    const cx = 360, cy = 330, k = Math.min(1, e.t / 0.25), out = Math.max(0, (e.t - P.dur + 0.4) / 0.4);
+    // 当前锤到第几次（i=-1 还没开始），这一锤过去多久
+    let i = -1; for (let q = 0; q < n; q++) if (e.t >= P.at[q]) i = q;
+    const final = e.t >= P.end;
+    const since = i >= 0 ? e.t - P.at[i] : 0;
+    // 每一锤的瞬间：火花、震屏；高品质爆闪
+    if (i >= 0 && (e.hit ?? -1) < i) {
+      e.hit = i; const r = e.rolls[i];
+      this.burst(cx + (Math.random() - 0.5) * 50, cy + 20, r >= 3 ? 2.4 : 0.9, null);
+      this.shake = Math.max(this.shake, r >= 3 ? 12 : 4);
+      if (r >= 2) this.ripples.push({ x: cx, y: cy, t: 0, dur: 0.6, r0: 40, r1: r >= 4 ? 260 : 170, color: hexRgb(T[r].color), w: r >= 4 ? 7 : 4 });
+    }
+    if (final && !e.boom) { e.boom = true; this.ripples.push({ x: cx, y: cy, t: 0, dur: 0.9, r0: 40, r1: 300, color: hexRgb(T[e.best].color), w: 7 }); this.burst(cx, cy, e.best >= 3 ? 3 : 1.6, null); this.shake = Math.max(this.shake, e.best >= 3 ? 14 : 6); this.toast(`${e.name} 锻造${CLASSES[e.cls].name}${n > 1 ? `×${n}` : ''}：${e.up ? `升到${T[e.to].name}级，全属性×${T[e.to].mul}` : `最好${T[e.best].name}，保留${T[e.from].name}级`}`, null, T[e.to].color); }
+    const shown = final ? e.best : i >= 0 ? e.rolls[i] : 0;
+    // 单次锻造：前1.7秒品质颜色滚动
+    const rollingOne = n === 1 && !final;
+    const spin = rollingOne ? Math.floor((e.t * (14 - e.t * 6)) * 3) % T.length : shown;
+    const col = T[spin].color;
     x.save(); x.globalAlpha = k * (1 - out);
-    x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, cy - 190, W, 380);
-    const rolling = e.t < REVEAL;
-    // 滚动品质：越来越慢，最后停在锻出的品质
-    const spin = rolling ? Math.floor((e.t * (14 - e.t * 6)) * 3) % T.length : e.best;
-    const col = T[rolling ? spin : e.best].color;
+    x.fillStyle = 'rgba(0,0,0,.5)'; x.fillRect(0, cy - 185, W, n > 1 ? (n > 10 && n <= 20 ? 440 : 410) : 380);
     x.globalCompositeOperation = 'lighter';
-    const glow = this.glowSprite(col, 90 + Math.sin(e.t * 18) * 8 + (rolling ? 0 : 30));
+    const flash = !final && i >= 0 && since < 0.25 ? 1 + (0.25 - since) * 4 * (e.rolls[i] >= 3 ? 2 : 1) : 1;
+    const glow = this.glowSprite(col, (90 + Math.sin(e.t * 18) * 8 + (final ? 30 : 0)) * Math.min(1.8, flash));
     x.drawImage(glow, cx - glow.half, cy - glow.half);
     x.globalCompositeOperation = 'source-over';
-    x.save(); x.translate(cx, cy); x.rotate(e.t * (rolling ? 4 : 1));
+    x.save(); x.translate(cx, cy); x.rotate(e.t * (final ? 1 : 4));
     x.strokeStyle = col; x.lineWidth = 4; x.setLineDash([18, 12]); x.beginPath(); x.arc(0, 0, 96, 0, Math.PI * 2); x.stroke();
     x.rotate(-e.t * 7); x.lineWidth = 2; x.setLineDash([6, 10]); x.beginPath(); x.arc(0, 0, 118, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);
     x.restore();
+    // 锤子：每一锤从右上砸下来
+    if (!final) {
+      const ph = n === 1 ? (e.t % 0.38) / 0.38 : Math.min(1, since / Math.min(0.35, P.step * 0.8));
+      const ang = -1.1 + Math.min(1, ph * 1.6) * 1.1;
+      x.save(); x.translate(cx + 70, cy - 40); x.rotate(ang);
+      x.fillStyle = '#8b6a45'; x.fillRect(-4, -70, 8, 70);
+      x.fillStyle = '#c9ced8'; roundRect(x, -22, -86, 44, 22, 5); x.fill(); x.strokeStyle = '#59606e'; x.lineWidth = 2; x.stroke();
+      x.restore();
+    }
     const art = this.fighterArt({ cls: e.cls, skin: 3, team: 'blue' });
-    if (art) { x.save(); x.translate(cx, cy + (rolling ? Math.sin(e.t * 40) * 2 : 0)); const sc = rolling ? 1.7 : 1.9 + Math.max(0, 0.4 - (e.t - REVEAL)); x.scale(sc, sc); this.blit(x, art, 0, 0); x.restore(); }
-    if (rolling && Math.floor(e.t / 0.38) !== Math.floor((e.t - dt) / 0.38)) { this.burst(cx + (Math.random() - 0.5) * 60, cy + 30, 0.9, null); this.shake = Math.max(this.shake, 4); }
-    if (!rolling && !e.boom) { e.boom = true; this.ripples.push({ x: cx, y: cy, t: 0, dur: 0.8, r0: 40, r1: 260, color: hexRgb(T[e.best].color), w: 6 }); this.burst(cx, cy, e.best >= 3 ? 3 : 1.6, null); this.shake = Math.max(this.shake, e.best >= 3 ? 14 : 6); this.toast(`${e.name} 锻造${CLASSES[e.cls].name}：${e.up ? `升到${T[e.to].name}级，全属性×${T[e.to].mul}` : `锻出${T[e.best].name}，保留${T[e.from].name}级`}`, null, T[e.to].color); }
+    if (art) { x.save(); x.translate(cx, cy + (!final && since < 0.15 ? 4 : 0)); const sc = final ? 1.9 + Math.max(0, 0.4 - (e.t - P.end)) : 1.7; x.scale(sc, sc); this.blit(x, art, 0, 0); x.restore(); }
     x.textAlign = 'center'; x.textBaseline = 'middle';
     x.font = `700 20px ${FONT}`; x.fillStyle = '#fff';
-    x.fillText(`${trim(e.name, 8)} 锻造${CLASSES[e.cls].name}${e.rolls.length > 1 ? ` ×${e.rolls.length}` : ''}`, cx, cy - 150);
-    x.font = `12px ${FONT}`; x.fillStyle = '#c8a860'; x.fillText(e.pityHit ? '触发至尊保底！' : `至尊保底 ${e.pity}/${PVE.forge.pity}`, cx, cy - 128);
-    if (rolling) { x.font = `800 30px ${FONT}`; x.fillStyle = col; x.fillText(`${T[spin].name}…`, cx, cy + 150); }
-    else {
+    x.fillText(`${trim(e.name, 8)} 锻造${CLASSES[e.cls].name}${n > 1 ? `  第 ${Math.max(1, i + 1)} / ${n} 锤` : ''}`, cx, cy - 160);
+    x.font = `12px ${FONT}`; x.fillStyle = '#c8a860'; x.fillText(e.pityHit ? '触发至尊保底！' : `至尊保底 ${e.pity}/${PVE.forge.pity}`, cx, cy - 138);
+    // 这一锤的结果大字（高品质更大）
+    if (rollingOne) { x.font = `800 30px ${FONT}`; x.fillStyle = col; x.fillText(`${T[spin].name}…`, cx, cy + 140); }
+    else if (!final && i >= 0) {
+      const r = e.rolls[i], pop = 1 + Math.max(0, 0.18 - since) * 3;
+      x.save(); x.translate(cx, cy + 138); x.scale(pop, pop);
+      x.font = `900 ${r >= 3 ? 40 : 30}px ${FONT}`; x.lineWidth = 6; x.strokeStyle = 'rgba(0,0,0,.7)'; x.strokeText(`${T[r].name}`, 0, 0); x.fillStyle = T[r].color; x.fillText(`${T[r].name}`, 0, 0);
+      x.restore();
+    } else if (final) {
       const R = T[e.best];
-      x.font = `900 44px ${FONT}`; x.lineWidth = 6; x.strokeStyle = 'rgba(0,0,0,.7)'; x.strokeText(`${R.name}级！`, cx, cy + 140); x.fillStyle = R.color; x.fillText(`${R.name}级！`, cx, cy + 140);
+      x.font = `900 44px ${FONT}`; x.lineWidth = 6; x.strokeStyle = 'rgba(0,0,0,.7)'; const big = `${n > 1 ? '最佳 ' : ''}${R.name}级！`; x.strokeText(big, cx, cy + 136); x.fillStyle = R.color; x.fillText(big, cx, cy + 136);
       x.font = `700 17px ${FONT}`; x.fillStyle = '#ffe28a';
-      x.fillText(e.up ? `全属性 ×${T[e.to].mul}` : `没超过现在的${T[e.from].name}级，保留${T[e.from].name}（×${T[e.from].mul}）`, cx, cy + 178);
+      x.fillText(e.up ? `全属性 ×${T[e.to].mul}` : `没超过现在的${T[e.from].name}级，保留${T[e.from].name}（×${T[e.from].mul}）`, cx, cy + 172);
+    }
+    // 结果格子：每锤一格，攒成一排（超过20次就只显示各品质次数）
+    if (n > 1) {
+      const done = final ? n : i + 1, gy = cy + 190;
+      if (n <= 20) {
+        const per = Math.min(10, n), size = 26, gap = 6, rowsN = Math.ceil(n / per);
+        for (let q = 0; q < n; q++) {
+          const row = Math.floor(q / per), colI = q % per, rowCount = Math.min(per, n - row * per);
+          const gx = cx - (rowCount * (size + gap) - gap) / 2 + colI * (size + gap), yy = gy + row * (size + gap) - (rowsN - 1) * 0;
+          x.fillStyle = 'rgba(255,255,255,.06)'; roundRect(x, gx, yy, size, size, 6); x.fill();
+          if (q < done) { const r = e.rolls[q]; x.fillStyle = T[r].color; x.globalAlpha = k * (1 - out) * (q === i && !final ? 1 : 0.85); roundRect(x, gx + 2, yy + 2, size - 4, size - 4, 5); x.fill(); x.globalAlpha = k * (1 - out); x.font = `800 12px ${FONT}`; x.fillStyle = r >= 4 ? '#1a1200' : '#0a0f1e'; x.fillText(T[r].name[0], gx + size / 2, yy + size / 2 + 1); }
+        }
+      } else {
+        const cnt = [0, 0, 0, 0, 0, 0]; for (let q = 0; q < done; q++) cnt[e.rolls[q]]++;
+        let gx = cx - 300; x.font = `700 15px ${FONT}`; x.textAlign = 'left';
+        T.forEach((t, q) => { const s2 = `${t.name}×${cnt[q]}`; x.fillStyle = cnt[q] ? t.color : 'rgba(255,255,255,.25)'; x.fillText(s2, gx, gy + 12); gx += x.measureText(s2).width + 18; });
+        x.textAlign = 'center';
+      }
     }
     x.restore();
   }
