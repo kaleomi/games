@@ -1,6 +1,6 @@
 // 设置面板、开局规则页、结算页（DOM）
 import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR } from './config.js';
-import { bossMax, bossFor } from './pve.js';
+import { bossMax, bossFor, stageLabel, stageKind, KIND_NAMES, bossTitle, leaderMax } from './pve.js';
 import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, dpsSvg, carrierSvg } from './art.js';
 import { describeItem, itemStats, statText } from './fleet.js';
 
@@ -23,7 +23,8 @@ export function rulesHtml(settings, mode = 'pvp') {
       <li>发 <b>技能</b> 放小技能，发 <b>大招</b> 放大招（冷却${PVE.ultCooldown}秒）；战机旁的小图标亮了就是好了</li>
       <li>异形放技能时航道会出现<b>红色区域，10秒倒计时</b>：发 <b>左 / 中 / 右</b> 换航道躲开（总有一条是安全的）</li>
       <li><b>点赞</b>充能，满了打出超载炮 · 母舰「湮灭炮」锁定时全员发 <b>拦截</b> 削弱</li>
-      <li><b>每关限时${PVE.stageSeconds / 60}分钟</b>：打爆母舰进下一关并<b>掉落装备</b>；全队阵亡或超时退回一关 · 发 <b>换对战</b> 切回红蓝对战</li>`
+      <li><b>每章5关</b>：1–3关虫群+精英头目（打死头目过关），第4关精英，第5关首领；每关限时${PVE.stageSeconds / 60}分钟，过关<b>掉落装备</b>、自动进下一关</li>
+      <li>全队阵亡或超时：从本章第1关重来（第2章起在1–3关失败退回上一章第1关），已拿的经验和装备不收回 · 发 <b>换对战</b> 切回红蓝对战</li>`
     : `
       <li>发 <b>红</b> 或 <b>蓝</b> 加入舰队，头像变成你的战机，<b>AI自动驾驶、躲弹、开火</b></li>
       <li><b>激光 / 散弹 / 蓄力</b> 换武器 · <b>左 / 中 / 右</b> 换编队 · <b>核心 / 炮台</b> 选目标</li>
@@ -48,7 +49,8 @@ export function rulesHtml(settings, mode = 'pvp') {
     <h2>榜单与成长</h2>
     <ul>
       ${pve ? `<li>左下角 <b>战力榜</b>（战力＝等级+装备，带每人6件装备），右下角是 <b>礼物效果</b>；送任意礼物都送自动躲弹时间</li>
-      <li><b>贡献值</b>＝打伤害 + 给队友回血 + 替队友挨打，过关全员+${PVE.stageClearContrib}，<b>不显示消费金额</b></li>
+      <li><b>贡献值＝成长分E × 有效行为</b>：在场存活每${PVE.score.aliveEvery}秒+1E、技能+${PVE.score.skill}E、大招+${PVE.score.ult}E、躲开红区+${PVE.score.dodge}E、送礼按抖币×E；E由等级和装备决定，<b>不显示消费金额</b></li>
+      <li>场上最多${PVE.reserve.cap}人，${PVE.reserve.idle / 60}分钟没互动进<b>后援</b>（每关拿一半基础经验+1件白装），发言/点赞/送礼回来；离开后回来补发错过的关</li>
       <li>打爆BOSS掉装备：本局送礼的优先，再按贡献；前三必掉，其余60%；有保底 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
       <li><b>经验＝获得的${pve ? '贡献值' : '战功'}</b>（讨伐战斗中实时到账、当场升级），等级跟着抖音账号保存，满${LEVEL.max}级；${pve ? '每级攻击、生命+2%' : '等级越高AI躲弹越灵活'}；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
       <li>灰色「NPC」战机是人少时的补位电脑，不是真人，不进榜单</li>
@@ -87,7 +89,8 @@ function gearTable() {
         <b>${sl.name}</b><small>${S[sl.stat].label}</small></div>`).join('');
   return `<h2>装备 <small>打爆母舰掉落，自动穿更好的 · 发「装备」查看</small></h2>
     <div class="gtiers">${T.map(t => `<span style="color:${t.color};border-color:${t.color}">${t.name}${t.subs ? `+${t.subs}副` : ''}</span>`).join('')}</div>
-    <div class="gear">${cols}</div>`;
+    <div class="gear">${cols}</div>
+    <p class="gnote">同部位同品质重复 → 强化+1（每级+${Math.round(GEAR.plusPer * 100)}%基础属性）；白蓝紫橙强化到+10自动升一品，金装不自动升红（红装靠掉落和保底），强化没有上限 · 更低品质变余料，每${GEAR.matPerLv}余料自动强化最弱部位 · 换更好的装备继承强化</p>`;
 }
 
 export class UI {
@@ -274,7 +277,7 @@ export class UI {
     document.getElementById('link-status').innerHTML = `<span class="dot ${r.status}"></span>${text}${r.room ? ` · 直播间 ${esc(r.room)}` : ''} · 已收消息 ${r.received}${r.error && r.status !== 'connected' ? `<div class="err">${esc(r.error)}</div>` : ''}`;
     const n = Object.keys(this.save.data.players).length;
     const mi = document.getElementById('mode-info');
-    if (mi) mi.textContent = `当前：${this.game.mode === 'pve' ? `讨伐模式 · 第${this.save.data.pveStage || 1}关（最高通关第${this.save.data.pveBest || 0}关）` : '对战模式'}`;
+    if (mi) mi.textContent = `当前：${this.game.mode === 'pve' ? `讨伐模式 · ${stageLabel(this.save.data.pveStage || 1)}（最高通关第${this.save.data.pveBest || 0}关）` : '对战模式'}`;
     document.getElementById('save-info').textContent = `存档玩家 ${n} 人 · 累计 ${this.save.data.rounds} 局 · 本周从 ${this.save.data.week} 开始`;
   }
 
@@ -293,7 +296,7 @@ export class UI {
         this.lobby.classList.toggle('pve', pve);
         const stage = g.teams.red.stage || this.save.data.pveStage || 1;
         const join = pve
-          ? `<div class="join"><span class="pve">${emblemSvg('blue', 30)}讨伐 第${stage}关 · ${bossFor(stage).name} 血量 ${bossMax(stage)} · 已集结 ${counts.blue}人</span></div>`
+          ? `<div class="join"><span class="pve">${emblemSvg('blue', 30)}讨伐 ${stageLabel(stage)} ${KIND_NAMES[stageKind(stage)]}关 · ${bossTitle(stage)} 血量 ${stageKind(stage) === 'wave' ? leaderMax(stage) : bossMax(stage)} · 已集结 ${counts.blue}人${g.reserve?.size ? ` · 后援${g.reserve.size}人` : ''}</span></div>`
           : `<div class="join"><span class="red">${emblemSvg('red', 30)}发「红」加入赤焰舰队 · ${counts.red}人</span><span class="blue">${emblemSvg('blue', 30)}发「蓝」加入苍穹舰队 · ${counts.blue}人</span></div>`;
         this.lobby.innerHTML = `
           <div class="title">${logoSvg(150)}<span>星舰弹幕战</span><small>${pve ? '讨伐模式 · 全员一支舰队，对抗异形BOSS' : '对战模式 · 红蓝舰队对攻'} · 观众自己当飞行员</small></div>
@@ -315,11 +318,11 @@ export class UI {
         const list = (res.mvp.blue || []).map((m, i) => `<div class="row"><i>${i < 3 ? medalSvg(i, 28) : `<span class="rk">${i + 1}</span>`}</i>${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span><b>${m.merit}</b></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
         const drops = (res.drops || []).slice(0, 8).map(d => {
           const st = itemStats(d.item), T = GEAR.tiers[d.item.tier];
-          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}${d.pity ? '<i class="tag">保底</i>' : ''}${d.gifted ? '<i class="tag gift">礼</i>' : ''}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.plus ? `红+${d.plus}` : d.equipped ? '已装备' : `→${GEAR.tiers[Math.min(d.item.tier, 4)].name}碎片`}</em></div>`;
+          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}${d.pity ? '<i class="tag">保底</i>' : ''}${d.gifted ? '<i class="tag gift">礼</i>' : ''}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.upgraded != null ? `升${GEAR.tiers[d.upgraded].name}` : d.plus ? `强化+${d.plus}` : d.equipped ? '已装备' : `余料+${d.mat}`}</em></div>`;
         }).join('') || `<div class="empty">${res.clear ? '这关没人掉装备' : '讨伐失败，没有掉落'}</div>`;
         this.resultEl.innerHTML = `
-          <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `第${res.stage}关 讨伐成功` : '讨伐失败'}</div>
-          <div class="reason">${res.clear ? `${res.bossName || '异形母舰'}被击毁 · 下一局挑战第${res.next}关` : `${res.reason === 'timeout' ? `${PVE.stageSeconds / 60}分钟内没打爆${res.bossName || 'BOSS'}` : '舰队全员阵亡'} · 退回第${res.next}关`}</div>
+          <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `${stageLabel(res.stage)} 讨伐成功` : '讨伐失败'}</div>
+          <div class="reason">${res.clear ? `${res.bossName || '异形母舰'}被击毁${res.small ? ` · 小怪额外掉落${res.small}件` : ''}${res.reserve?.players ? ` · 后援${res.reserve.players}人领奖` : ''} · 下一关 ${stageLabel(res.next)}` : `${res.reason === 'timeout' ? `${PVE.stageSeconds / 60}分钟内没打赢${res.bossName || 'BOSS'}` : '舰队全员阵亡'} · 退回 ${stageLabel(res.next)}`}</div>
           <div class="pvecols">
             <div class="col"><h3>${emblemSvg('blue', 24)}本关贡献榜</h3>${list}</div>
             <div class="col loot"><h3>装备掉落</h3>${drops}</div>

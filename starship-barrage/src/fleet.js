@@ -121,6 +121,20 @@ export function combatPower(f) {
   if (f.gear) for (const slot of Object.keys(GEAR.slots)) if (f.gear[slot]) sc += gearScore({ ...f.gear[slot], slot });
   return Math.round((f.level || 1) * 50 + sc * 120);
 }
+// 成长分 E：等级 + 身上装备（临时BUFF不算）；贡献 = E × 有效行为，按行为发生那一刻的E算
+export function growthE(f) {
+  const S = PVE.score;
+  let sc = 0;
+  if (f.gear) for (const slot of Object.keys(GEAR.slots)) if (f.gear[slot]) sc += gearScore({ ...f.gear[slot], slot });
+  return Math.round((1 + S.eLv * Math.max(0, (f.level || 1) - 1) + S.eGear * sc) * 100) / 100;
+}
+// 记一次有效行为：NPC、佣兵、异形、后援不记
+export function score(game, f, units) {
+  if (!f || f.npc || f.merc || f.alien || f.reserve || !(units > 0)) return 0;
+  const add = units * growthE(f);
+  f.merit += add;
+  return add;
+}
 export function nearestEnemy(game, x, y, maxD = 1e9, near = 260) {
   let best = null, bd = maxD * maxD;
   for (const e of game.fighters.values()) {
@@ -266,13 +280,15 @@ export function stepShip(game, f, dt, combat) {
   }
   f.recoilT = Math.max(0, (f.recoilT || 0) - dt);
   if (!combat) return;
+  // 在场存活每5秒 +1E
+  if (f.alive && (f.aliveAcc = (f.aliveAcc || 0) + dt) >= PVE.score.aliveEvery) { f.aliveAcc -= PVE.score.aliveEvery; score(game, f, PVE.score.alive); }
   // 小技能自动释放（冷却10秒）；大招真人要发「大招」，NPC 自动放
   f.ultCd = Math.max(0, f.ultCd - dt);
   f.skillCd = Math.max(0, f.skillCd - dt);
   if (f.ultCd <= 0) f.ultReadyFor += dt; else f.ultReadyFor = 0;
-  if (f.ultCd <= 0 && (f.npc ? wantsUlt(game, f) : f.ultReq > game.clock)) castUlt(game, f);
+  if (f.ultCd <= 0 && (f.npc ? wantsUlt(game, f) : f.ultReq > game.clock) && castUlt(game, f)) score(game, f, PVE.score.ult);
   if (f.skillCd <= 0) {
-    if (castSkill(game, f)) f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste);
+    if (castSkill(game, f)) { f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste); if (f.freeSkill) f.freeSkill = false; else score(game, f, PVE.score.skill); }
     else f.skillCd = 0.5;
   }
   // 点赞充满：超载炮
@@ -370,7 +386,7 @@ export function stepBeam(game, f, dt) {
     // 光束在核心高度的横坐标落在核心宽度内就算命中
     const a = f.beamAngle || 0, t = ((f.y - 20) - cy) / Math.max(0.2, Math.cos(a)), bx = f.x + Math.sin(a) * t;
     if (Math.abs(bx - boss.x) < boss.hitW / 2) game.damageFlag('red', dps * dt, f.uid, 'shot');
-    for (const tu of boss.turrets) if (!tu.dead && beamHits(f, tu.x, tu.y, 22)) { tu.hp -= dps * dt * 0.5; f.merit += dps * dt * 0.5 * PVE.contrib.dmg; if (tu.hp <= 0) game.killTurret(boss, tu, f.uid); }
+    for (const tu of boss.turrets) if (!tu.dead && beamHits(f, tu.x, tu.y, 22)) { tu.hp -= dps * dt * 0.5; if (tu.hp <= 0) game.killTurret(boss, tu, f.uid); }
   }
 }
 
@@ -454,7 +470,6 @@ function castImpact(game, f) {
     if (e.alive) { const k = 46 * (1 - Math.hypot(e.x - f.x, e.y - f.y) / reach); e.x += Math.sin(f.impactAngle) * k; e.y -= Math.cos(f.impactAngle) * k; }
   }
   for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && inCone(f, b.x, b.y, reach)) { b.life = 0; cleared++; }
-  f.merit += cleared * PVE.enemyBulletDmg * PVE.contrib.taken * 0.5;
   game.emit('impact', { uid: f.uid, x: f.x, y: f.y, reach, hits, cleared, angle: f.impactAngle });
   game.emit('skill', { uid: f.uid, skill: 'impact', x: f.x, y: f.y });
   return true;
@@ -507,7 +522,7 @@ function whirlHit(game, f) {
   if (boss.present) {
     for (const tu of boss.turrets || []) {
       if (tu.dead || (tu.x - f.x) ** 2 + (tu.y - f.y) ** 2 > (R + 30) ** 2) continue;
-      tu.hp -= dmg * 1.5; f.merit += dmg * 1.5 * PVE.contrib.dmg;
+      tu.hp -= dmg * 1.5;
       if (spark++ < 3) game.emit('spark', { x: tu.x, y: tu.y, team: 'blue', big: true });
       if (tu.hp <= 0) game.killTurret(boss, tu, f.uid);
     }
@@ -581,7 +596,7 @@ export function stepDrones(game, dt) {
     if (d.kind === 'guard') {
       const r2 = C.guardR * C.guardR;
       for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && (b.x - d.x) ** 2 + (b.y - d.y) ** 2 < r2) {
-        b.life = 0; o.merit += PVE.enemyBulletDmg * PVE.contrib.taken * 0.5; d.flash = 0.18;
+        b.life = 0; d.flash = 0.18;
       }
       d.flash = Math.max(0, (d.flash || 0) - dt);
       if (!tgt) tgt = droneTarget(game, d);
@@ -668,7 +683,7 @@ export function castUlt(game, f) {
   if (f.cls === 'healer') {
     let revived = 0;
     for (const a of allies(game)) {
-      if (!a.alive) { a.alive = true; a.respawn = 0; a.hp = a.maxHp * 0.5; a.invuln = 2; a.x = laneCenter(a.lane) + a.slotDx; a.y = PVE.rows[a.cls] + a.slotDy; revived++; f.merit += a.maxHp * 0.5 * PVE.contrib.heal; }
+      if (!a.alive) { a.alive = true; a.respawn = 0; a.hp = a.maxHp * 0.5; a.invuln = 2; a.x = laneCenter(a.lane) + a.slotDx; a.y = PVE.rows[a.cls] + a.slotDy; revived++; }
     }
     f.hotT = PVE.healUlt.seconds; f.hotTick = 0;   // 之后持续群体回血
     game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y, revived });
@@ -692,7 +707,6 @@ export function heal(game, a, amount, from) {
   const before = a.hp;
   a.hp = Math.min(a.maxHp, a.hp + amount);
   const done = a.hp - before;
-  if (from && done > 0) from.merit += done * PVE.contrib.heal;
   return done;
 }
 
@@ -700,10 +714,10 @@ export function heal(game, a, amount, from) {
 export function hurt(game, f, dmg, ownerUid) {
   if (!f.alive || f.invuln > 0 || !(dmg > 0)) return false;
   if (f.alien) {
-    const done = Math.min(f.hp, dmg);
+    // 精英头目按进攻人数归一（和BOSS一样），人多不会秒杀
+    if (f.kind === 'elite') dmg *= Math.pow(6 / Math.max(6, game.attackers('blue')), 0.7);
     f.hp -= dmg;
     const o = game.fighters.get(ownerUid);
-    if (o && !o.alien) o.merit += done * PVE.contrib.dmg;
     if (f.hitters && o && !o.alien) f.hitters.add(o.merc ? o.owner : o.uid);
     if (f.hp <= 0) game.killFighter(f, o || null);
     return true;
@@ -712,7 +726,6 @@ export function hurt(game, f, dmg, ownerUid) {
   const taken = Math.min(d, f.hp + (f.shieldHp || 0));
   if (f.shieldHp > 0) { const s = Math.min(f.shieldHp, d); f.shieldHp -= s; d -= s; }
   f.hp -= d;
-  f.merit += taken * PVE.contrib.taken;
   f.hitFlash = 0.15;
   if (f.hp <= 0) { f.hp = 0; game.killFighter(f, null); }
   return true;
@@ -735,6 +748,7 @@ export function rollDrops(game, stage) {
   const drops = [];
   dropOrder(game).forEach((f, rank) => {
     if (rank >= 3 && game.random() >= 0.6) return;
+    if (game.pve?.kind === 'wave' && game.random() >= PVE.chapter.waveDrop) return;   // 1–3关过得快，装备掉率×30%（另有小怪白装）
    for (let k = 0; k < ((game.doubleUntil || 0) > game.clock ? 2 : 1); k++) {
     let item = rollItem(game.random, stage, rank === 0 ? 1 : 0);
     const fl = lootFloorOf(game, f);
@@ -759,43 +773,85 @@ export function rollDrops(game, stage) {
   return drops;
 }
 
-// 碎片：[白, 蓝, 紫, 橙, 金]，存在账号里（测试观众存在战机上）
-export function shardsOf(game, f) {
+// ───────── 强化 / 余料 ─────────
+// 余料存在账号里（测试观众存在战机上）
+export function matOf(game, f) {
   const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
-  if (p) { if (!Array.isArray(p.shards)) p.shards = [Number(p.shards) || 0, 0, 0, 0, 0]; return p.shards; }
-  return (f.shardsMem ||= [0, 0, 0, 0, 0]);
+  if (p) return { get: () => p.mat || 0, add: n => { p.mat = (p.mat || 0) + n; } };
+  return { get: () => f.matMem || 0, add: n => { f.matMem = (f.matMem || 0) + n; } };
 }
-// 拿到一件装备：更好就穿上（旧的分解）；至尊红同部位重复 → 红+1；否则分解成1个同色碎片；碎片满100自动合成高一级
-export function giveItem(game, f, item, crafted = false) {
+const baseScore = it => gearScore({ ...it, plus: 0 });
+// 继承：旧装备强化加的属性（按基础属性折算）全部带到新装备上，向上取整，所以换上的一定更强
+export function inheritPlus(old, neu) {
+  if (!old || !(old.plus > 0)) return 0;
+  const b0 = baseScore(old), b1 = baseScore(neu);
+  return b1 > 0 ? Math.ceil(old.plus * b0 / b1 - 1e-9) : old.plus;
+}
+const cloneItem = (it, plus) => ({ slot: it.slot, tier: it.tier, roll: it.roll, name: GEAR.slots[it.slot].names[it.tier], subs: it.subs.map(x => ({ ...x })), plus });
+export const upAtOf = tier => (Array.isArray(GEAR.upAt) ? GEAR.upAt[tier] : GEAR.upAt) ?? Infinity;
+// 非红装强化到 +10 自动升品：生成下一品质的新装备，多出的等级按继承规则折算
+function autoUpgrade(game, f, slot, ups) {
+  const gear = f.gear, top = GEAR.tiers.length - 1;
+  let cur = gear[slot];
+  while (cur && cur.tier < top && cur.plus >= upAtOf(cur.tier)) {
+    const neu = makeItem(game.random, slot, cur.tier + 1);
+    const rest = { ...cur, plus: cur.plus - upAtOf(cur.tier) };
+    gear[slot] = cur = cloneItem(neu, inheritPlus(rest, neu));
+    ups.push(cur);
+    game.emit('upgrade', { uid: f.uid, name: f.name, item: cur, text: describeItem(cur) });
+  }
+}
+// 最弱的已穿部位：按标准强度（装备评分，含强化）比，同分按 主炮>装甲>引擎>瞄准器>核心>护盾发生器
+export function weakestSlot(gear) {
+  let best = null, bs = Infinity;
+  for (const slot of Object.keys(GEAR.slots)) {
+    if (!gear?.[slot]) continue;
+    const sc = gearScore({ ...gear[slot], slot });
+    if (sc < bs - 1e-9) { bs = sc; best = slot; }
+  }
+  return best;
+}
+// 余料每满100自动给最弱部位+1级，零头保留
+function spendMat(game, f, ups) {
+  const m = matOf(game, f), gear = f.gear;
+  let n = 0;
+  while (m.get() >= GEAR.matPerLv) {
+    const slot = weakestSlot(gear);
+    if (!slot) break;
+    m.add(-GEAR.matPerLv);
+    gear[slot].plus = (gear[slot].plus || 0) + 1; n++;
+    autoUpgrade(game, f, slot, ups);
+  }
+  return n;
+}
+// 拿到一件装备：
+//   空部位 / 更高品质 → 穿上（旧装备的强化投入折算继承）
+//   同部位同品质 → 当前装备 +1级（新的底子更好就换底子，等级保留）
+//   更低品质 → 变成余料
+export function giveItem(game, f, item, { silent = false, source = '' } = {}) {
   const gear = f.gear || (f.gear = {});
-  const cur = gear[item.slot], top = GEAR.tiers.length - 1;
-  const sh = shardsOf(game, f);
+  const slot = item.slot, cur = gear[slot];
   let result;
-  if (item.tier === top && cur && cur.tier === top) {
-    cur.plus = (cur.plus || 0) + 1;
-    refreshStats(f);
-    result = { equipped: true, plus: cur.plus };
-  } else if (gearScore(item) > gearScore(cur && { ...cur, slot: item.slot })) {
-    if (cur) sh[Math.min(cur.tier, top - 1)]++;
-    gear[item.slot] = { slot: item.slot, tier: item.tier, roll: item.roll, name: item.name, subs: item.subs.map(x => ({ ...x })), plus: 0 };
-    refreshStats(f);
-    result = { equipped: true, salvaged: cur ? cur.tier : -1 };
+  if (!cur || item.tier > cur.tier) {
+    const plus = inheritPlus(cur && { ...cur, slot }, item);
+    gear[slot] = cloneItem(item, plus);
+    result = { equipped: true, replaced: cur ? cur.tier : -1, inherit: plus };
+  } else if (item.tier === cur.tier) {
+    const plus = (cur.plus || 0) + 1;
+    gear[slot] = baseScore(item) > baseScore({ ...cur, slot }) ? cloneItem(item, plus) : { ...cloneItem({ ...cur, slot }, plus) };
+    result = { equipped: true, plus };
   } else {
-    sh[Math.min(item.tier, top - 1)]++;
-    result = { equipped: false, shard: item.tier };
+    const v = GEAR.matValue[item.tier] || 0;
+    matOf(game, f).add(v);
+    result = { equipped: false, mat: v };
   }
+  const ups = [];
+  autoUpgrade(game, f, slot, ups);
+  const enhanced = spendMat(game, f, ups);
+  if (ups.length) result.upgraded = ups[ups.length - 1].tier;
+  if (enhanced) result.enhanced = enhanced;
+  if (f.cls) refreshStats(f);
   if (game.save && !f.test) game.save.dirty = true;
-  game.emit('loot', { uid: f.uid, name: f.name, item, ...result, crafted, text: describeItem(item) });
-  // 合成：100个碎片 → 1件高一级装备，补在最弱（没有或品质最低）的部位
-  for (let t = 0; t < top; t++) {
-    while (sh[t] >= GEAR.shardsPerCraft) {
-      sh[t] -= GEAR.shardsPerCraft;
-      const slots = Object.keys(GEAR.slots);
-      const weakest = slots.reduce((a, b) => (gearScore(gear[b] && { ...gear[b], slot: b }) < gearScore(gear[a] && { ...gear[a], slot: a }) ? b : a));
-      const made = makeItem(game.random, weakest, t + 1);
-      game.emit('craft', { uid: f.uid, name: f.name, from: t, item: made, text: describeItem(made) });
-      giveItem(game, f, made, true);
-    }
-  }
+  if (!silent) game.emit('loot', { uid: f.uid, name: f.name, item, ...result, source, text: describeItem(item) });
   return result;
 }

@@ -1,22 +1,39 @@
 // 讨伐模式（PvE）：虫群 → 异形母舰。没有我方要塞，战舰血量就是全队的命。
-import { W, H, PVE } from './config.js';
-import { LANES, LANE_NAMES, laneCenter, hurt, stepDrones } from './fleet.js';
+import { W, H, PVE, GEAR } from './config.js';
+import { LANES, LANE_NAMES, laneCenter, hurt, stepDrones, score, giveItem, makeItem } from './fleet.js';
 
 export function currentStage(game) { return Math.max(1, game.save?.data?.pveStage || game.memStage || 1); }
-export function bossFor(stage) { return PVE.bosses[(Math.max(1, stage) - 1) % PVE.bosses.length]; }
+// 章节：每章5关（1–3关虫群+精英头目，第4关精英，第5关BOSS）
+export function chapterOf(stage) { return Math.ceil(Math.max(1, stage) / PVE.chapter.size); }
+export function stepOf(stage) { return (Math.max(1, stage) - 1) % PVE.chapter.size + 1; }
+export function stageKind(stage) { const k = stepOf(stage); return k === PVE.chapter.size ? 'boss' : k === PVE.chapter.size - 1 ? 'elite' : 'wave'; }
+export const KIND_NAMES = { wave: '虫群', elite: '精英', boss: '首领' };
+export function stageLabel(stage) { return `第${chapterOf(stage)}章 ${chapterOf(stage)}-${stepOf(stage)}`; }
+// 失败退到哪：本章第1关；第2章起在1–3关失败，退回上一章第1关
+export function failStage(stage) {
+  const ch = chapterOf(stage), size = PVE.chapter.size;
+  return stageKind(stage) === 'wave' && ch >= 2 ? (ch - 2) * size + 1 : (ch - 1) * size + 1;
+}
+// 章节BOSS按章轮换；第4关的精英是下一章BOSS的精英形态（半血）
+export function bossFor(stage) {
+  const ch = chapterOf(stage) - 1 + (stageKind(stage) === 'elite' ? 1 : 0);
+  return PVE.bosses[ch % PVE.bosses.length];
+}
 export function stageMul(stage) {
   let m = 1, prev = 1;
   for (const seg of PVE.bossCurve) { const n = Math.max(0, Math.min(stage, seg.to) - prev); m *= seg.mul ** n; prev = Math.max(prev, Math.min(stage, seg.to)); if (stage <= seg.to) break; }
   return m;
 }
 export function lateMul(stage) { return PVE.lateDmg ** Math.max(0, stage - 10); }
-export function bossMax(stage) { return Math.round(PVE.bossHp * stageMul(stage) * bossFor(stage).hp); }
+export function bossMax(stage) { return Math.round(PVE.bossHp * stageMul(stage) * bossFor(stage).hp * (stageKind(stage) === 'elite' ? PVE.chapter.eliteStageHp : 1)); }
+export function leaderMax(stage) { return Math.round(PVE.bossHp * stageMul(stage) * PVE.chapter.eliteLeaderHp); }
+export function bossTitle(stage) { const B = bossFor(stage); return stageKind(stage) === 'elite' ? `精英·${B.name}` : stageKind(stage) === 'wave' ? '精英头目' : B.name; }
 
 // 把红方换成异形母舰
 export function setupBoss(game, t) {
   const stage = currentStage(game);
   const B = bossFor(stage);
-  t.boss = true; t.stage = stage; t.bossId = B.id; t.bossName = B.name; t.podName = B.podName;
+  t.boss = true; t.stage = stage; t.stageKind = stageKind(stage); t.bossId = B.id; t.bossName = bossTitle(stage); t.podName = B.podName;
   t.core = t.coreMax = bossMax(stage);
   t.shield = t.shieldMax = 0;
   t.x = 360; t.y = -170; t.present = false; t.coreDy = PVE.coreDy; t.hitW = PVE.bossHitW;
@@ -33,8 +50,9 @@ export function setupFleetSide(t) {
 
 export function startPve(game) {
   const stage = currentStage(game);
-  game.pve = { stage, sub: 'wave', t: PVE.waveSeconds(stage), spawnT: 1.2, left: PVE.stageSeconds };
-  game.emit('announce', { text: `第${stage}关，虫群来袭！`, voice: true });
+  const kind = stageKind(stage);
+  game.pve = { stage, kind, sub: 'wave', t: PVE.waveSeconds(stage), spawnT: 1.2, left: PVE.stageSeconds, smallDrops: 0 };
+  game.emit('announce', { text: `${stageLabel(stage)}，${kind === 'wave' ? '虫群来袭！' : kind === 'elite' ? '精英关！' : '首领关！'}`, voice: true });
 }
 
 export function stepPve(game, dt) {
@@ -47,11 +65,22 @@ export function stepPve(game, dt) {
   if (p.sub === 'wave') {
     p.t -= dt; p.spawnT -= dt;
     if (p.spawnT <= 0) { p.spawnT = PVE.waves.every(p.stage); spawnFormation(game, false); if (game.random() < PVE.waves.double(p.stage)) spawnFormation(game, false); }
-    if (p.t <= 0) {
+    if (p.t <= 0 && p.kind === 'wave') {   // 1–3关：精英头目带队，打死头目过关
+      p.sub = 'leader'; p.spawnT = 6;
+      const a = spawnAlien(game, 'elite', 360, -60);
+      if (a) { a.hp = a.maxHp = leaderMax(p.stage); a.yStop = 210; a.life = 1e9; a.hitR = PVE.alien.elite.r; p.leader = a.uid; }
+      game.emit('banner', { team: 'red', text: `${stageLabel(p.stage)} · 精英头目现身！打死它过关`, tier: 4 });
+      game.emit('announce', { text: '精英头目现身', voice: true });
+    } else if (p.t <= 0) {
       p.sub = 'enter'; p.t = PVE.bossEnter;
-      game.emit('banner', { team: 'red', text: `第${p.stage}关 · ${boss.bossName}现身！`, tier: 4 });
+      game.emit('banner', { team: 'red', text: `${stageLabel(p.stage)} · ${boss.bossName}现身！`, tier: 4 });
       game.emit('announce', { text: `${boss.bossName}现身！`, voice: true });
     }
+  } else if (p.sub === 'leader') {
+    p.spawnT -= dt;
+    if (p.spawnT <= 0) { p.spawnT = PVE.waves.bossEvery(p.stage); spawnFormation(game, true); }
+    const L = game.fighters.get(p.leader);
+    if (!L || !L.alive) p.cleared = true;
   } else if (p.sub === 'enter') {
     p.t -= dt;
     boss.y += (PVE.bossY - boss.y) * Math.min(1, dt * 2.4);
@@ -193,6 +222,8 @@ export function castZone(game, kind, laneCount, caster, force = null) {
   if (!pick.length) return null;
   const def = PVE.zones[kind];
   const z = { id: ++game.zoneSeq, kind, name: def.name, frac: def.frac, lanes: pick, warn: PVE.zoneWarn, max: PVE.zoneWarn, caster, intercept: 0, dot: def.dot || 0, dps: def.dps || 0 };
+  // 预警时在红区里的人：命中时躲出去了 → 有效躲避 +3E
+  z.inside = new Set(); for (const f of game.fighters.values()) if (!f.alien && !f.npc && f.team === 'blue' && f.alive && pick.includes(f.lane)) z.inside.add(f.uid);
   game.zones.push(z);
   const where = pick.map(l => LANE_NAMES[l]).join('、');
   const safe = LANES.filter(l => !pick.includes(l) && !used.has(l)).map(l => LANE_NAMES[l]).join('、');
@@ -208,13 +239,14 @@ function stepZones(game, dt) {
     z.warn -= dt;
     if (z.warn > 0) continue;
     if (z.dot) {   // 酸液池：持续伤害
-      if (!z.active) { z.active = true; z.left = z.dot; game.emit('strike', { kind: z.kind, lanes: z.lanes, hit: 0, intercept: 0 }); }
+      if (!z.active) { z.active = true; z.left = z.dot; dodgeScore(game, z); game.emit('strike', { kind: z.kind, lanes: z.lanes, hit: 0, intercept: 0 }); }
       z.left -= dt;
       for (const f of game.fighters.values()) if (!f.alien && f.team === 'blue' && f.alive && z.lanes.includes(f.lane)) hurt(game, f, f.maxHp * z.dps * dt, null);
       if (z.left <= 0) game.zones.splice(i, 1);
       continue;
     }
     game.zones.splice(i, 1);
+    dodgeScore(game, z);
     const stage = game.pve?.stage || 1;
     const mult = (1 - Math.min(0.6, z.intercept)) * (1 + 0.04 * (stage - 1)) * lateMul(stage);
     let hit = 0;
@@ -228,13 +260,16 @@ function stepZones(game, dt) {
   }
 }
 
+function dodgeScore(game, z) {
+  for (const uid of z.inside || []) { const f = game.fighters.get(uid); if (f && f.alive && !z.lanes.includes(f.lane)) { score(game, f, PVE.score.dodge); f.dodges = (f.dodges || 0) + 1; } }
+}
+
 export function interceptZone(game, f) {
   const z = game.zones.find(z => z.kind === 'cannon');
   if (!z) return false;
   if (game.clock - (f.interceptT || 0) < 0.8) return false;
   f.interceptT = game.clock;
   z.intercept = Math.min(0.6, z.intercept + 0.015);
-  f.merit += 2;
   game.emit('intercept', { team: f.team, x: f.x, y: f.y });
   return true;
 }
@@ -304,6 +339,15 @@ export function stepAlien(game, f, dt) {
     if (f.fireCd <= 0) { f.fireCd = 3.5; game.spawnPattern('red', 'podFan', f.x, f.y + 30, null); }
     return;
   }
+  if (f.kind === 'elite') {   // 精英头目：停在上方左右巡游，扇形弹幕 + 红区技能
+    f.vy = f.y < f.yStop ? 80 : Math.sin(f.t * 0.9) * 10; f.vx = Math.sin(f.t * 0.5 + f.seed) * 110;
+    f.x = Math.max(90, Math.min(W - 90, f.x + f.vx * dt)); f.y += f.vy * dt;
+    f.fireCd -= dt;
+    if (f.fireCd <= 0 && f.y > 60) { f.fireCd = 2.6; game.spawnPattern('red', 'gunnerFan', f.x, f.y + 30, f.uid); }
+    f.skillT -= dt;
+    if (f.skillT <= 0 && f.y >= f.yStop - 5) { f.skillT = 13; if (castZone(game, game.random() < 0.5 ? 'acid' : 'strike', 1, '精英头目')) game.emit('cast', { uid: f.uid, x: f.x, y: f.y }); }
+    return;
+  }
   if (f.kind === 'swarm') {
     if (f.t > f.life) { f.vy = -150; f.vx *= 0.95; }
     else if (f.y < f.yStop) { f.vy = 110; f.vx = Math.sin(f.t * 2 + f.seed) * 70; }
@@ -353,7 +397,24 @@ export function bossTimeText(game) {
   if (!p) return '';
   const t = Math.max(0, Math.ceil(p.left));
   const left = `本关剩余 ${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-  if (p.sub === 'wave') return `${left} · ${Math.max(0, Math.ceil(p.t))}秒后母舰现身`;
-  if (p.sub === 'enter') return `${left} · 母舰逼近`;
+  if (p.sub === 'wave') return `${left} · ${Math.max(0, Math.ceil(p.t))}秒后${p.kind === 'wave' ? '精英头目' : game.teams.red.bossName}现身`;
+  if (p.sub === 'leader') return `${left} · 打死精英头目过关`;
+  if (p.sub === 'enter') return `${left} · ${game.teams.red.bossName}逼近`;
   return left;
+}
+
+// 前三关额外小掉落：真人打死普通小怪，10% 掉1件白装给随机一名在场存活的真人；每关全场最多3次
+export function smallKill(game, alien, killer) {
+  const p = game.pve, S = PVE.smallDrop;
+  if (!p || p.kind !== 'wave' || !alien.alien || (alien.kind !== 'swarm' && alien.kind !== 'diver')) return null;
+  if (!killer || killer.npc || killer.merc || killer.alien) return null;
+  if ((p.smallDrops || 0) >= S.maxPerStage || game.random() >= S.chance) return null;
+  const ppl = game.humans().filter(f => f.team === 'blue' && f.alive && !f.reserve);
+  if (!ppl.length) return null;
+  const to = ppl[Math.floor(game.random() * ppl.length)];
+  const slots = Object.keys(GEAR.slots);
+  const item = makeItem(game.random, slots[Math.floor(game.random() * slots.length)], 0);
+  p.smallDrops = (p.smallDrops || 0) + 1;
+  giveItem(game, to, item, { source: 'small' });
+  return { to, item };
 }

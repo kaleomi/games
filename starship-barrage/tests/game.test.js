@@ -200,10 +200,10 @@ test('弹幕「换讨伐」投票：在场一半人同意就切换，红蓝玩�
   assert.equal(game.fighters.get('v0').team, 'blue');
 });
 
-test('讨伐模式：虫群后母舰现身，打爆进下一关，全队阵亡退回一关', () => {
+test('讨伐模式：精英关虫群后BOSS现身，打爆进下一关；首领关失败退回本章第1关', () => {
   const { game, save } = newGame();
   game.setMode('pve');
-  save.data.pveStage = 3; game.startLobby();
+  save.data.pveStage = 4; game.startLobby();
   game.chat({ id: 'p', name: '玩家' }, '加入');
   toBattle(game);
   assert.equal(game.pve.sub, 'wave');
@@ -214,15 +214,16 @@ test('讨伐模式：虫群后母舰现身，打爆进下一关，全队阵亡�
   assert.equal(game.teams.red.present, true);
   game.teams.red.core = 0; game.step(1 / 60);
   assert.equal(game.phase, 'result');
-  assert.equal(save.data.pveStage, 4);
-  assert.equal(save.data.pveBest, 3);
-  // 下一局失败
+  assert.equal(save.data.pveStage, 5);
+  assert.equal(save.data.pveBest, 4);
+  // 下一局（第5关首领）失败 → 本章第1关
   game.phaseT = 0.001; game.step(1 / 60); toBattle(game);
-  assert.equal(game.pve.stage, 4);
+  assert.equal(game.pve.stage, 5);
+  assert.equal(game.pve.kind, 'boss');
   for (const f of game.fighters.values()) if (!f.alien) { f.alive = false; f.respawn = 99; }
   game.step(1 / 60);
   assert.equal(game.phase, 'result');
-  assert.equal(save.data.pveStage, 3);
+  assert.equal(save.data.pveStage, 1);
 });
 
 test('讨伐礼物：小心心/鲜花/爱你哟/墨镜/爱的爆炸/跑车 + 点赞士气 + 签到', async () => {
@@ -387,8 +388,13 @@ test('讨伐模式：打爆母舰按贡献掉装备，自动穿戴并提升属�
   const atk0 = game.fighters.get('g4').stats.atk, hp0 = game.fighters.get('g4').maxHp;
   game.pve.t = 0.001;
   for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
-  game.teams.red.core = 0; game.step(1 / 60);
-  const drops = game.drainEvents().filter(e => e.type === 'loot');
+  assert.equal(game.pve.sub, 'leader');
+  game.drainEvents();
+  game.fighters.get(game.pve.leader).hp = 1; game.fighters.get(game.pve.leader).alive = false; game.fighters.delete(game.pve.leader);
+  game.pve.kind = 'boss';   // 按正常掉率测（1–3关掉率×30%另测）
+  game.step(1 / 60); game.step(1 / 60);
+  assert.equal(game.phase, 'result');
+  const drops = game.drainEvents().filter(e => e.type === 'loot' && !e.source);
   assert.ok(drops.length >= 3);
   const top = game.fighters.get('g4');
   const p = save.peek('g4');
@@ -483,9 +489,9 @@ test('讨伐模式：航母放无人机打怪，大招护卫蜂群拦截子弹�
   for (let i = 0; i < 60; i++) game.step(1 / 60);
   const g0 = game.pveDrones.find(x => x.kind === 'guard');
   game.addBullet(g0.x, g0.y - 20, 0, 200, 5, 1, 'red', 'danmaku', null, 0);
-  const m0 = c.merit;
+  const nb = game.bullets.filter(b => b.team === 'red').length;
   for (let i = 0; i < 10; i++) game.step(1 / 60);
-  assert.ok(c.merit > m0, '护卫无人机拦截子弹记贡献');
+  assert.ok(game.bullets.filter(b => b.team === 'red').length < nb, '护卫无人机拦截子弹');
   // 输出舰在中路，怪在右路：光束转过去打
   d.lane = 'M'; d.x = 360;
   const hp0 = a.hp;
@@ -562,8 +568,9 @@ test('经验＝贡献值：讨伐战斗中实时到账并当场升级，结算�
   assert.ok(p.xp - xp0 <= 20 + Math.ceil(f.merit) - (LEVEL.need(1) + LEVEL.need(2) + 10) + 1, '结算只补没到账的部分');
 });
 
-test('装备经济：前5关不出红；多余分解成同色碎片，100个合成高一级；至尊重复变+1', async () => {
-  const { rollItem, giveItem, shardsOf, makeItem, itemStats } = await import('../src/fleet.js');
+test('装备经济：前5关不出红；同品质重复+1级(+2%)，低品质变余料，100余料强化最弱部位，+10自动升品，换装继承强化', async () => {
+  const { rollItem, giveItem, matOf, makeItem, itemStats, gearScore } = await import('../src/fleet.js');
+  const { GEAR } = await import('../src/config.js');
   let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (let i = 0; i < 3000; i++) assert.ok(rollItem(rnd, 5, 1).tier < 5, '前5关不出红');
   let red = 0; for (let i = 0; i < 3000; i++) if (rollItem(rnd, 6).tier === 5) red++;
@@ -572,22 +579,175 @@ test('装备经济：前5关不出红；多余分解成同色碎片，100个合�
   game.setMode('pve');
   game.chat({ id: 'k', name: 'K' }, '输出');
   const f = game.fighters.get('k');
-  // 先穿一身紫，再塞白装：全部分解成白碎片，满100自动合成一件蓝装
-  for (const slot of ['weapon', 'armor', 'engine', 'scope', 'core', 'generator']) giveItem(game, f, makeItem(rnd, slot, 2));
-  for (let i = 0; i < 99; i++) giveItem(game, f, makeItem(rnd, 'weapon', 0));
-  assert.equal(shardsOf(game, f)[0], 99);
-  game.drainEvents();
-  giveItem(game, f, makeItem(rnd, 'armor', 0));
-  const ev = game.drainEvents();
-  assert.ok(ev.some(e => e.type === 'craft' && e.from === 0 && e.item.tier === 1), '100个白碎片合成蓝装');
-  assert.equal(shardsOf(game, f)[0], 0);
-  assert.equal(shardsOf(game, f)[1], 1, '合出的蓝装不如身上的紫装 → 变成1个蓝碎片');
-  // 至尊重复 → +1，属性 +10%
-  giveItem(game, f, makeItem(rnd, 'weapon', 5));
-  const v0 = itemStats({ ...f.gear.weapon })[0].v;
-  giveItem(game, f, makeItem(rnd, 'weapon', 5));
+  for (const slot of Object.keys(GEAR.slots)) giveItem(game, f, makeItem(rnd, slot, 2));
+  // 同部位同品质 → +1级，每级+2%
+  const v0 = itemStats(f.gear.weapon)[0].v;
+  giveItem(game, f, { ...makeItem(rnd, 'weapon', 2), roll: 0.5 });
   assert.equal(f.gear.weapon.plus, 1);
-  assert.ok(Math.abs(itemStats({ ...f.gear.weapon })[0].v - v0 * 1.1) < 1e-9);
+  assert.ok(Math.abs(itemStats(f.gear.weapon)[0].v - v0 * 1.02) < 1e-9, '+1 = 102%');
+  // 低品质 → 余料（白10）；满100给最弱的部位+1，零头保留
+  const m = matOf(game, f);
+  for (let i = 0; i < 9; i++) giveItem(game, f, makeItem(rnd, 'armor', 0));
+  assert.equal(m.get(), 90);
+  const weakest = Object.keys(GEAR.slots).filter(sl => sl !== 'weapon').sort((a, b) => gearScore({ ...f.gear[a], slot: a }) - gearScore({ ...f.gear[b], slot: b }))[0];
+  giveItem(game, f, makeItem(rnd, 'core', 1));   // 蓝 = 20 余料 → 110
+  assert.equal(m.get(), 10, '100余料用掉，零头10保留');
+  assert.equal(f.gear[weakest].plus, 1, '强化了最弱的部位');
+  // +10 自动升品，而且更强
+  const sc0 = gearScore(f.gear.engine);
+  f.gear.engine.plus = 9;
+  game.drainEvents();
+  giveItem(game, f, makeItem(rnd, 'engine', 2));
+  assert.equal(f.gear.engine.tier, 3, '紫+10 → 橙');
+  assert.ok(game.drainEvents().some(e => e.type === 'upgrade'));
+  assert.ok(gearScore(f.gear.engine) > sc0 * 1.2 - 1e-9);
+  // 换上更高品质：旧装备的强化折算继承，新装备一定更强
+  f.gear.scope.plus = 8;
+  const old = gearScore(f.gear.scope);
+  giveItem(game, f, makeItem(rnd, 'scope', 4));
+  assert.equal(f.gear.scope.tier, 4);
+  assert.ok(f.gear.scope.plus >= 1, '继承了强化');
+  assert.ok(gearScore(f.gear.scope) > old);
+  // 红装没有上限
+  f.gear.core = { ...makeItem(rnd, 'core', 5), plus: 30 };
+  giveItem(game, f, makeItem(rnd, 'core', 5));
+  assert.equal(f.gear.core.tier, 5); assert.equal(f.gear.core.plus, 31);
+});
+
+test('旧存档迁移：红+N（原来每级10%）×5，碎片折算成余料', () => {
+  const raw = JSON.stringify({ version: 1, players: { u: { uid: 'u', level: 3, shards: [50, 3, 0, 0, 1], gear: { weapon: { tier: 5, roll: 1, subs: [], plus: 2 }, armor: { tier: 2, roll: 1, subs: [], plus: 0 } } } } });
+  const s = new Save({ storage: { getItem: () => raw, setItem() {} } });
+  const p = s.peek('u');
+  assert.equal(p.gear.weapon.plus, 10);
+  assert.equal(p.mat, 50 * 10 + 3 * 20 + 90);
+  const again = Save.validate(JSON.parse(s.exportJson()));
+  assert.equal(again.players.u.gear.weapon.plus, 10, '只迁移一次');
+});
+
+test('贡献＝成长分E×有效行为：存活每5秒1E、技能6E、大招12E、送礼抖币×E；礼物触发的技能不算', async () => {
+  const { growthE } = await import('../src/fleet.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'h', name: 'H' }, '医疗');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  const h = game.fighters.get('h');
+  const E = growthE(h);
+  assert.ok(E >= 1);
+  h.merit = 0; h.aliveAcc = 0; h.skillCd = 999; h.ultCd = 999;
+  for (let i = 0; i < 60 * 5 + 2; i++) game.step(1 / 60);
+  assert.ok(Math.abs(h.merit - E) < 1e-9, '存活5秒 +1E');
+  // 医疗没人受伤 → 技能放不出去，不算
+  h.merit = 0; h.skillCd = 0; game.step(1 / 60);
+  assert.equal(h.merit, 0, '无效技能不算');
+  // 有人受伤 → 治疗链成功 +6E
+  game.chat({ id: 'x', name: 'X' }, '输出');
+  const x = game.fighters.get('x'); x.hp = 10;
+  h.merit = 0; h.skillCd = 0; game.step(1 / 60);
+  assert.ok(Math.abs(h.merit - 6 * E) < 1e-9, '技能 +6E');
+  // 大招 +12E
+  h.merit = 0; h.ultCd = 0; game.chat({ id: 'h' }, '大招'); game.step(1 / 60);
+  assert.ok(Math.abs(h.merit - 12 * E) < 1e-9, '大招 +12E');
+  // 送礼：抖币 × E；小心心触发的技能不再加分
+  x.hp = 10; h.merit = 0; h.skillCd = 5;
+  game.gift({ id: 'h' }, { name: '小心心', price: 1, count: 3 });
+  game.step(1 / 60);
+  assert.ok(Math.abs(h.merit - 3 * E) < 1e-9, '只算礼物抖币');
+  // 伤害不算贡献
+  const d0 = x.merit; x.skillCd = 999; x.ultCd = 999; x.aliveAcc = -999;
+  for (let i = 0; i < 120; i++) game.step(1 / 60);
+  assert.equal(x.merit, d0);
+});
+
+test('躲开红区 +3E；E 由等级和装备决定', async () => {
+  const { growthE, makeItem } = await import('../src/fleet.js');
+  const { castZone } = await import('../src/pve.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'a', name: 'A' }, '输出');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  const a = game.fighters.get('a');
+  const e1 = growthE(a);
+  a.level = 20; a.gear = { weapon: makeItem(seeded(3), 'weapon', 3) };
+  assert.ok(growthE(a) > e1 + 0.3);
+  a.lane = 'L'; a.skillCd = 999; a.ultCd = 999; a.aliveAcc = -999;
+  const z = castZone(game, 'strike', 1, 'test', ['L']);
+  assert.ok(z);
+  a.merit = 0;
+  game.chat({ id: 'a' }, '右');
+  z.warn = 0.001; game.step(1 / 60);
+  assert.ok(Math.abs(a.merit - 3 * growthE(a)) < 1e-9);
+});
+
+test('章节：1–3关精英头目带队、第4关精英、第5关首领；失败规则', async () => {
+  const { stageKind, failStage, bossFor, bossMax, stageLabel } = await import('../src/pve.js');
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 10].map(stageKind), ['wave', 'wave', 'wave', 'elite', 'boss', 'wave', 'boss']);
+  assert.equal(failStage(3), 1); assert.equal(failStage(5), 1);
+  assert.equal(failStage(7), 1, '第2章1–3关失败退回上一章第1关');
+  assert.equal(failStage(9), 6); assert.equal(failStage(10), 6);
+  assert.equal(bossFor(4).id, bossFor(10).id, '第4关精英是下一章BOSS');
+  assert.ok(bossMax(4) < bossMax(5));
+  assert.equal(stageLabel(7), '第2章 2-2');
+});
+
+test('前三关小怪额外白装：10%，每关全场最多3次，给随机在场真人', async () => {
+  const { spawnAlien } = await import('../src/pve.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'a', name: 'A' }, '输出'); game.chat({ id: 'b', name: 'B' }, '输出');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  game.drainEvents();
+  const a = game.fighters.get('a');
+  for (let i = 0; i < 300; i++) { const al = spawnAlien(game, 'swarm', 300, 300); game.killFighter(al, a); }
+  const ev = game.drainEvents().filter(e => e.type === 'loot' && e.source === 'small');
+  assert.equal(ev.length, 3);
+  assert.ok(ev.every(e => e.item.tier === 0));
+});
+
+test('后援：5分钟没互动进后援，过关拿后援奖励，发言回到场上；离开太久回来补发错过的关；场上最多30人', () => {
+  let t = 1e6;
+  const save = new Save({ storage: memStorage(), now: () => t });
+  const game = new Game({ save, random: seeded(), now: () => t, settings: { npcMinPerTeam: 0 } });
+  game.setMode('pve');
+  game.chat({ id: 'a', name: 'A' }, '输出'); game.chat({ id: 'b', name: 'B' }, '输出');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  // b 5分钟没互动
+  t += 301 * 1000; game.fighters.get('a').lastActive = t;
+  for (let i = 0; i < 70; i++) game.step(1 / 60);
+  assert.ok(!game.fighters.has('b') && game.reserve.has('b'), 'b 进后援');
+  const xp0 = save.peek('b').xp, lv0 = save.peek('b').level;
+  game.pve.cleared = true; game.step(1 / 60);
+  assert.equal(game.phase, 'result');
+  const pb = save.peek('b');
+  assert.ok(pb.xp > xp0 || pb.level > lv0, '后援拿经验');
+  assert.equal(Object.keys(pb.gear).length, 1, '后援拿1件白装');
+  // 发言回到场上
+  game.chat({ id: 'b' }, '左');
+  assert.ok(game.fighters.has('b') && !game.reserve.has('b'));
+  // 离开很久（不在后援名单）：回来补发错过的关
+  t += 31 * 60 * 1000; game.fighters.get('a').lastActive = t;
+  game.phaseT = 0.001; game.step(1 / 60); game.phaseT = 0.001; game.step(1 / 60);
+  for (let i = 0; i < 70; i++) game.step(1 / 60);
+  assert.ok(!game.fighters.has('b') && !game.reserve.has('b'), 'b 离开太久');
+  const seen = save.peek('b').seenClear;
+  for (let k = 0; k < 3; k++) { if (game.phase !== 'battle') { game.phaseT = 0.001; game.step(1 / 60); if (game.phase !== 'battle') { game.phaseT = 0.001; game.step(1 / 60); } } game.fighters.get('a').lastActive = t; game.pve.cleared = true; game.step(1 / 60); }
+  assert.equal(save.data.clearNo - seen, 3);
+  game.drainEvents();
+  game.like({ id: 'b', name: 'B' }, 1);
+  const cu = game.drainEvents().find(e => e.type === 'catchup');
+  assert.ok(cu && cu.stages === 3 && cu.items === 3, '补发3关');
+  // 场上最多30人，第31个进后援
+  for (let i = 0; i < 40; i++) game.chat({ id: 'n' + i, name: 'N' + i }, '输出');
+  assert.equal(game.humans().length, 30);
+  assert.ok(game.reserve.size >= 10);
+  // 送礼的人一定能上场
+  const outsider = [...game.reserve.keys()].find(k => k.startsWith('n'));
+  game.gift({ id: outsider }, { name: '小心心', price: 1, count: 1 });
+  assert.ok(game.fighters.has(outsider));
+  assert.equal(game.humans().length, 30);
 });
 
 test('掉落顺序：本局送礼的排前面（送得多的第1），其余按贡献；保底必出金/红', async () => {
@@ -605,6 +765,7 @@ test('掉落顺序：本局送礼的排前面（送得多的第1），其余按�
   // 保底：金差1件就到 → 必出金或更好
   pityOf(game, a).gold = GEAR.pity.gold - 1;
   pityOf(game, b).red = GEAR.pity.red - 1;
+  game.pve.kind = 'boss';
   const drops = rollDrops(game, 8);
   const da = drops.find(x => x.uid === 'a'), db = drops.find(x => x.uid === 'b');
   assert.ok(da.item.tier >= 4, '金保底');

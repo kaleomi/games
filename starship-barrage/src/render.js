@@ -1,12 +1,12 @@
 // 星舰弹幕战 · 画面
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
-import { bossTimeText, rayHits } from './pve.js';
+import { bossTimeText, rayHits, stageKind, chapterOf, stepOf, KIND_NAMES, leaderMax } from './pve.js';
 import { queenSvg, colossusSvg, eyeSvg, bossPodSvg, chestSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR } from './config.js';
-import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, pityOf, lootFloorOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
+import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, matOf, growthE, pityOf, lootFloorOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
@@ -127,7 +127,7 @@ export class Renderer {
   turretArt(team, dead) { return this.art.get(`tu|${team}|${dead ? 1 : 0}`, px => turretSvg(team, px, dead), 58, 58, 3); }
   droneArt(team) { return this.art.get(`dr|${team}`, px => droneSvg(team, px), 24, 24, 3); }
   medalArt(rank) { return this.art.get(`md|${rank}`, px => medalSvg(rank, px), 18, 19.5, 4); }
-  alienArt(kind) { if (kind === 'chest') return this.art.get('al|chest', px => chestSvg(px), 110, 110, 2.5); const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
+  alienArt(kind) { if (kind === 'elite') return this.art.get('al|elite', px => alienSvg('gunner', px), 104, 104, 2.5); if (kind === 'chest') return this.art.get('al|chest', px => chestSvg(px), 110, 110, 2.5); const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
   podArt(dead, id = 'mother') {
     if (id === 'mother') return this.art.get(`pod|${dead ? 1 : 0}`, px => podSvg(px, dead), 58, 58, 3);
     return this.art.get(`pod|${id}|${dead ? 1 : 0}`, px => bossPodSvg(id, px, dead), 58, 58, 3);
@@ -208,15 +208,19 @@ export class Renderer {
         case 'strike': this.shake = Math.max(this.shake, e.kind === 'cannon' ? 20 : 10); for (const l of e.lanes) this.laneFlashes.push({ lane: l, t: 0.6, kind: e.kind }); break;
         case 'loot': {
           const T = GEAR.tiers[e.item.tier], nm = `${T.name}·${e.item.name}`;
-          if (!e.crafted) this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: g.teams.red.x, y0: Math.max(120, g.teams.red.y) });
-          const how = e.plus ? `至尊重复 → 强化为 +${e.plus}！` : e.equipped ? '已自动装备' : `分解成1个${GEAR.tiers[Math.min(e.item.tier, 4)].name}碎片`;
-          this.toast(`${e.name} ${e.crafted ? '合成' : '获得'} ${nm} · ${how}`, null, T.color);
-          if (e.plus) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `至尊「${e.item.name}」强化到 +${e.plus}！`, tier: 5, gear: e.item });
-          else if (e.equipped && e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `${e.crafted ? '合成了' : '获得'}${T.name}装备「${e.item.name}」`, tier: e.item.tier >= 4 ? 5 : e.item.tier >= 3 ? 4 : 2, gear: e.item });
+          const from = e.source === 'small' ? (g.fighters.get(e.uid) || { x: 360, y: 700 }) : null;
+          this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: from ? 360 : g.teams.red.x, y0: from ? 300 : Math.max(120, g.teams.red.y) });
+          const how = e.plus ? `同品质重复 → 强化 +${e.plus}` : e.equipped ? (e.inherit ? `已装备，继承强化 +${e.inherit}` : '已自动装备') : `变成${e.mat}余料`;
+          const extra = e.enhanced ? ` · 余料强化${e.enhanced}次` : '';
+          this.toast(`${e.name} ${e.source === 'small' ? '小怪掉落' : '获得'} ${nm} · ${how}${extra}`, null, T.color);
+          if (e.plus && e.item.tier >= 4) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `${T.name}「${e.item.name}」强化到 +${e.plus}！`, tier: 5, gear: e.item });
+          else if (e.equipped && !e.plus && e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `获得${T.name}装备「${e.item.name}」`, tier: e.item.tier >= 4 ? 5 : e.item.tier >= 3 ? 4 : 2, gear: e.item });
           break;
         }
+        case 'upgrade': { const T = GEAR.tiers[e.item.tier]; this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `强化满+10，自动升品为${T.name}「${e.item.name}」！`, tier: e.item.tier >= 4 ? 5 : 3, gear: e.item }); break; }
+        case 'catchup': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `欢迎回来！成长汇总：错过${e.stages}关，补发经验${e.xp}${e.levels ? `（升${e.levels}级）` : ''}、装备${e.items}件`, tier: 3 }); break;
+        case 'reserve': break;
         case 'pity': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `触发保底！必出${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: 5, gear: e.item }); break;
-        case 'craft': this.toast(`${e.name} 用${GEAR.shardsPerCraft}个${GEAR.tiers[e.from].name}碎片合成了${GEAR.tiers[e.item.tier].name}装备`, null, GEAR.tiers[e.item.tier].color); break;
         default: break;
       }
     }
@@ -960,6 +964,9 @@ export class Renderer {
 
   drawAlien(x, f) {
     const art = this.alienArt(f.kind);
+    if (f.kind === 'elite') {   // 精英头目：红色光环
+      x.globalCompositeOperation = 'lighter'; const s = this.glowSprite('#ff3b4e', 46 + Math.sin(f.t * 4) * 6); x.globalAlpha = 0.7; x.drawImage(s, f.x - s.half, f.y - s.half); x.globalAlpha = 1; x.globalCompositeOperation = 'source-over';
+    }
     x.save(); x.translate(f.x, f.y);
     let a = Math.sin(f.t * 3 + f.seed) * 0.12;
     if (f.kind === 'diver' && f.stage === 2) a = Math.atan2(f.vy, f.vx) - Math.PI / 2;
@@ -972,6 +979,11 @@ export class Renderer {
       const w = 120; x.fillStyle = 'rgba(0,0,0,.65)'; x.fillRect(f.x - w / 2, f.y - 70, w, 8);
       x.fillStyle = '#ffcc4d'; x.fillRect(f.x - w / 2 + 1, f.y - 69, (w - 2) * Math.max(0, f.hp / f.maxHp), 6);
       this.label(x, '宝箱魔王 · 打死全员开箱', f.x, f.y - 82, 14, '#ffe28a', true);
+    }
+    if (f.kind === 'elite') {
+      const w = 130; x.fillStyle = 'rgba(0,0,0,.65)'; x.fillRect(f.x - w / 2, f.y - 66, w, 8);
+      x.fillStyle = '#ff6b5a'; x.fillRect(f.x - w / 2 + 1, f.y - 65, (w - 2) * Math.max(0, f.hp / f.maxHp), 6);
+      this.label(x, '精英头目 · 打死过关', f.x, f.y - 78, 14, '#ffb36b', true);
     }
     if (f.kind === 'gunner' && f.hp < f.maxHp) {
       x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(f.x - 22, f.y - 34, 44, 5);
@@ -1174,21 +1186,24 @@ export class Renderer {
     const g = this.game;
     if (g.clock - (this.cpCache?.t ?? -9) > 1) {
       const all = g.humans().filter(f => f.team === 'blue');
-      this.cpCache = { t: g.clock, n: all.length, list: all.map(f => ({ f, cp: combatPower(f) })).sort((a, b) => b.cp - a.cp).slice(0, 5) };
+      this.cpCache = { t: g.clock, n: all.length, list: all.map(f => ({ f, cp: combatPower(f) })).sort((a, b) => b.cp - a.cp).map((r, i) => ({ ...r, rank: i })) };
     }
-    const { list, n } = this.cpCache;
+    // 前三名固定，下面两行每4秒翻一页，轮流显示第4名以后的人
+    const { n } = this.cpCache, full = this.cpCache.list;
+    const rest = full.slice(3), pages = Math.max(1, Math.ceil(rest.length / 2)), pg = Math.floor(g.clock / 4) % pages;
+    const list = [...full.slice(0, 3), ...rest.slice(pg * 2, pg * 2 + 2)];
     const L = 8, T = BOTTOM_Y, Wd = 348, Hh = H - 8 - T, rowH = 46;
     this.panelBox(x, L, T, Wd, Hh);
     x.textAlign = 'left'; x.textBaseline = 'middle';
     x.font = `700 16px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText('战力榜', L + 12, T + 17);
-    x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText(`在场${n}人 · 战力＝等级+装备`, L + 70, T + 18);
+    x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText(`在场${n}人 · 战力＝等级+装备${rest.length > 2 ? ` · 第${4 + pg * 2}名起 ${pg + 1}/${pages}` : ''}`, L + 70, T + 18);
     if (!list.length) { x.font = `14px ${FONT}`; x.fillStyle = '#6f7894'; x.fillText('发「输出」「机甲」「医疗」「航母」上场', L + 14, T + 60); return; }
     this.boardHits = [];
-    list.forEach(({ f, cp }, i) => {
-      const y = T + 34 + i * rowH + rowH / 2;
+    list.forEach(({ f, cp, rank }, row) => {
+      const i = rank, y = T + 34 + row * rowH + rowH / 2;
       this.boardHits.push({ uid: f.uid, x0: L, y0: y - rowH / 2, x1: L + Wd, y1: y + rowH / 2 });
       if (this.hoverUid === f.uid) { x.fillStyle = 'rgba(255,216,107,.12)'; x.fillRect(L + 6, y - rowH / 2 + 1, Wd - 12, rowH - 2); }
-      if (i % 2 === 0) { x.fillStyle = 'rgba(255,255,255,.035)'; x.fillRect(L + 6, y - rowH / 2 + 1, Wd - 12, rowH - 2); }
+      if (row % 2 === 0) { x.fillStyle = 'rgba(255,255,255,.035)'; x.fillRect(L + 6, y - rowH / 2 + 1, Wd - 12, rowH - 2); }
       const m = i < 3 && this.medalArt(i);
       if (m) this.blit(x, m, L + 18, y); else { x.font = `700 14px ${NUM}`; x.fillStyle = '#8fa3c8'; x.textAlign = 'center'; x.fillText(String(i + 1), L + 18, y); x.textAlign = 'left'; }
       const av = this.avatar(f.avatar), ax = L + 46;
@@ -1239,7 +1254,7 @@ export class Renderer {
       '发「输出」「机甲」「医疗」「航母」选战舰，自动索敌开火',
       '小技能每10秒自动放；发「大招」放大招（冷却45秒）',
       '红色区域10秒后命中，发「左」「中」「右」躲开',
-      '每关限时2分钟，打爆母舰进下一关并掉装备',
+      '每章5关：1–3关打精英头目，4精英，5首领；失败本章重来',
       '湮灭炮锁定时全员发「拦截」· 点赞充能打超载炮',
     ], 14, 4);
     else if (name === '弹幕指令') {
@@ -1272,7 +1287,7 @@ export class Renderer {
         x.font = `700 13px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(d.name, px + 42, py - 8);
         x.font = `12px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(GEAR.stats[d.stat].label, px + 42, py + 10);
       });
-      x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('多余自动分解，100碎片合高一级 · 红装重复+1', cx, y0 + 168);
+      x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText(`同品质重复强化+1（+2%），满+10自动升品（金不升红）· 低品质变余料`, cx, y0 + 168);
     } else if (name === '礼物效果') {
       const rows = [
         ['小心心', '自己经验+50% 30秒，立即放技能'],
@@ -1291,13 +1306,13 @@ export class Renderer {
       });
       x.font = `11px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('爱你哟/墨镜/礼花筒：自己掉落保底橙/紫/金 · 任意礼物送自动躲弹', cx, y0 + 182);
     } else bullets([
-      '贡献＝打伤害＋给队友回血＋替队友挨打，不看消费',
-      '经验＝贡献值，战斗中实时升级，每级攻击生命+2%',
+      '贡献＝成长分E×有效行为：存活5秒1E、技能6E、大招12E、躲红区3E',
+      '经验＝贡献值，战斗中实时升级；E随等级和装备变高',
       '战力＝等级＋装备，左边战力榜按战力排',
       '掉落顺序：本局送礼的排前面（送得多的在前），再按贡献；前三必掉，其余60%',
       `保底：${GEAR.pity.gold}件必出金，${GEAR.pity.red}件必出红；前5关不出红`,
-      '多余装备自动分解成同色碎片，100个自动合成高一级',
-      '灰色NPC是补位电脑，不进榜单',
+      `场上最多${PVE.reserve.cap}人，5分钟没互动进后援，过关照样拿一半经验+白装`,
+      '前三关真人打小怪10%额外掉白装（每关最多3件）',
     ], 14, 4);
     x.restore(); x.globalAlpha = 1;
   }
@@ -1309,22 +1324,28 @@ export class Renderer {
     x.fillStyle = 'rgba(4,6,16,.8)'; x.fillRect(0, 0, W, 58);
     x.fillStyle = 'rgba(255,216,107,.12)'; x.fillRect(0, 0, 150, 58);
     x.textBaseline = 'middle'; x.textAlign = 'center';
-    x.font = `900 26px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(`第${stage}关`, 75, 24);
-    x.font = `11px ${FONT}`; x.fillStyle = '#c8a860'; x.fillText(`最高通关 第${g.save?.data?.pveBest || 0}关`, 75, 46);
-    const pct = t.coreMax ? t.core / t.coreMax : 1;
-    x.textAlign = 'left'; x.font = `700 14px ${FONT}`; x.fillStyle = '#d79bff'; x.fillText(t.bossName || '异形母舰', 162, 15);
+    const kind = stageKind(stage);
+    x.font = `900 24px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(`第${chapterOf(stage)}章 ${chapterOf(stage)}-${stepOf(stage)}`, 75, 22);
+    x.font = `700 11px ${FONT}`; x.fillStyle = kind === 'boss' ? '#ff7a8a' : kind === 'elite' ? '#d79bff' : '#c8a860';
+    x.fillText(`${KIND_NAMES[kind]}关 · 最高${g.save?.data?.pveBest || 0}关`, 75, 46);
+    // 1–3关：血条显示精英头目
+    const leader = p?.sub === 'leader' ? g.fighters.get(p.leader) : null;
+    const hp = leader ? Math.max(0, leader.hp) : t.core, hpMax = leader ? leader.maxHp : t.coreMax;
+    const pct = hpMax ? hp / hpMax : 1;
+    x.textAlign = 'left'; x.font = `700 14px ${FONT}`; x.fillStyle = kind === 'wave' ? '#ffb36b' : '#d79bff'; x.fillText(t.bossName || '异形母舰', 162, 15);
     x.font = `12px ${FONT}`; x.fillStyle = '#aab4cc';
-    const sub = g.phase !== 'battle' ? (g.phase === 'lobby' ? `${Math.ceil(g.phaseT)}秒后出击` : '结算中') : !p ? '' : p.sub === 'wave' ? `虫群来袭 · ${Math.ceil(p.t)}秒后母舰现身` : p.sub === 'enter' ? '母舰逼近！' : t.cannon?.state === 'charging' ? '湮灭炮蓄力中，发「拦截」' : `母舰血量 ${Math.ceil(pct * 100)}%`;
+    const who = kind === 'wave' ? '精英头目' : t.bossName;
+    const sub = g.phase !== 'battle' ? (g.phase === 'lobby' ? `${Math.ceil(g.phaseT)}秒后出击` : '结算中') : !p ? '' : p.sub === 'wave' ? `虫群来袭 · ${Math.ceil(p.t)}秒后${who}现身` : p.sub === 'leader' ? `打死头目过关 · ${Math.ceil(pct * 100)}%` : p.sub === 'enter' ? `${who}逼近！` : t.cannon?.state === 'charging' ? '湮灭炮蓄力中，发「拦截」' : `血量 ${Math.ceil(pct * 100)}%`;
     x.fillText(sub, 232, 15);
     x.fillStyle = 'rgba(255,255,255,.08)'; x.fillRect(162, 28, 400, 16);
     const gr = x.createLinearGradient(162, 0, 562, 0); gr.addColorStop(0, '#8a3dbf'); gr.addColorStop(1, '#8dff5a');
     x.fillStyle = gr; x.fillRect(162, 28, 400 * pct, 16);
     if (t.hitFlash > 0.05) { x.fillStyle = `rgba(255,255,255,${t.hitFlash * 0.5})`; x.fillRect(162, 28, 400 * pct, 16); }
-    x.font = `700 12px ${NUM}`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(`${Math.ceil(t.core || 0)} / ${t.coreMax || 0}`, 362, 37);
+    x.font = `700 12px ${NUM}`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(kind === 'wave' && !leader ? `精英头目 ${leaderMax(stage)}` : `${Math.ceil(hp || 0)} / ${hpMax || 0}`, 362, 37);
     const left = g.phase === 'battle' && p ? Math.max(0, Math.ceil(p.left)) : PVE.stageSeconds;
     x.textAlign = 'right'; x.font = `800 26px ${NUM}`; x.fillStyle = left <= 20 && g.phase === 'battle' ? '#ff6b7a' : '#ffffff';
     x.fillText(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, W - 14, 24);
-    x.font = `11px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText(`本关限时 ${PVE.stageSeconds / 60}:00`, W - 14, 46);
+    x.font = `11px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText(`本关限时 ${PVE.stageSeconds / 60}:00${g.reserve?.size ? ` · 后援${g.reserve.size}人` : ''}`, W - 14, 46);
     // 士气条 + 全队BUFF
     x.fillStyle = 'rgba(4,6,16,.66)'; x.fillRect(0, 58, W, 22);
     const mk = Math.min(1, (g.morale || 0) / PVE.morale.need);
@@ -1534,12 +1555,11 @@ export class Renderer {
     x.fillText(`攻击${(st.atk || 0).toFixed(1)}  生命${Math.round(st.maxHp || f.maxHp)}  防御${P(st.armor)}  攻速+${P(st.aspd)}  暴击${P(st.crit)}  爆伤${P(st.critDmg)}`, L + 20, T + 56);
     x.fillStyle = '#9fb0d0';
     x.fillText(`技能急速${P(st.haste)}  技能强度+${P((st.power || 1) - 1)}`, L + 20, T + 78);
-    const sh = shardsOf(g, f); let sx = L + 230;
-    x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText('碎片', sx, T + 78); sx += 30;
-    sh.forEach((n, i) => { x.fillStyle = GEAR.tiers[i].color; x.fillText(`${GEAR.tiers[i].name.slice(0, 1)}${n}`, sx, T + 78); sx += x.measureText(`${GEAR.tiers[i].name.slice(0, 1)}${n}`).width + 8; });
+    x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.textAlign = 'right';
+    { const pt0 = pityOf(g, f); x.fillText(`成长分E ${growthE(f).toFixed(2)} · 余料${matOf(g, f).get()}/${GEAR.matPerLv} · 保底 金${pt0.gold} 红${pt0.red}`, L + Wd - 20, T + 78); } x.textAlign = 'left';
     const pt = pityOf(g, f);
     const flr = lootFloorOf(g, f); if (flr >= 0) { const left = Math.max(...(f.floors || []).filter(q => q.tier === flr).map(q => q.until)) - g.clock; x.font = `700 21px ${FONT}`; const tw = x.measureText(`Lv.${f.level || 1} ${trim(f.name, 10)} 的装备`).width; x.font = `700 12px ${FONT}`; x.fillStyle = GEAR.tiers[flr].color; x.fillText(`掉落保底${GEAR.tiers[flr].name} ${Math.ceil(left)}s`, L + 30 + tw, T + 29); }
-    x.textAlign = 'right'; x.fillStyle = '#ffd86b'; x.fillText(`保底 金${pt.gold}/${GEAR.pity.gold} 红${pt.red}/${GEAR.pity.red}`, L + Wd - 20, T + 56); x.textAlign = 'left';
+    void pt;
     Object.keys(GEAR.slots).forEach((sl, i) => {
       const it = f.gear?.[sl], y = T + 98 + i * rowH + rowH / 2;
       x.fillStyle = i % 2 ? 'rgba(255,255,255,.03)' : 'rgba(255,255,255,.06)'; x.fillRect(L + 10, y - rowH / 2 + 2, Wd - 20, rowH - 4);

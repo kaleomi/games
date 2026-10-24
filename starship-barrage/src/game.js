@@ -3,11 +3,13 @@ import {
   W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES,
 } from './config.js';
 import { skinFor } from './save.js';
-import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul } from './pve.js';
-import { syncDodge, fmtDuration } from './fleet.js';
+import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul, failStage, stageKind, stageLabel, smallKill } from './pve.js';
+import { syncDodge, fmtDuration, score, giveItem, makeItem } from './fleet.js';
 import { nearestEnemy } from './fleet.js';
-import { pveGiftKind, applyPveGift, stepPveGifts, moraleLike, dailyCheckin, chestKilled, xpMul } from './gifts-pve.js';
-import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter } from './fleet.js';
+import { pveGiftKind, applyPveGift, stepPveGifts, moraleLike, dailyCheckin, chestKilled, xpMul, pauseSummons, resumeSummons } from './gifts-pve.js';
+import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter, growthE } from './fleet.js';
+import { GEAR } from './config.js';
+const GEAR_SLOTS = () => GEAR.slots;
 
 const TEAM_IDS = ['red', 'blue'];
 const other = t => (t === 'red' ? 'blue' : 'red');
@@ -86,7 +88,8 @@ export class Game {
     this.pve = null;
     this.alienSeq = 0;
     this.zones = []; this.barriers = []; this.zoneSeq = 0; this.pveDrones = [];
-    this.memStage = 1;
+    this.memStage = 1; this.memClearNo = 0;
+    this.reserve = new Map();   // 讨伐后援：uid → 战机（不在场上）
     this.teams = {};
     for (const id of TEAM_IDS) this.teams[id] = this.makeTeam(id);
     this.startLobby();
@@ -135,7 +138,8 @@ export class Game {
     const nowMs = this.now();
     for (const f of [...this.fighters.values()]) {
       if (f.npc) { this.fighters.delete(f.uid); continue; }
-      if (nowMs - f.lastActive > FIGHTER.idleKick * 1000) { this.fighters.delete(f.uid); continue; }
+      if (this.mode === 'pve' && f.reserve) continue;
+      if (this.mode !== 'pve' && nowMs - f.lastActive > FIGHTER.idleKick * 1000) { this.fighters.delete(f.uid); continue; }
       this.resetFighterForRound(f);
     }
     this.syncNpcs(true);
@@ -158,7 +162,6 @@ export class Game {
     this.phaseT = ROUND.resultSeconds;
     this.winner = winner;
     const result = { winner, reason, round: this.roundNo, mvp: {}, players: 0, mode: this.mode };
-    if (this.mode === 'pve' && winner === 'blue') for (const f of this.humans()) f.merit += PVE.stageClearContrib;
     for (const id of TEAM_IDS) {
       const list = this.humans().filter(f => f.team === id).sort((a, b) => b.merit - a.merit);
       result.mvp[id] = list.slice(0, this.mode === 'pve' ? 8 : 3).map(f => ({ uid: f.uid, name: f.name, avatar: f.avatar || '', merit: Math.floor(f.merit), kills: f.kills, cls: f.cls || null }));
@@ -166,11 +169,12 @@ export class Game {
     if (this.mode === 'pve') {
       const stage = this.pve?.stage || currentStage(this);
       const clear = winner === 'blue';
-      const next = clear ? stage + 1 : Math.max(1, stage - 1);
+      const next = clear ? stage + 1 : failStage(stage);
       if (this.save) { this.save.data.pveStage = next; this.save.data.pveBest = Math.max(this.save.data.pveBest || 0, clear ? stage : 0); this.save.dirty = true; }
       this.memStage = next;
-      Object.assign(result, { stage, clear, next, bossName: this.teams.red.bossName });
+      Object.assign(result, { stage, clear, next, kind: stageKind(stage), bossName: this.teams.red.bossName, small: this.pve?.smallDrops || 0 });
       result.drops = clear ? rollDrops(this, stage) : [];
+      if (clear) result.reserve = this.clearReward(stage);
       for (const f of this.humans()) f.giftRound = 0;   // 结算后清零，结算期间送的算下一局
     }
     for (const f of this.humans()) {
@@ -191,7 +195,7 @@ export class Game {
     for (const list of Object.values(result.mvp)) for (const m of list) m.level = this.fighters.get(m.uid)?.level || 1;
     if (this.save) { this.save.data.rounds++; this.save.flush(); }
     this.emit('result', result);
-    if (this.mode === 'pve') this.emit('announce', { text: result.clear ? `第${result.stage}关讨伐成功！` : `讨伐失败，退回第${result.next}关`, voice: true });
+    if (this.mode === 'pve') this.emit('announce', { text: result.clear ? `${stageLabel(result.stage)}讨伐成功！` : `讨伐失败，退回${stageLabel(result.next)}`, voice: true });
     else this.emit('announce', { text: winner ? `${TEAMS[winner].name}获胜！` : '本局平局', voice: true });
   }
 
@@ -208,11 +212,13 @@ export class Game {
     return this.random() < 0.5 ? 'red' : 'blue';
   }
 
-  join(user, team = null) {
+  join(user, team = null, { force = false } = {}) {
     const uid = String(user?.id || '');
     if (!uid) return null;
     let f = this.fighters.get(uid);
     const nowMs = this.now();
+    if (!f && this.mode === 'pve' && this.reserve.has(uid)) return this.fromReserve(this.reserve.get(uid), user, force);
+    if (!f && this.mode === 'pve' && this.activeHumans() >= PVE.reserve.cap && !this.makeRoom(force)) return this.newToReserve(user);
     if (f) {
       if (user.name) f.name = String(user.name).slice(0, 24);
       if (user.avatar) f.avatar = user.avatar;
@@ -240,8 +246,104 @@ export class Game {
     this.fighters.set(uid, f);
     f.labelUntil = this.clock + 4;
     this.emit('join', { uid, name: f.name, team: t });
+    if (this.mode === 'pve' && !test) this.catchUp(f, prof);
     this.syncNpcs();
     return f;
+  }
+
+  // ───────── 后援（讨伐） ─────────
+  activeHumans() { let n = 0; for (const f of this.fighters.values()) if (!f.npc) n++; return n; }
+  clearNo() { return this.save ? (this.save.data.clearNo || 0) : this.memClearNo; }
+  toReserve(f, why) {
+    if (!f || f.npc || f.reserve) return;
+    pauseSummons(this, f);
+    f.reserve = true; f.reserveAt = this.now(); f.alive = false;
+    this.fighters.delete(f.uid);
+    this.reserve.set(f.uid, f);
+    this.emit('reserve', { uid: f.uid, name: f.name, why });
+    this.emit('toast', { uid: f.uid, text: `${f.name} ${why === 'full' ? '场上满员' : '5分钟没互动'}，进入后援（发言/点赞/送礼回来）` });
+    this.syncNpcs();
+  }
+  // 场内满了：送礼的人一定能上场（换下最久没互动的人）；发言/点赞只换下1分钟以上没互动的
+  makeRoom(force) {
+    let idle = null;
+    for (const f of this.fighters.values()) if (!f.npc && (!idle || f.lastActive < idle.lastActive)) idle = f;
+    if (!idle || (!force && this.now() - idle.lastActive < 60000)) return false;
+    this.toReserve(idle, 'full');
+    return true;
+  }
+  newToReserve(user) {
+    const f = { uid: String(user.id), npc: false, test: String(user.id).startsWith('test:'), name: String(user.name || '飞行员').slice(0, 24), avatar: user.avatar || '', team: 'blue', lastActive: this.now(), pending: user };
+    const prof = this.save && !f.test ? this.save.get(f.uid, user.name, user.avatar) : null;
+    f.level = prof?.level || 1;
+    f.reserve = true; f.reserveAt = this.now(); f.fresh = true;
+    this.reserve.set(f.uid, f);
+    this.emit('toast', { uid: f.uid, text: `${f.name}：场上已满${PVE.reserve.cap}人，先进后援，有空位自动上场` });
+    return null;
+  }
+  fromReserve(f, user, force) {
+    f.lastActive = this.now();
+    if (user?.name) f.name = String(user.name).slice(0, 24);
+    if (this.activeHumans() >= PVE.reserve.cap && !this.makeRoom(force)) { f.wantIn = true; return null; }
+    this.reserve.delete(f.uid);
+    if (f.fresh) return this.join(f.pending || { id: f.uid, name: f.name, avatar: f.avatar });
+    f.reserve = false; f.wantIn = false;
+    this.resetFighterForRound(f);
+    this.fighters.set(f.uid, f);
+    f.labelUntil = this.clock + 4;
+    resumeSummons(this, f);
+    this.emit('join', { uid: f.uid, name: f.name, team: f.team, back: true });
+    const prof = this.save && !f.test ? this.save.peek(f.uid) : null;
+    if (prof) this.catchUp(f, prof);
+    this.syncNpcs();
+    return f;
+  }
+  // 每秒：5分钟没互动进后援；超员进后援；有空位让想上场的人上；后援里太久没动静的移出（回来时按错过的关补发）
+  stepReserve() {
+    const R = PVE.reserve, nowMs = this.now();
+    for (const f of [...this.fighters.values()]) if (!f.npc && nowMs - f.lastActive > R.idle * 1000) this.toReserve(f, 'idle');
+    while (this.activeHumans() > R.cap) { let idle = null; for (const f of this.fighters.values()) if (!f.npc && (!idle || f.lastActive < idle.lastActive)) idle = f; this.toReserve(idle, 'full'); }
+    const want = [...this.reserve.values()].filter(f => f.wantIn || f.fresh).filter(f => nowMs - f.lastActive < R.idle * 1000).sort((a, b) => b.lastActive - a.lastActive);
+    for (const f of want) { if (this.activeHumans() >= R.cap) break; this.fromReserve(f, null, false); }
+    for (const f of [...this.reserve.values()]) if (nowMs - f.lastActive > R.keep * 1000) this.reserve.delete(f.uid);
+  }
+  // 过关：总进度+1；在场的人记已领；后援的人拿后援奖励（普通关50%基础经验+1件白装，精英/BOSS关1件白装）
+  clearReward(stage) {
+    if (this.save) { this.save.data.clearNo = (this.save.data.clearNo || 0) + 1; this.save.dirty = true; } else this.memClearNo++;
+    const no = this.clearNo(), R = PVE.reserve;
+    for (const f of this.humans()) { const p = !f.test && this.save?.peek(f.uid); if (p) p.seenClear = no; }
+    const kind = stageKind(stage), xp = kind === 'wave' ? Math.round(R.baseXp(stage) * R.xpRate) : 0;
+    let n = 0;
+    for (const f of this.reserve.values()) {
+      const p = !f.test && this.save?.peek(f.uid);
+      if (p && (p.seenClear || 0) >= no) continue;
+      this.grantReserve(f, p, 1, xp);
+      if (p) p.seenClear = no;
+      n++;
+    }
+    return { players: n, xp };
+  }
+  grantReserve(f, p, items, xp) {
+    if (p && xp > 0) { this.save.addXp(p, xp); f.level = p.level; }
+    const who = p ? { uid: f.uid, name: f.name, gear: (p.gear ||= {}) } : f.gear ? f : Object.assign(f, { gear: {} });
+    const slots = Object.keys(GEAR_SLOTS());
+    for (let i = 0; i < items; i++) giveItem(this, who, makeItem(this.random, slots[Math.floor(this.random() * slots.length)], 0), { silent: true });
+  }
+  // 回来时补发：主播实际推进了、自己没领过的关（每关50%基础经验+1件白装）；第一次来的人不补历史
+  catchUp(f, p) {
+    const no = this.clearNo();
+    const missed = Math.min(PVE.reserve.catchupMax, Math.max(0, no - (p.seenClear ?? no)));
+    p.seenClear = no;
+    if (!missed) return null;
+    const R = PVE.reserve, stage = currentStage(this);
+    const xp = Math.round(R.baseXp(stage) * R.xpRate) * missed;
+    const before = p.level;
+    this.grantReserve(f, p, missed, xp);
+    f.level = p.level; f.skin = skinFor(p.level);
+    if (f.cls) refreshStats(f);
+    const res = { uid: f.uid, name: f.name, stages: missed, xp, items: missed, levels: p.level - before };
+    this.emit('catchup', res);
+    return res;
   }
 
   // 讨伐：贡献值每秒实时换成经验，战斗中就能升级（升级马上加血加攻）
@@ -272,7 +374,7 @@ export class Game {
     f.vx = 0; f.vy = 0;
     f.fireCd = this.random() * 0.5; f.power = 1; f.powerUntil = 0; f.shield = 0;
     f.charge = 0; f.likeWindow = 0; f.likeWindowT = 0;
-    f.merit = 0; f.kills = 0; f.dmgAcc = 0; f.smallAcc = 0;
+    f.merit = f.meritNext || 0; f.meritNext = 0; f.aliveAcc = 0; f.kills = 0; f.dmgAcc = 0; f.smallAcc = 0;
     f.drones = 0; f.dronesUntil = 0; f.droneCd = 0;
     f.wander = this.random() * Math.PI * 2; f.depth = 0.3 + this.random() * 0.5;
     f.interceptT = 0; f.labelUntil = f.labelUntil || 0; f.invuln = 1.5;
@@ -373,7 +475,7 @@ export class Game {
   gift(user, gift) {
     const amount = Math.max(0, Math.min(10000, Math.floor(Number(gift.count) || 0)));
     if (!amount || !user?.id) return null;
-    const f = this.join(user);
+    const f = this.join(user, null, { force: true });
     if (!f) return null;
     f.lastActive = this.now();
     this.stats.gifts++; this.stats.giftUnits += amount;
@@ -382,6 +484,9 @@ export class Game {
       const price = Number(gift.price);
       const value = (Number.isFinite(price) && price > 0 ? price : 1) * amount;
       f.giftRound = (f.giftRound || 0) + value;   // 本局礼物榜（只用来排掉落顺序，不显示金额）
+      // 贡献：新增抖币 × E，只算一次（礼物触发的技能/召唤物不再重复算）；结算期间送的算进下一局
+      if (this.phase === 'result') f.meritNext = (f.meritNext || 0) + value * PVE.score.perCoin * growthE(f);
+      else score(this, f, value * PVE.score.perCoin);
       const had = (f.dodgeLeft || 0) > 0;
       f.dodgeLeft = (f.dodgeLeft || 0) + value * PVE.autoDodgePerValue;
       syncDodge(this, f);
@@ -512,6 +617,7 @@ export class Game {
   // ───────── 主循环 ─────────
   step(dt) {
     this.clock += dt;
+    if (this.mode === 'pve' && Math.floor(this.clock) !== Math.floor(this.clock - dt)) this.stepReserve();
     if (this.phase === 'lobby') {
       this.phaseT -= dt;
       this.stepFighters(dt, false);
@@ -545,6 +651,7 @@ export class Game {
       if (t.core <= 0 && t.present) { this.emit('explode', { x: t.x, y: t.y + t.coreDy, size: 4, team: id }); return this.endBattle(other(id), 'destroyed'); }
     }
     if (this.mode === 'pve') {
+      if (this.pve?.cleared) { this.emit('explode', { x: 360, y: 260, size: 3, team: 'red' }); return this.endBattle('blue', 'leader'); }
       if (this.pve?.wiped) return this.endBattle('red', 'wipe');
       if (this.pve && this.pve.left <= 0) return this.endBattle('red', 'timeout');
       return;
@@ -622,7 +729,7 @@ export class Game {
     enemy.hitFlash = 1;
     c.state = 'firing'; c.fireT = 1.3;
     const owner = c.owner ? this.fighters.get(c.owner) : null;
-    if (owner) owner.merit += (dmg / 100) * MERIT.per100Damage;
+    if (owner && this.mode !== 'pve') owner.merit += (dmg / 100) * MERIT.per100Damage;
     // 光柱中的敌机全部击落
     for (const f of [...this.fighters.values()]) {
       if (f.team === t.id || !f.alive) continue;
@@ -814,8 +921,9 @@ export class Game {
     if (!f.alive) return;
     f.alive = false; f.respawn = this.mode === 'pve' ? PVE.respawn : FIGHTER.respawn; f.shield = 0; f.beamT = 0;
     this.emit('explode', { x: f.x, y: f.y, size: f.alien && f.kind === 'gunner' ? 2 : 1, team: f.team, alien: !!f.alien });
-    if (killer && killer.team !== f.team && !killer.alien) { killer.merit += f.alien ? PVE.alien[f.kind].merit : MERIT.kill; killer.kills++; }
+    if (killer && killer.team !== f.team && !killer.alien) { if (this.mode !== 'pve') killer.merit += MERIT.kill; killer.kills++; }
     if (f.alien && f.kind === 'chest') chestKilled(this, f);
+    if (f.alien && this.mode === 'pve' && killer) smallKill(this, f, killer);
     if (f.alien) this.fighters.delete(f.uid);
   }
 
@@ -962,8 +1070,7 @@ export class Game {
     if (t.shield > 0) { const s = Math.min(t.shield, dmg); t.shield -= s; dmg -= s; }
     if (dmg > 0) { t.core = Math.max(0, t.core - dmg); t.hitFlash = Math.max(t.hitFlash, 0.15); }
     const o = this.fighters.get(ownerUid);
-    if (o && this.mode === 'pve') { if (!o.alien) o.merit += counted * PVE.contrib.dmg; }
-    else if (o) {
+    if (o && this.mode !== 'pve') {
       o.dmgAcc += counted;
       while (o.dmgAcc >= 100) { o.dmgAcc -= 100; o.merit += MERIT.per100Damage; }
     }
@@ -1034,7 +1141,7 @@ export class Game {
       for (const bar of this.barriers) {
         const [l0, l1] = PVE.lanes[bar.lane];
         if (b.x > l0 && b.x < l1 && Math.abs(b.y - bar.y) < 10 + b.r) {
-          const o = this.fighters.get(bar.owner); if (o) o.merit += b.dmg * PVE.contrib.taken;
+          
           return true;
         }
       }
@@ -1050,7 +1157,8 @@ export class Game {
           const f = cell[i];
           if (f.team === b.team || !f.alive) continue;
           const dx = f.x - b.x, dy = f.y - b.y;
-          if (dx * dx + dy * dy > rr * rr) continue;
+          const hr = f.hitR ? f.hitR + b.r : rr;
+          if (dx * dx + dy * dy > hr * hr) continue;
           if (b.hit && b.hit.has(f.uid)) continue;
           const hitDmg = this.mode === 'pve' ? b.dmg : b.kind === 'danmaku' ? 1 : b.dmg * (b.gift || b.overload || f.alien ? 1 : this.shotFactor[b.team]);
           if (!this.hurtFighter(f, hitDmg, b.owner)) continue;
@@ -1081,7 +1189,6 @@ export class Game {
           const dmg = this.mode === 'pve' ? b.dmg * (b.kind === 'danmaku' ? 0.4 : 1) : (b.kind === 'danmaku' ? 0.5 : b.dmg);
           tu.hp -= dmg;
           if (b.crit) this.emit('crit', { x: tu.x, y: tu.y, dmg: Math.round(dmg) });
-          if (this.mode === 'pve') { const o = this.fighters.get(b.owner); if (o && !o.alien) o.merit += dmg * PVE.contrib.dmg; }
           if (tu.hp <= 0) this.killTurret(t, tu, b.owner);
           return true;
         }
@@ -1100,7 +1207,7 @@ export class Game {
     if (tu.dead) return;
     tu.dead = true; tu.respawn = tu.pod ? PVE.podRespawn : FLAGSHIP.turretRespawn;
     const o = this.fighters.get(ownerUid);
-    if (o && !o.alien) o.merit += this.mode === 'pve' ? 30 : MERIT.turret;
+    if (o && !o.alien && this.mode !== 'pve') o.merit += MERIT.turret;
     this.emit('explode', { x: tu.x, y: tu.y, size: 2, team: t.id });
     this.emit('banner', { team: other(t.id), uid: ownerUid, name: o?.name || '', text: tu.pod ? '击毁母舰触手炮' : '击毁敌方炮台', tier: 0 });
   }

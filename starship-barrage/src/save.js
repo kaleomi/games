@@ -22,7 +22,7 @@ export class Save {
   constructor({ storage = null, now = () => Date.now() } = {}) {
     this.storage = storage;
     this.now = now;
-    this.data = { version: 1, players: {}, week: weekKeyOf(now()), rounds: 0, mode: 'pvp', pveStage: 1, pveBest: 0 };
+    this.data = { version: 1, players: {}, week: weekKeyOf(now()), rounds: 0, mode: 'pvp', pveStage: 1, pveBest: 0, clearNo: 0 };
     this.dirty = false;
     if (storage) {
       try {
@@ -51,15 +51,25 @@ export class Save {
         weekMerit: clampInt(p.weekMerit, 0, 1e12, 0),
         seen: clampInt(p.seen, 0, 1e15, 0),
         cls: ['dps', 'tank', 'healer', 'carrier'].includes(p.cls) ? p.cls : null,
-        shards: Array.isArray(p.shards) ? [0, 1, 2, 3, 4].map(i => clampInt(p.shards[i], 0, 1e9, 0)) : [clampInt(p.shards, 0, 1e9, 0), 0, 0, 0, 0],
+        mat: clampInt(p.mat, 0, 1e12, 0),
         dodgeLeft: clampInt(p.dodgeLeft, 0, 1e12, 0),
         pity: { gold: clampInt(p.pity?.gold, 0, 1e6, 0), red: clampInt(p.pity?.red, 0, 1e6, 0) },
         gear: validGear(p.gear),
+        seenClear: clampInt(p.seenClear, 0, 1e12, 0),
+        gv: 2,
       };
+      // 旧存档迁移（强化系统改版）：红+1 原来是+10%，现在每级+2% → 等级×5 保持强度；碎片按余料价值折算
+      if (p.gv !== 2) {
+        const P = players[uid];
+        for (const it of Object.values(P.gear)) if (it.tier === GEAR.tiers.length - 1) it.plus *= 5;
+        const sh = Array.isArray(p.shards) ? p.shards : [p.shards];
+        sh.forEach((n, i) => { P.mat += clampInt(n, 0, 1e9, 0) * (GEAR.matValue[i] || 0); });
+      }
     }
     return {
       version: 1, players, week: typeof obj.week === 'string' ? obj.week : '', rounds: clampInt(obj.rounds, 0, 1e9, 0),
       mode: obj.mode === 'pve' ? 'pve' : 'pvp', pveStage: clampInt(obj.pveStage, 1, 999, 1), pveBest: clampInt(obj.pveBest, 0, 999, 0),
+      clearNo: clampInt(obj.clearNo, 0, 1e12, 0),
     };
   }
 
@@ -75,7 +85,7 @@ export class Save {
   get(uid, name, avatar) {
     let p = this.data.players[uid];
     if (!p) {
-      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: [0, 0, 0, 0, 0], gear: {}, dodgeLeft: 0 };
+      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, mat: 0, gear: {}, dodgeLeft: 0, gv: 2, seenClear: this.data.clearNo || 0 };
       this.prune();
     }
     if (name) p.name = String(name).slice(0, 24);
@@ -121,7 +131,7 @@ export class Save {
     return Object.keys(next.players).length;
   }
 
-  clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0, mode: this.data.mode || 'pvp', pveStage: 1, pveBest: 0 }; this.dirty = true; this.flush(); }
+  clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0, mode: this.data.mode || 'pvp', pveStage: 1, pveBest: 0, clearNo: 0 }; this.dirty = true; this.flush(); }
 }
 
 // 装备存档校验（旧版只有主炮/装甲/引擎/核心且没有副属性，照样能读）

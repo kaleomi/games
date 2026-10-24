@@ -58,6 +58,7 @@ export function applyPveGift(game, f, kind, amount) {
   switch (kind) {
     case 'heart': {   // 自己30秒经验+50%（最多300秒），立即放小技能
       f.xpUntil = extend(f.xpUntil, game, G.heart.sec * n, G.heart.cap);
+      if (f.skillCd > 0) f.freeSkill = true;   // 礼物触发的技能不算贡献
       f.skillCd = 0;
       game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: `经验+50% · 还剩${Math.ceil(f.xpUntil - now(game))}秒，立即放技能`, tier: 1 });
       break;
@@ -109,6 +110,7 @@ function summonMerc(game, owner) {
   game.resetFighterForRound(m);
   m.x = laneCenter(lane); m.y = PVE.zone[1];
   game.fighters.set(uid, m);
+  return m;
 }
 // ───────── 超级战机：跟在主人身边的金色战机，打追踪弹 ─────────
 function summonSuper(game, owner, sec) {
@@ -186,8 +188,6 @@ export function dailyCheckin(game, f) {
 export function stepPveGifts(game, dt) {
   for (const m of [...game.fighters.values()]) {
     if (!m.merc) continue;
-    const o = game.fighters.get(m.owner);
-    if (o && m.merit > 0) { o.merit += m.merit; m.merit = 0; }   // 佣兵贡献算给主人
     if (game.clock > m.until) { game.emit('explode', { x: m.x, y: m.y, size: 1, team: 'blue' }); game.fighters.delete(m.uid); }
   }
   if (game.rainT > 0) {   // 全屏弹幕雨：从底部往上铺满追踪弹
@@ -195,4 +195,18 @@ export function stepPveGifts(game, dt) {
     const n = Math.round(PVE.gifts.drum.rainPerSec * dt + game.random());
     for (let i = 0; i < n; i++) game.addBullet(20 + game.random() * 680, PVE.zone[1] + 20, (game.random() - 0.5) * 60, -520 - game.random() * 160, 5, 1, 'blue', 'danmaku', game.rainOwner, 0, { gift: true, hue: Math.floor(game.random() * 5) });
   }
+}
+
+// ───────── 后援：召唤物暂停（佣兵和超级战机收起来，回到场上再放出来，剩余时间不变） ─────────
+export function pauseSummons(game, f) {
+  const P = (f.paused = { mercs: [], super: 0 });
+  for (const m of [...game.fighters.values()]) if (m.merc && m.owner === f.uid) { P.mercs.push(Math.max(0, m.until - game.clock)); game.fighters.delete(m.uid); }
+  const list = game.pveDrones || [];
+  for (let i = list.length - 1; i >= 0; i--) if (list[i].kind === 'super' && list[i].owner === f.uid) { P.super += list[i].t; list.splice(i, 1); }
+}
+export function resumeSummons(game, f) {
+  const P = f.paused; f.paused = null;
+  if (!P) return;
+  for (const left of P.mercs) if (left > 1) { const m = summonMerc(game, f); if (m) m.until = game.clock + left; }
+  if (P.super > 1) summonSuper(game, f, P.super);
 }
