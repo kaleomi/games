@@ -161,7 +161,15 @@ export function pickClass(game) {
 }
 
 export function setupShip(game, f) {
-  if (!f.cls) f.cls = f.prefCls || pickClass(game);
+  if (!f.cls) {
+    f.cls = f.prefCls || pickClass(game);
+    // 第一次自动分配的战舰也记住：以后每局、回到场上、刷新页面都还是这艘，除非自己发「输出/机甲/医疗/航母」换
+    if (!f.npc && !f.merc) {
+      f.prefCls = f.cls;
+      const p = !f.test ? game.save?.peek(f.uid) : null;
+      if (p && !p.cls) { p.cls = f.cls; game.save.dirty = true; }
+    }
+  }
   f.stats = shipStats(f);
   f.maxHp = f.stats.maxHp; f.hp = f.maxHp;
   f.shieldHp = 0; f.taunt = 0; f.beamT = 0;

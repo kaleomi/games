@@ -820,3 +820,19 @@ test('快捷输入：1 2 3 对应 左 中 右', () => {
   game.chat({ id: 'q' }, '3'); assert.equal(f.lane, 'R');
   game.chat({ id: 'q' }, '１'); assert.equal(f.lane, 'L');
 });
+
+test('战舰不会每局自动换：第一次分配的也记住，回到场上、换局、新开页面都一样', () => {
+  const { game, save } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'c', name: 'C' }, '加入');
+  const cls = game.fighters.get('c').cls;
+  assert.ok(cls);
+  assert.equal(save.peek('c').cls, cls);
+  for (const id of ['d', 'e', 'f', 'g']) game.chat({ id, name: id }, '加入');
+  for (let r = 0; r < 3; r++) { game.startLobby(); assert.equal(game.fighters.get('c').cls, cls); }
+  game.fighters.delete('c');
+  game.chat({ id: 'c', name: 'C' }, '1');
+  assert.equal(game.fighters.get('c').cls, cls);
+  const g2 = new Game({ save, random: seeded(9), settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  g2.chat({ id: 'c', name: 'C' }, '左');
+  assert.equal(g2.fighters.get('c').cls, cls);
+});
