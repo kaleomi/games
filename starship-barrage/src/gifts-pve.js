@@ -9,7 +9,7 @@ export const GIFT_KINDS = {
   flower:   { name: '鲜花',     title: '佣兵机甲' },
   drum:     { name: '爱你哟',   title: '战鼓' },
   hero:     { name: '墨镜',     title: '英雄战机' },
-  double:   { name: '爱的爆炸', title: '双倍掉落' },
+  double:   { name: '礼花筒',   title: '双倍掉落' },
   treasure: { name: '跑车',     title: '宝藏魔王' },
 };
 

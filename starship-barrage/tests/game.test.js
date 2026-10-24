@@ -249,7 +249,7 @@ test('讨伐礼物：小心心/鲜花/爱你哟/墨镜/爱的爆炸/跑车 + 点
   game.gift({ id: 'a' }, { name: '墨镜', price: 99, count: 1 });
   assert.ok(game.pveDrones.some(d => d.kind === 'super' && d.owner === 'a'));
   // 爱的爆炸：全场双倍掉落 + 保底金装
-  game.gift({ id: 'b' }, { name: '爱的爆炸', price: 520, count: 1 });
+  game.gift({ id: 'b' }, { name: '礼花筒', price: 199, count: 1 });
   assert.equal(lootFloorOf(game, b), 4);
   game.humans().forEach(f => { f.merit = 100; });
   const { rollDrops } = await import('../src/fleet.js');
