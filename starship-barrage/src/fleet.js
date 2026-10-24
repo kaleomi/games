@@ -800,7 +800,7 @@ export function rollDrops(game, stage) {
   dropOrder(game).forEach((f, rank) => {
     if (rank >= 3 && game.random() >= 0.6) return;
     if (game.pve?.kind === 'wave' && game.random() >= PVE.chapter.waveDrop) return;   // 1–3关过得快，装备掉率×30%（另有小怪白装）
-   for (let k = 0; k < ((game.doubleUntil || 0) > game.clock ? 2 : 1); k++) {
+   for (let k = 0; k < ((f.doubleUntil || 0) > game.clock ? 2 : 1); k++) {   // 礼花筒：只有送礼的人自己双倍
     let item = rollItem(game.random, stage, rank === 0 ? 1 : 0);
     const fl = lootFloorOf(game, f);
     if (fl > item.tier) item = makeItem(game.random, item.slot, fl);   // 礼物给的保底品质

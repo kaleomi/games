@@ -44,7 +44,7 @@ export function lootFloor(game, f) {
   for (const fl of f.floors || []) if (fl.until > now(game)) t = Math.max(t, fl.tier);
   return t;
 }
-export function dropTimes(game) { return active(game.doubleUntil, game) ? 2 : 1; }
+export function dropTimes(game, f) { return f && active(f.doubleUntil, game) ? 2 : 1; }
 
 function addFloor(game, f, tier, sec) {
   const list = (f.floors ||= []).filter(x => x.until > now(game));
@@ -90,11 +90,10 @@ export function applyPveGift(game, f, kind, amount) {
       game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: `英雄战机出击！普攻+30% · 自己掉落保底${tName(G.hero.floor)}`, tier: 4 });
       break;
     }
-    case 'double': {  // 全场掉落×2 300秒；自己战利品保底金装300秒
-      game.doubleUntil = extend(game.doubleUntil, game, G.double.sec * n);
+    case 'double': {  // 自己掉落×2 20分钟；自己战利品保底金装10分钟（可叠加）
+      f.doubleUntil = extend(f.doubleUntil, game, G.double.sec * n);
       addFloor(game, f, G.double.floor, G.double.floorSec * n);
-      game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: `全场双倍掉落 ${Math.ceil((game.doubleUntil - now(game)) / 60)}分钟！自己掉落保底${tName(G.double.floor)}`, tier: 5 });
-      game.emit('announce', { text: '全场双倍掉落', voice: true });
+      game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: `双倍掉落 ${Math.ceil((f.doubleUntil - now(game)) / 60)}分钟！保底${tName(G.double.floor)}${Math.round(G.double.floorSec * n / 60)}分钟`, tier: 5 });
       break;
     }
     case 'treasure': {  // 召唤宝箱魔王：打死后在场所有人开箱，参与者额外拿10倍BOSS经验；送礼人保底1件红装
@@ -152,7 +151,7 @@ export function chestKilled(game, chest) {
   game.emit('banner', { team: 'blue', text: `宝箱魔王被击败！在场${ppl.length}人开箱`, tier: 5 });
   for (const f of ppl) {
     // 开箱 = 一次正常的怪物掉落（吃保底品质和双倍）
-    for (let k = 0; k < dropTimes(game); k++) {
+    for (let k = 0; k < dropTimes(game, f); k++) {
       let item = rollItem(game.random, lv);
       const fl = lootFloor(game, f);
       if (fl > item.tier) item = makeItem(game.random, item.slot, fl);

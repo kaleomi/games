@@ -251,13 +251,14 @@ test('讨伐礼物：小心心/鲜花/爱你哟/墨镜/爱的爆炸/跑车 + 点
   // 墨镜：超级战机 + 保底紫装（橙更高所以还是橙）
   game.gift({ id: 'a' }, { name: '墨镜', price: 99, count: 1 });
   assert.ok(game.pveDrones.some(d => d.kind === 'super' && d.owner === 'a'));
-  // 爱的爆炸：全场双倍掉落 + 保底金装
+  // 礼花筒：自己双倍掉落 + 保底金装
   game.gift({ id: 'b' }, { name: '礼花筒', price: 199, count: 1 });
   assert.equal(lootFloorOf(game, b), 4);
   game.humans().forEach(f => { f.merit = 100; });
   const { rollDrops } = await import('../src/fleet.js');
   const drops = rollDrops(game, 3);
   assert.equal(drops.filter(d => d.uid === 'b').length, 2, '双倍掉落');
+  assert.ok(drops.filter(d => d.uid === 'a').length <= 1, '没送礼花筒的人不双倍');
   assert.ok(drops.filter(d => d.uid === 'b').every(d => d.item.tier >= 4), '保底金装');
   assert.ok(drops.filter(d => d.uid === 'a').every(d => d.item.tier >= 3), '保底橙装');
   // 跑车：宝箱魔王，打死后全员开箱

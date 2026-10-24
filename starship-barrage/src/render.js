@@ -1398,7 +1398,7 @@ export class Renderer {
         ['鲜花', '10抖币', '#ffb3c8', `召唤佣兵机甲${G.flower.sec}秒（一次最多${G.flower.maxPerGift}台），立即放大招；跨关保留`],
         ['爱你哟·战鼓', '52抖币', '#ff8a2a', `全队攻击+${G.drum.atk * 100}% ${G.drum.sec}秒，全屏弹幕雨；自己掉落保底传说装${G.drum.floorSec}秒`],
         ['墨镜·英雄战机', '99抖币', '#7fe3ff', `自己普攻+${G.hero.atk * 100}%、英雄战机跟随${G.hero.sec / 60}分钟（跨关保留）；自己掉落保底史诗装`],
-        ['礼花筒·双倍掉落', '199抖币', '#ffd23a', `全场装备掉落×2 ${G.double.sec / 60}分钟；自己掉落保底神话装${G.double.floorSec / 60}分钟`],
+        ['礼花筒·双倍掉落', '199抖币', '#ffd23a', `自己装备掉落×2 ${G.double.sec / 60}分钟；保底神话装${G.double.floorSec / 60}分钟（可叠加）`],
         ['跑车·宝箱魔王', '1200抖币', '#ff6b7a', `召唤宝箱魔王（当前BOSS血量的${G.treasure.hpFrac * 100}%），打死后在场全员开箱，打过它的人拿${G.treasure.xpMul}倍BOSS经验；送礼人保底1件红装`],
         ['任意礼物·机神附体', '每1抖币6秒', '#c58bff', '自动躲子弹、自动躲红区技能、自动放技能和大招；可累积，跟账号保存'],
         ['点赞·士气', '免费', '#ff9ec4', `全场点赞满${PVE.morale.need}，全队伤害+${PVE.morale.dmg * 100}% ${PVE.morale.sec}秒`],
@@ -1465,7 +1465,6 @@ export class Renderer {
     const chips = [];
     if ((g.moraleUntil || 0) > g.clock) chips.push([`全队伤害+${Math.round(PVE.morale.dmg * 100)}% 士气 ${Math.ceil(g.moraleUntil - g.clock)}s`, '#ff9ec4']);
     if ((g.drumUntil || 0) > g.clock) chips.push([`全队攻击+${Math.round(PVE.gifts.drum.atk * 100)}% 战鼓 ${Math.ceil(g.drumUntil - g.clock)}s`, '#ff8a2a']);
-    if ((g.doubleUntil || 0) > g.clock) { const s2 = Math.ceil(g.doubleUntil - g.clock); chips.push([`全场双倍掉落 ${Math.floor(s2 / 60)}:${String(s2 % 60).padStart(2, '0')}`, '#ffd23a']); }
     let cxp = 232; x.textAlign = 'left'; x.font = `700 12px ${FONT}`;
     for (const [txt, col] of chips) { const w = x.measureText(txt).width + 14; x.fillStyle = 'rgba(0,0,0,.4)'; roundRect(x, cxp, 61, w, 17, 8); x.fill(); x.strokeStyle = col; x.lineWidth = 1; x.stroke(); x.fillStyle = col; x.fillText(txt, cxp + 7, 69.5); cxp += w + 6; }
   }
@@ -1520,6 +1519,7 @@ export class Renderer {
     const out = [], left = u => fmtDuration(Math.max(0, u - g.clock));
     if (hasAutoDodge(g, f)) out.push([`⚡机神附体 ${fmtDuration(f.dodgeLeft)}`, '#ffe28a']);
     if ((f.xpUntil || 0) > g.clock) out.push([`经验+${Math.round(PVE.gifts.heart.xp * 100)}% ${left(f.xpUntil)}`, '#ff9ec4']);
+    if ((f.doubleUntil || 0) > g.clock) out.push([`双倍掉落 ${left(f.doubleUntil)}`, '#ffd23a']);
     if ((f.heroUntil || 0) > g.clock) out.push([`英雄 普攻+${Math.round(PVE.gifts.hero.atk * 100)}% ${left(f.heroUntil)}`, '#7fe3ff']);
     const sup = (g.pveDrones || []).find(d => d.kind === 'super' && d.owner === f.uid);
     if (sup) out.push([`英雄战机 ${fmtDuration(sup.t)}`, '#7fe3ff']);
@@ -1538,7 +1538,7 @@ export class Renderer {
       ['鲜花', '佣兵机甲 · 放大招', '#ffb3c8'],
       ['爱你哟', '战鼓 全队攻击+30%', '#ff8a2a'],
       ['墨镜', '英雄战机 普攻+30%', '#7fe3ff'],
-      ['礼花筒', '全场双倍掉落', '#ffd23a'],
+      ['礼花筒', '自己双倍掉落20分', '#ffd23a'],
       ['跑车', '宝箱魔王 · 保底红装', '#ff6b7a'],
       ['任意礼物', '机神附体 1币6秒', '#c58bff'],
       ['点赞', '满500 全队伤害+10%', '#ff9ec4'],
