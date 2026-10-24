@@ -864,3 +864,19 @@ test('难度按章算：同一章5关首领血量一样，第2章首领＝原来
   assert.equal(Math.round(stageMul(30)), Math.round(1.5 ** 4 * 1.8));
   assert.ok(bossMax(15) > bossMax(10));
 });
+
+test('英雄战机、佣兵机甲时间没到就跨关保留', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'h', name: 'H' }, '输出');
+  toBattle(game);
+  game.gift({ id: 'h' }, { name: '墨镜', price: 99, count: 1 });
+  game.gift({ id: 'h' }, { name: '鲜花', price: 10, count: 1 });
+  for (let i = 0; i < 60 * 3; i++) game.step(1 / 60);
+  game.pve.cleared = true; game.step(1 / 60);
+  assert.equal(game.phase, 'result');
+  game.phaseT = 0.001; game.step(1 / 60);
+  assert.equal(game.phase, 'battle');
+  const sup = game.pveDrones.find(d => d.kind === 'super' && d.owner === 'h');
+  assert.ok(sup && sup.t > 170, '英雄战机还在');
+  assert.ok([...game.fighters.values()].some(f => f.merc && f.owner === 'h'), '佣兵还在');
+});

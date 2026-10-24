@@ -133,11 +133,13 @@ export class Game {
     this.time = 0;
     this.winner = null;
     this.pve = null;
-    this.zones = []; this.barriers = []; this.pveDrones = []; this.rays = []; this.gravity = null;
+    // 英雄战机（礼物召唤，时间没到）跨关保留；其余无人机清掉
+    this.zones = []; this.barriers = []; this.pveDrones = this.mode === 'pve' ? (this.pveDrones || []).filter(d => d.kind === 'super' && d.t > 0) : []; this.rays = []; this.gravity = null;
     this.bullets.length = 0; this.emitters.length = 0; this.hazards.length = 0; this.battleships.length = 0;
     for (const id of TEAM_IDS) this.teams[id] = this.makeTeam(id);
     const nowMs = this.now();
     for (const f of [...this.fighters.values()]) {
+      if (f.npc && f.merc && this.mode === 'pve' && this.clock < f.until) { this.resetFighterForRound(f); continue; }   // 佣兵机甲（礼物召唤，时间没到）跨关保留
       if (f.npc) { this.fighters.delete(f.uid); continue; }
       if (this.mode === 'pve' && f.reserve) continue;
       if (this.mode !== 'pve' && nowMs - f.lastActive > FIGHTER.idleKick * 1000) { this.fighters.delete(f.uid); continue; }

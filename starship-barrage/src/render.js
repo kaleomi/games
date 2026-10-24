@@ -606,14 +606,18 @@ export class Renderer {
     const rank = this.rankOf.get(f.uid);
     if (f.merc) this.label(x, `${f.name} ${Math.max(0, Math.ceil(f.until - g.clock))}s`, f.x, f.y - 36, 12, '#ffd8a0', true);
     const show = !f.npc && (top.has(f.uid) || f.labelUntil > g.clock || (this.card && this.card.uid === f.uid));
-    // 机神附体：名字上方显示BUFF和剩余时间（一直显示）
-    if (hasAutoDodge(g, f)) {
-      const ty = show ? f.y - 54 : f.y - 38, tx = `⚡机神附体 ${fmtDuration(f.dodgeLeft)}`;
-      x.font = `800 12px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
-      const w = x.measureText(tx).width + 14, pulse = 0.55 + 0.35 * Math.sin(g.clock * 5);
-      x.fillStyle = 'rgba(40,10,60,.82)'; roundRect(x, f.x - w / 2, ty - 9, w, 18, 9); x.fill();
-      x.strokeStyle = `rgba(255,210,90,${pulse})`; x.lineWidth = 1.5; x.stroke();
-      x.fillStyle = '#ffe28a'; x.fillText(tx, f.x, ty + 0.5);
+    // 个人BUFF：名字上方一行一个（机神附体、经验加成、英雄战机、佣兵、掉落保底），带剩余时间
+    const buffs = this.personalBuffs(g, f);
+    if (buffs.length) {
+      let ty = show ? f.y - 54 : f.y - 38;
+      x.font = `800 11.5px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+      for (const [tx, col] of buffs) {
+        const w = x.measureText(tx).width + 12;
+        x.fillStyle = 'rgba(20,10,40,.82)'; roundRect(x, f.x - w / 2, ty - 8, w, 16, 8); x.fill();
+        x.strokeStyle = col; x.globalAlpha = 0.7; x.lineWidth = 1.2; x.stroke(); x.globalAlpha = 1;
+        x.fillStyle = col; x.fillText(tx, f.x, ty + 0.5);
+        ty -= 18;
+      }
     }
     if (show) {
       const ly = f.y - 36;
@@ -1356,9 +1360,9 @@ export class Renderer {
     const mg = x.createLinearGradient(70, 0, 220, 0); mg.addColorStop(0, '#ff7aa8'); mg.addColorStop(1, '#ffd86b'); x.fillStyle = mg; x.fillRect(70, 64, 150 * mk, 10);
     x.font = `11px ${NUM}`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(`${Math.floor(g.morale || 0)}/${PVE.morale.need}`, 145, 69.5);
     const chips = [];
-    if ((g.moraleUntil || 0) > g.clock) chips.push([`士气 伤害+${Math.round(PVE.morale.dmg * 100)}% ${Math.ceil(g.moraleUntil - g.clock)}s`, '#ff9ec4']);
-    if ((g.drumUntil || 0) > g.clock) chips.push([`战鼓 攻击+${Math.round(PVE.gifts.drum.atk * 100)}% ${Math.ceil(g.drumUntil - g.clock)}s`, '#ff8a2a']);
-    if ((g.doubleUntil || 0) > g.clock) { const s2 = Math.ceil(g.doubleUntil - g.clock); chips.push([`双倍掉落 ${Math.floor(s2 / 60)}:${String(s2 % 60).padStart(2, '0')}`, '#ffd23a']); }
+    if ((g.moraleUntil || 0) > g.clock) chips.push([`全队伤害+${Math.round(PVE.morale.dmg * 100)}% 士气 ${Math.ceil(g.moraleUntil - g.clock)}s`, '#ff9ec4']);
+    if ((g.drumUntil || 0) > g.clock) chips.push([`全队攻击+${Math.round(PVE.gifts.drum.atk * 100)}% 战鼓 ${Math.ceil(g.drumUntil - g.clock)}s`, '#ff8a2a']);
+    if ((g.doubleUntil || 0) > g.clock) { const s2 = Math.ceil(g.doubleUntil - g.clock); chips.push([`全场双倍掉落 ${Math.floor(s2 / 60)}:${String(s2 % 60).padStart(2, '0')}`, '#ffd23a']); }
     let cxp = 232; x.textAlign = 'left'; x.font = `700 12px ${FONT}`;
     for (const [txt, col] of chips) { const w = x.measureText(txt).width + 14; x.fillStyle = 'rgba(0,0,0,.4)'; roundRect(x, cxp, 61, w, 17, 8); x.fill(); x.strokeStyle = col; x.lineWidth = 1; x.stroke(); x.fillStyle = col; x.fillText(txt, cxp + 7, 69.5); cxp += w + 6; }
   }
@@ -1407,6 +1411,20 @@ export class Renderer {
     const c = g.teams.blue.cannon;
     x.font = `12px ${FONT}`; x.fillStyle = c.state === 'idle' ? '#7f8aa6' : '#ffe28a';
     x.fillText(c.state === 'cool' ? `主炮冷却${Math.ceil(c.t)}s` : c.state === 'charging' ? '主炮蓄力' : c.state === 'firing' ? '主炮发射' : '主炮待命', W - 14, y + 39);
+  }
+
+  personalBuffs(g, f) {
+    const out = [], left = u => fmtDuration(Math.max(0, u - g.clock));
+    if (hasAutoDodge(g, f)) out.push([`⚡机神附体 ${fmtDuration(f.dodgeLeft)}`, '#ffe28a']);
+    if ((f.xpUntil || 0) > g.clock) out.push([`经验+${Math.round(PVE.gifts.heart.xp * 100)}% ${left(f.xpUntil)}`, '#ff9ec4']);
+    if ((f.heroUntil || 0) > g.clock) out.push([`英雄 普攻+${Math.round(PVE.gifts.hero.atk * 100)}% ${left(f.heroUntil)}`, '#7fe3ff']);
+    const sup = (g.pveDrones || []).find(d => d.kind === 'super' && d.owner === f.uid);
+    if (sup) out.push([`英雄战机 ${fmtDuration(sup.t)}`, '#7fe3ff']);
+    const mercs = [...g.fighters.values()].filter(m => m.merc && m.owner === f.uid);
+    if (mercs.length) out.push([`佣兵${mercs.length > 1 ? '×' + mercs.length : ''} ${left(Math.max(...mercs.map(m => m.until)))}`, '#ffd8a0']);
+    const fl = lootFloorOf(g, f);
+    if (fl >= 0) out.push([`保底${GEAR.tiers[fl].name} ${left(Math.max(...(f.floors || []).filter(q => q.tier === fl).map(q => q.until)))}`, GEAR.tiers[fl].color]);
+    return out;
   }
 
   // 讨伐：礼物效果框，一直显示在左边（和右边贡献榜对称）
