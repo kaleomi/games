@@ -231,7 +231,7 @@ export function saveBuffs(game, f) {
   if (!p) return;
   const ms = u => (u || 0) > now(game) ? game.now() + (u - now(game)) * 1000 : 0;
   const sup = (game.pveDrones || []).find(d => d.kind === 'super' && d.owner === f.uid);
-  p.buffs = { xp: ms(f.xpUntil), hero: ms(f.heroUntil), double: ms(f.doubleUntil), floors: (f.floors || []).filter(x => x.until > now(game)).map(x => ({ tier: x.tier, until: ms(x.until) })), super: sup ? Math.round(sup.t) : 0 };
+  p.buffs = { xp: ms(f.xpUntil), hero: ms(f.heroUntil), double: ms(f.doubleUntil), floors: (f.floors || []).filter(x => x.until > now(game)).map(x => ({ tier: x.tier, until: ms(x.until) })), super: sup ? Math.round(sup.t) : 0, mercs: [...game.fighters.values()].filter(m => m.merc && m.owner === f.uid).map(m => ms(m.until)).filter(Boolean) };
   game.save.dirty = true;
 }
 export function loadBuffs(game, f, p) {
@@ -240,6 +240,7 @@ export function loadBuffs(game, f, p) {
   f.xpUntil = at(b.xp); f.heroUntil = at(b.hero); f.doubleUntil = at(b.double);
   f.floors = (b.floors || []).map(x => ({ tier: x.tier, until: at(x.until) })).filter(x => x.until > 0);
   if (b.super > 1 && !(game.pveDrones || []).some(d => d.kind === 'super' && d.owner === f.uid)) summonSuper(game, f, b.super);
+  if (![...game.fighters.values()].some(m => m.merc && m.owner === f.uid)) for (const u of b.mercs || []) { const left = at(u); if (left > now(game) + 1) { const m = summonMerc(game, f); if (m) m.until = left; } }
 }
 
 export function stepPveGifts(game, dt) {

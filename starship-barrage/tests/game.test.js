@@ -969,6 +969,7 @@ test('个人BUFF（经验加成、英雄、双倍、保底、英雄战机）刷�
   g1.gift({ id: 'b' }, { name: '小心心', price: 1, count: 10 });
   g1.gift({ id: 'b' }, { name: '墨镜', price: 99, count: 1 });
   g1.gift({ id: 'b' }, { name: '礼花筒', price: 199, count: 1 });
+  g1.gift({ id: 'b' }, { name: '鲜花', price: 10, count: 1 });
   save.flush();
   t += 60 * 1000;   // 一分钟后刷新
   const g2 = new Game({ save, random: seeded(2), now: () => t, settings: { npcMinPerTeam: 0, pvpEnabled: false } });
@@ -979,4 +980,6 @@ test('个人BUFF（经验加成、英雄、双倍、保底、英雄战机）刷�
   assert.ok(f.doubleUntil - g2.clock > 530);
   assert.ok(f.floors.length >= 1);
   assert.ok(g2.pveDrones.some(d => d.kind === 'super' && d.owner === 'b'));
+  const m = [...g2.fighters.values()].find(x => x.merc && x.owner === 'b');
+  assert.ok(m && Math.abs((m.until - g2.clock) - 60) < 2, '佣兵还剩约60秒');
 });
