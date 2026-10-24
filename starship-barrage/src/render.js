@@ -6,7 +6,7 @@ import { queenSvg, colossusSvg, eyeSvg, bossPodSvg, chestSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR } from './config.js';
-import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, matOf, growthE, pityOf, lootFloorOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
+import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, growthE, pityOf, lootFloorOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
@@ -174,7 +174,7 @@ export class Renderer {
         case 'vote': this.toast(`${e.name} 投票换${e.modeName}模式（${e.votes}/${e.need}）`, null, '#ffe28a'); break;
         case 'dive': this.ring(e.x, e.y, '#ff5ad1', 26); break;
         case 'diveWarn': this.reticles.push({ x: e.x, y: e.y, r: e.r, t: e.t, max: e.t }); break;
-        case 'heal': this.pops.push({ uid: e.uid, id: 'heal', t: 0 }); this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.6, r0: 26, r1: 80, color: '93,255,158' }); for (const tg of e.targets) this.ripples.push({ uid: tg.uid, x: tg.x, y: tg.y, t: -0.25, dur: 0.5, r0: 10, r1: 42, color: '93,255,158' }); this.healLinks.push({ uid: e.uid, x: e.x, y: e.y, targets: e.targets, t: 0.6 }); for (const tg of e.targets) this.floaters.push({ x: tg.x, y: tg.y - 10, text: `+${tg.amount}`, color: '#7dffb0', t: 0, plus: true }); break;
+        case 'heal': this.pops.push({ uid: e.uid, id: 'heal', t: 0 }); this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.6, r0: 26, r1: 80, color: '93,255,158' }); for (const tg of e.targets) this.ripples.push({ uid: tg.uid, x: tg.x, y: tg.y, t: -0.25, dur: 0.5, r0: 10, r1: 42, color: '93,255,158' }); this.healLinks.push({ uid: e.uid, x: e.x, y: e.y, targets: e.targets, t: 0.6 }); for (const tg of e.targets) this.floaters.push({ x: tg.x, y: tg.y - 10, text: tg.shield ? `护盾+${tg.amount}` : `+${tg.amount}`, color: tg.shield ? '#9fe6ff' : '#7dffb0', t: 0, plus: true }); break;
         case 'skill': this.pops.push({ uid: e.uid, id: e.skill, t: 0 });
           if (e.skill === 'missile') for (const k of [-1, 1]) this.muzzles.push({ uid: e.uid, dx: k * 22, dy: 4, t: 0, color: '#ffb43a' });
           break;
@@ -208,16 +208,15 @@ export class Renderer {
         case 'strike': this.shake = Math.max(this.shake, e.kind === 'cannon' ? 20 : 10); for (const l of e.lanes) this.laneFlashes.push({ lane: l, t: 0.6, kind: e.kind }); break;
         case 'loot': {
           const T = GEAR.tiers[e.item.tier], nm = `${T.name}·${e.item.name}`;
-          const from = e.source === 'small' ? (g.fighters.get(e.uid) || { x: 360, y: 700 }) : null;
-          this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: from ? 360 : g.teams.red.x, y0: from ? 300 : Math.max(120, g.teams.red.y) });
-          const how = e.plus ? `同品质重复 → 强化 +${e.plus}` : e.equipped ? (e.inherit ? `已装备，继承强化 +${e.inherit}` : '已自动装备') : `变成${e.mat}余料`;
-          const extra = e.enhanced ? ` · 余料强化${e.enhanced}次` : '';
-          this.toast(`${e.name} ${e.source === 'small' ? '小怪掉落' : '获得'} ${nm} · ${how}${extra}`, null, T.color);
+          const from = e.source === 'small';
+          if (!e.crafted) this.loots.push({ uid: e.uid, item: e.item, t: 0, x0: from ? 360 : g.teams.red.x, y0: from ? 300 : Math.max(120, g.teams.red.y) });
+          const how = e.plus ? `同品质重复 → 强化 +${e.plus}` : e.equipped ? (e.inherit ? `已装备，继承强化 +${e.inherit}` : '已自动装备') : `分解成1个${GEAR.tiers[Math.min(e.item.tier, 4)].name}碎片`;
+          this.toast(`${e.name} ${e.crafted ? '合成' : from ? '小怪掉落' : '获得'} ${nm} · ${how}`, null, T.color);
           if (e.plus && e.item.tier >= 4) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `${T.name}「${e.item.name}」强化到 +${e.plus}！`, tier: 5, gear: e.item });
-          else if (e.equipped && !e.plus && e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `获得${T.name}装备「${e.item.name}」`, tier: e.item.tier >= 4 ? 5 : e.item.tier >= 3 ? 4 : 2, gear: e.item });
+          else if (e.equipped && !e.plus && e.item.tier >= 2) this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `${e.crafted ? '合成了' : '获得'}${T.name}装备「${e.item.name}」`, tier: e.item.tier >= 4 ? 5 : e.item.tier >= 3 ? 4 : 2, gear: e.item });
           break;
         }
-        case 'upgrade': { const T = GEAR.tiers[e.item.tier]; this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `强化满+10，自动升品为${T.name}「${e.item.name}」！`, tier: e.item.tier >= 4 ? 5 : 3, gear: e.item }); break; }
+        case 'craft': this.toast(`${e.name} 用${GEAR.shardsPerCraft}个${GEAR.tiers[e.from].name}碎片合成了${GEAR.tiers[e.item.tier].name}装备`, null, GEAR.tiers[e.item.tier].color); break;
         case 'catchup': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `欢迎回来！成长汇总：错过${e.stages}关，补发经验${e.xp}${e.levels ? `（升${e.levels}级）` : ''}、装备${e.items}件`, tier: 3 }); break;
         case 'reserve': break;
         case 'pity': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `触发保底！必出${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: 5, gear: e.item }); break;
@@ -1287,7 +1286,7 @@ export class Renderer {
         x.font = `700 13px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(d.name, px + 42, py - 8);
         x.font = `12px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(GEAR.stats[d.stat].label, px + 42, py + 10);
       });
-      x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText(`同品质重复强化+1（+2%），满+10自动升品（金不升红）· 低品质变余料`, cx, y0 + 168);
+      x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('同品质重复强化+1（+2%）· 多余分解，100碎片合高一级', cx, y0 + 168);
     } else if (name === '礼物效果') {
       const rows = [
         ['小心心', '自己经验+50% 30秒，立即放技能'],
@@ -1556,7 +1555,7 @@ export class Renderer {
     x.fillStyle = '#9fb0d0';
     x.fillText(`技能急速${P(st.haste)}  技能强度+${P((st.power || 1) - 1)}`, L + 20, T + 78);
     x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.textAlign = 'right';
-    { const pt0 = pityOf(g, f); x.fillText(`成长分E ${growthE(f).toFixed(2)} · 余料${matOf(g, f).get()}/${GEAR.matPerLv} · 保底 金${pt0.gold} 红${pt0.red}`, L + Wd - 20, T + 78); } x.textAlign = 'left';
+    { const pt0 = pityOf(g, f), sh = shardsOf(g, f); x.fillText(`E ${growthE(f).toFixed(2)} · 碎片 ${sh.map((n, i) => '白蓝紫橙金'[i] + n).join(' ')} · 保底 金${pt0.gold} 红${pt0.red}`, L + Wd - 20, T + 78); } x.textAlign = 'left';
     const pt = pityOf(g, f);
     const flr = lootFloorOf(g, f); if (flr >= 0) { const left = Math.max(...(f.floors || []).filter(q => q.tier === flr).map(q => q.until)) - g.clock; x.font = `700 21px ${FONT}`; const tw = x.measureText(`Lv.${f.level || 1} ${trim(f.name, 10)} 的装备`).width; x.font = `700 12px ${FONT}`; x.fillStyle = GEAR.tiers[flr].color; x.fillText(`掉落保底${GEAR.tiers[flr].name} ${Math.ceil(left)}s`, L + 30 + tw, T + 29); }
     void pt;

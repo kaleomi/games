@@ -568,8 +568,8 @@ test('经验＝贡献值：讨伐战斗中实时到账并当场升级，结算�
   assert.ok(p.xp - xp0 <= 20 + Math.ceil(f.merit) - (LEVEL.need(1) + LEVEL.need(2) + 10) + 1, '结算只补没到账的部分');
 });
 
-test('装备经济：前5关不出红；同品质重复+1级(+2%)，低品质变余料，100余料强化最弱部位，+10自动升品，换装继承强化', async () => {
-  const { rollItem, giveItem, matOf, makeItem, itemStats, gearScore } = await import('../src/fleet.js');
+test('装备经济：前5关不出红；同品质重复+1级(+2%)，低品质分解成同色碎片，100个合成高一级；换装继承强化', async () => {
+  const { rollItem, giveItem, shardsOf, makeItem, itemStats, gearScore } = await import('../src/fleet.js');
   const { GEAR } = await import('../src/config.js');
   let seed = 3; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (let i = 0; i < 3000; i++) assert.ok(rollItem(rnd, 5, 1).tier < 5, '前5关不出红');
@@ -580,27 +580,21 @@ test('装备经济：前5关不出红；同品质重复+1级(+2%)，低品质变
   game.chat({ id: 'k', name: 'K' }, '输出');
   const f = game.fighters.get('k');
   for (const slot of Object.keys(GEAR.slots)) giveItem(game, f, makeItem(rnd, slot, 2));
-  // 同部位同品质 → +1级，每级+2%
+  // 同部位同品质 → +1级，每级+2%，不会自动升品
   const v0 = itemStats(f.gear.weapon)[0].v;
   giveItem(game, f, { ...makeItem(rnd, 'weapon', 2), roll: 0.5 });
   assert.equal(f.gear.weapon.plus, 1);
   assert.ok(Math.abs(itemStats(f.gear.weapon)[0].v - v0 * 1.02) < 1e-9, '+1 = 102%');
-  // 低品质 → 余料（白10）；满100给最弱的部位+1，零头保留
-  const m = matOf(game, f);
-  for (let i = 0; i < 9; i++) giveItem(game, f, makeItem(rnd, 'armor', 0));
-  assert.equal(m.get(), 90);
-  const weakest = Object.keys(GEAR.slots).filter(sl => sl !== 'weapon').sort((a, b) => gearScore({ ...f.gear[a], slot: a }) - gearScore({ ...f.gear[b], slot: b }))[0];
-  giveItem(game, f, makeItem(rnd, 'core', 1));   // 蓝 = 20 余料 → 110
-  assert.equal(m.get(), 10, '100余料用掉，零头10保留');
-  assert.equal(f.gear[weakest].plus, 1, '强化了最弱的部位');
-  // +10 自动升品，而且更强
-  const sc0 = gearScore(f.gear.engine);
-  f.gear.engine.plus = 9;
+  f.gear.engine.plus = 12; giveItem(game, f, makeItem(rnd, 'engine', 2));
+  assert.equal(f.gear.engine.tier, 2, '强化不会自动升品'); assert.equal(f.gear.engine.plus, 13);
+  // 低品质 → 同色碎片；100个白碎片合成蓝装，补在最弱的部位
+  for (let i = 0; i < 99; i++) giveItem(game, f, makeItem(rnd, 'armor', 0));
+  assert.equal(shardsOf(game, f)[0], 99);
   game.drainEvents();
-  giveItem(game, f, makeItem(rnd, 'engine', 2));
-  assert.equal(f.gear.engine.tier, 3, '紫+10 → 橙');
-  assert.ok(game.drainEvents().some(e => e.type === 'upgrade'));
-  assert.ok(gearScore(f.gear.engine) > sc0 * 1.2 - 1e-9);
+  giveItem(game, f, makeItem(rnd, 'core', 0));
+  assert.ok(game.drainEvents().some(e => e.type === 'craft' && e.from === 0 && e.item.tier === 1), '100个白碎片合成蓝装');
+  assert.equal(shardsOf(game, f)[0], 0);
+  assert.equal(shardsOf(game, f)[1], 1, '合出的蓝装不如身上的紫装 → 变成1个蓝碎片');
   // 换上更高品质：旧装备的强化折算继承，新装备一定更强
   f.gear.scope.plus = 8;
   const old = gearScore(f.gear.scope);
@@ -608,18 +602,21 @@ test('装备经济：前5关不出红；同品质重复+1级(+2%)，低品质变
   assert.equal(f.gear.scope.tier, 4);
   assert.ok(f.gear.scope.plus >= 1, '继承了强化');
   assert.ok(gearScore(f.gear.scope) > old);
-  // 红装没有上限
+  // 100金碎片 → 红；红装强化没有上限
+  shardsOf(game, f)[4] = 100; giveItem(game, f, makeItem(rnd, 'armor', 0));
+  assert.ok(Object.values(f.gear).some(it => it.tier === 5), '100金碎片合成红装');
   f.gear.core = { ...makeItem(rnd, 'core', 5), plus: 30 };
   giveItem(game, f, makeItem(rnd, 'core', 5));
-  assert.equal(f.gear.core.tier, 5); assert.equal(f.gear.core.plus, 31);
+  assert.equal(f.gear.core.plus, 31);
 });
 
-test('旧存档迁移：红+N（原来每级10%）×5，碎片折算成余料', () => {
-  const raw = JSON.stringify({ version: 1, players: { u: { uid: 'u', level: 3, shards: [50, 3, 0, 0, 1], gear: { weapon: { tier: 5, roll: 1, subs: [], plus: 2 }, armor: { tier: 2, roll: 1, subs: [], plus: 0 } } } } });
+test('旧存档迁移：红+N（原来每级10%）×5，碎片保留', () => {
+  const raw = JSON.stringify({ version: 1, players: { u: { uid: 'u', level: 3, shards: [50, 3, 0, 0, 1], gear: { weapon: { tier: 5, roll: 1, subs: [], plus: 2 }, armor: { tier: 2, roll: 1, subs: [], plus: 0 } } }, v: { uid: 'v', gv: 2, mat: 250, gear: {} } } });
   const s = new Save({ storage: { getItem: () => raw, setItem() {} } });
   const p = s.peek('u');
   assert.equal(p.gear.weapon.plus, 10);
-  assert.equal(p.mat, 50 * 10 + 3 * 20 + 90);
+  assert.deepEqual(p.shards, [50, 3, 0, 0, 1]);
+  assert.equal(s.peek('v').shards[0], 25, '中间版本的余料折算成白碎片');
   const again = Save.validate(JSON.parse(s.exportJson()));
   assert.equal(again.players.u.gear.weapon.plus, 10, '只迁移一次');
 });
@@ -637,8 +634,11 @@ test('贡献＝成长分E×有效行为：存活每5秒1E、技能6E、大招12E
   h.merit = 0; h.aliveAcc = 0; h.skillCd = 999; h.ultCd = 999;
   for (let i = 0; i < 60 * 5 + 2; i++) game.step(1 / 60);
   assert.ok(Math.abs(h.merit - E) < 1e-9, '存活5秒 +1E');
-  // 医疗没人受伤 → 技能放不出去，不算
+  // 医疗保底：没人掉血 → 治疗链给队友加护盾，照样算有效技能
   h.merit = 0; h.skillCd = 0; game.step(1 / 60);
+  assert.ok(Math.abs(h.merit - 6 * E) < 1e-9 && h.shieldHp > 0, '保底：护盾也算');
+  // 护盾都满了（30%）→ 放不出去，不算
+  h.shieldHp = h.maxHp * 0.3; h.merit = 0; h.skillCd = 0; game.step(1 / 60);
   assert.equal(h.merit, 0, '无效技能不算');
   // 有人受伤 → 治疗链成功 +6E
   game.chat({ id: 'x', name: 'X' }, '输出');

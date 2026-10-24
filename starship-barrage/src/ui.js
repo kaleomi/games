@@ -90,7 +90,7 @@ function gearTable() {
   return `<h2>装备 <small>打爆母舰掉落，自动穿更好的 · 发「装备」查看</small></h2>
     <div class="gtiers">${T.map(t => `<span style="color:${t.color};border-color:${t.color}">${t.name}${t.subs ? `+${t.subs}副` : ''}</span>`).join('')}</div>
     <div class="gear">${cols}</div>
-    <p class="gnote">同部位同品质重复 → 强化+1（每级+${Math.round(GEAR.plusPer * 100)}%基础属性）；白蓝紫橙强化到+10自动升一品，金装不自动升红（红装靠掉落和保底），强化没有上限 · 更低品质变余料，每${GEAR.matPerLv}余料自动强化最弱部位 · 换更好的装备继承强化</p>`;
+    <p class="gnote">同部位同品质重复 → 强化+1（每级+${Math.round(GEAR.plusPer * 100)}%基础属性，没有上限）· 更低品质自动分解成同色碎片，${GEAR.shardsPerCraft}个合成1件高一级（100白→蓝 … 100金→红），补在最弱部位 · 换更好的装备继承强化</p>`;
 }
 
 export class UI {
@@ -318,7 +318,7 @@ export class UI {
         const list = (res.mvp.blue || []).map((m, i) => `<div class="row"><i>${i < 3 ? medalSvg(i, 28) : `<span class="rk">${i + 1}</span>`}</i>${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span><b>${m.merit}</b></div>`).join('') || '<div class="empty">暂无真人飞行员</div>';
         const drops = (res.drops || []).slice(0, 8).map(d => {
           const st = itemStats(d.item), T = GEAR.tiers[d.item.tier];
-          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}${d.pity ? '<i class="tag">保底</i>' : ''}${d.gifted ? '<i class="tag gift">礼</i>' : ''}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.upgraded != null ? `升${GEAR.tiers[d.upgraded].name}` : d.plus ? `强化+${d.plus}` : d.equipped ? '已装备' : `余料+${d.mat}`}</em></div>`;
+          return `<div class="row">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 44)}<span class="nm"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}${d.pity ? '<i class="tag">保底</i>' : ''}${d.gifted ? '<i class="tag gift">礼</i>' : ''}</b><small>${esc(d.name)} · ${statText(st[0])}${st.length > 1 ? ` · 副属性${st.length - 1}条` : ''}</small></span><em class="${d.equipped ? 'on' : ''}">${d.plus ? `强化+${d.plus}` : d.equipped ? '已装备' : `→${GEAR.tiers[Math.min(d.item.tier, 4)].name}碎片`}</em></div>`;
         }).join('') || `<div class="empty">${res.clear ? '这关没人掉装备' : '讨伐失败，没有掉落'}</div>`;
         this.resultEl.innerHTML = `
           <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `${stageLabel(res.stage)} 讨伐成功` : '讨伐失败'}</div>

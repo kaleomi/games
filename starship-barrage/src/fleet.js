@@ -621,7 +621,14 @@ function allies(game) { const a = []; for (const f of game.fighters.values()) if
 function castSkill(game, f) {
   if (f.cls === 'healer') {
     const hurtList = allies(game).filter(a => a.alive && a.hp < a.maxHp - 0.5).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, 3);
-    if (!hurtList.length) return false;
+    // 保底：没人掉血时，治疗链改成给3个护盾最少的队友各加10%最大血量的护盾（上限30%），照样算一次有效技能
+    if (!hurtList.length) {
+      const list = allies(game).filter(a => a.alive && (a.shieldHp || 0) < a.maxHp * 0.3).sort((a, b) => (a.shieldHp || 0) / a.maxHp - (b.shieldHp || 0) / b.maxHp).slice(0, 3);
+      if (!list.length) return false;
+      const targets = list.map(a => { const add = Math.min(a.maxHp * 0.3 - (a.shieldHp || 0), a.maxHp * 0.1 * f.power); a.shieldHp = (a.shieldHp || 0) + add; return { uid: a.uid, x: a.x, y: a.y, amount: Math.round(add), shield: true }; });
+      game.emit('heal', { uid: f.uid, x: f.x, y: f.y, targets, shield: true });
+      return true;
+    }
     const targets = [];
     for (const a of hurtList) {
       const amt = heal(game, a, (30 + 0.28 * a.maxHp) * f.stats.heal * (1 + 0.15 * (f.power - 1)), f);
@@ -773,12 +780,12 @@ export function rollDrops(game, stage) {
   return drops;
 }
 
-// ───────── 强化 / 余料 ─────────
-// 余料存在账号里（测试观众存在战机上）
-export function matOf(game, f) {
+// ───────── 强化 / 碎片 ─────────
+// 碎片：[白, 蓝, 紫, 橙, 金]，存在账号里（测试观众存在战机上）
+export function shardsOf(game, f) {
   const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
-  if (p) return { get: () => p.mat || 0, add: n => { p.mat = (p.mat || 0) + n; } };
-  return { get: () => f.matMem || 0, add: n => { f.matMem = (f.matMem || 0) + n; } };
+  if (p) { if (!Array.isArray(p.shards)) p.shards = [Number(p.shards) || 0, 0, 0, 0, 0]; return p.shards; }
+  return (f.shardsMem ||= [0, 0, 0, 0, 0]);
 }
 const baseScore = it => gearScore({ ...it, plus: 0 });
 // 继承：旧装备强化加的属性（按基础属性折算）全部带到新装备上，向上取整，所以换上的一定更强
@@ -788,49 +795,23 @@ export function inheritPlus(old, neu) {
   return b1 > 0 ? Math.ceil(old.plus * b0 / b1 - 1e-9) : old.plus;
 }
 const cloneItem = (it, plus) => ({ slot: it.slot, tier: it.tier, roll: it.roll, name: GEAR.slots[it.slot].names[it.tier], subs: it.subs.map(x => ({ ...x })), plus });
-export const upAtOf = tier => (Array.isArray(GEAR.upAt) ? GEAR.upAt[tier] : GEAR.upAt) ?? Infinity;
-// 非红装强化到 +10 自动升品：生成下一品质的新装备，多出的等级按继承规则折算
-function autoUpgrade(game, f, slot, ups) {
-  const gear = f.gear, top = GEAR.tiers.length - 1;
-  let cur = gear[slot];
-  while (cur && cur.tier < top && cur.plus >= upAtOf(cur.tier)) {
-    const neu = makeItem(game.random, slot, cur.tier + 1);
-    const rest = { ...cur, plus: cur.plus - upAtOf(cur.tier) };
-    gear[slot] = cur = cloneItem(neu, inheritPlus(rest, neu));
-    ups.push(cur);
-    game.emit('upgrade', { uid: f.uid, name: f.name, item: cur, text: describeItem(cur) });
-  }
-}
-// 最弱的已穿部位：按标准强度（装备评分，含强化）比，同分按 主炮>装甲>引擎>瞄准器>核心>护盾发生器
+// 最弱的部位：没穿的最弱，其次按标准强度（装备评分，含强化）比，同分按 主炮>装甲>引擎>瞄准器>核心>护盾发生器
 export function weakestSlot(gear) {
   let best = null, bs = Infinity;
   for (const slot of Object.keys(GEAR.slots)) {
-    if (!gear?.[slot]) continue;
-    const sc = gearScore({ ...gear[slot], slot });
+    const sc = gear?.[slot] ? gearScore({ ...gear[slot], slot }) : -1;
     if (sc < bs - 1e-9) { bs = sc; best = slot; }
   }
   return best;
 }
-// 余料每满100自动给最弱部位+1级，零头保留
-function spendMat(game, f, ups) {
-  const m = matOf(game, f), gear = f.gear;
-  let n = 0;
-  while (m.get() >= GEAR.matPerLv) {
-    const slot = weakestSlot(gear);
-    if (!slot) break;
-    m.add(-GEAR.matPerLv);
-    gear[slot].plus = (gear[slot].plus || 0) + 1; n++;
-    autoUpgrade(game, f, slot, ups);
-  }
-  return n;
-}
 // 拿到一件装备：
-//   空部位 / 更高品质 → 穿上（旧装备的强化投入折算继承）
-//   同部位同品质 → 当前装备 +1级（新的底子更好就换底子，等级保留）
-//   更低品质 → 变成余料
-export function giveItem(game, f, item, { silent = false, source = '' } = {}) {
+//   空部位 / 更高品质 → 穿上（旧装备的强化投入折算继承，不再分解）
+//   同部位同品质 → 当前装备 +1级（每级+2%基础属性，没有上限；新的底子更好就换底子，等级保留）
+//   更低品质 → 分解成1个同色碎片；100个碎片自动合成1件高一级装备，补在最弱的部位
+export function giveItem(game, f, item, { silent = false, source = '', crafted = false } = {}) {
   const gear = f.gear || (f.gear = {});
-  const slot = item.slot, cur = gear[slot];
+  const slot = item.slot, cur = gear[slot], top = GEAR.tiers.length - 1;
+  const sh = shardsOf(game, f);
   let result;
   if (!cur || item.tier > cur.tier) {
     const plus = inheritPlus(cur && { ...cur, slot }, item);
@@ -838,20 +819,23 @@ export function giveItem(game, f, item, { silent = false, source = '' } = {}) {
     result = { equipped: true, replaced: cur ? cur.tier : -1, inherit: plus };
   } else if (item.tier === cur.tier) {
     const plus = (cur.plus || 0) + 1;
-    gear[slot] = baseScore(item) > baseScore({ ...cur, slot }) ? cloneItem(item, plus) : { ...cloneItem({ ...cur, slot }, plus) };
+    gear[slot] = baseScore(item) > baseScore({ ...cur, slot }) ? cloneItem(item, plus) : cloneItem({ ...cur, slot }, plus);
     result = { equipped: true, plus };
   } else {
-    const v = GEAR.matValue[item.tier] || 0;
-    matOf(game, f).add(v);
-    result = { equipped: false, mat: v };
+    sh[Math.min(item.tier, top - 1)]++;
+    result = { equipped: false, shard: item.tier };
   }
-  const ups = [];
-  autoUpgrade(game, f, slot, ups);
-  const enhanced = spendMat(game, f, ups);
-  if (ups.length) result.upgraded = ups[ups.length - 1].tier;
-  if (enhanced) result.enhanced = enhanced;
   if (f.cls) refreshStats(f);
   if (game.save && !f.test) game.save.dirty = true;
-  if (!silent) game.emit('loot', { uid: f.uid, name: f.name, item, ...result, source, text: describeItem(item) });
+  if (!silent) game.emit('loot', { uid: f.uid, name: f.name, item, ...result, source, crafted, text: describeItem(item) });
+  // 合成：100个碎片 → 1件高一级装备，补在最弱的部位
+  for (let t = 0; t < top; t++) {
+    while (sh[t] >= GEAR.shardsPerCraft) {
+      sh[t] -= GEAR.shardsPerCraft;
+      const made = makeItem(game.random, weakestSlot(gear), t + 1);
+      if (!silent) game.emit('craft', { uid: f.uid, name: f.name, from: t, item: made, text: describeItem(made) });
+      giveItem(game, f, made, { silent, crafted: true });
+    }
+  }
   return result;
 }
