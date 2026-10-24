@@ -328,7 +328,7 @@ test('讨伐模式：红色区域10秒后命中，发「左/中/右」躲开就�
   const ships = ['stay', 'move', 'rich'].map(id => game.fighters.get(id));
   for (const f of ships) { f.lane = 'M'; f.x = 360; f.invuln = 0; }
   game.gift({ id: 'rich' }, { name: '小心心', price: 1, count: 20 });
-  assert.equal(game.fighters.get('rich').dodgeLeft, 120);
+  assert.equal(game.fighters.get('rich').dodgeLeft, 240);
   game.pve.t = 999;
   for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
   const z = castZone(game, 'strike', 1, '测试');
@@ -778,7 +778,7 @@ test('掉落顺序：本局送礼的排前面（送得多的第1），其余按�
   assert.ok(drops.find(x => x.uid === 'd').gifted);
 });
 
-test('机神附体：每1抖币6秒，自动放大招（不用发「大招」）', () => {
+test('机神附体：每1抖币12秒，自动放大招（不用发「大招」）', () => {
   const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
   game.setMode('pve');
   game.chat({ id: 'm', name: 'M' }, '输出');
@@ -789,7 +789,7 @@ test('机神附体：每1抖币6秒，自动放大招（不用发「大招」）
   for (let i = 0; i < 60 * 5; i++) game.step(1 / 60);
   assert.equal(m.ultCd, 0, '没有BUFF：真人不会自己放大招');
   game.gift({ id: 'm' }, { name: '小心心', price: 1, count: 2 });
-  assert.equal(m.dodgeLeft, 12);
+  assert.equal(m.dodgeLeft, 24);
   for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
   assert.ok(m.ultCd > 30, '机神附体自动放了大招');
 });
