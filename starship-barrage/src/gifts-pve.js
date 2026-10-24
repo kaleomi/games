@@ -83,7 +83,7 @@ export function applyPveGift(game, f, kind, amount) {
       game.emit('announce', { text: '战鼓响起，全队攻击提升', voice: true });
       break;
     }
-    case 'hero': {    // 自己普攻+30% 180秒；召唤超级战机180秒；自己战利品保底紫装180秒
+    case 'hero': {    // 自己普攻+30% 5分钟；召唤超级战机5分钟；自己战利品保底紫装5分钟
       f.heroUntil = extend(f.heroUntil, game, G.hero.sec * n);
       addFloor(game, f, G.hero.floor, G.hero.floorSec * n);
       summonSuper(game, f, G.hero.superSec * n);

@@ -162,7 +162,7 @@ export const PVE = {
     heart: { xp: 0.5, sec: 30 },                                     // 每个小心心：自己经验+50% 30秒（叠加时间，不设上限），立即放小技能
     flower: { sec: 120, maxPerGift: 3 },                             // 佣兵机甲120秒，立即放大招
     drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 3, rainPerSec: 70 },   // 全队攻击+30%；自己掉落保底橙装；全屏弹幕雨
-    hero: { atk: 0.3, sec: 180, floor: 2, floorSec: 180, superSec: 180 },            // 自己普攻+30%；超级战机；保底紫装
+    hero: { atk: 0.3, sec: 300, floor: 2, floorSec: 300, superSec: 300 },            // 自己普攻+30%、超级战机5分钟；保底紫装5分钟
     double: { sec: 1200, floor: 4, floorSec: 600 },                  // 只有自己掉落×2 20分钟；自己保底金装10分钟
     treasure: { hpFrac: 0.4, xpMul: 10, maxAlive: 2 },              // 宝箱魔王血量=当前关BOSS×40%；参与者10倍BOSS经验；送礼人每个跑车保底1件红装
   },
