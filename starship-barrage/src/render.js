@@ -1276,7 +1276,7 @@ export class Renderer {
   infoPanel(x) {
     const g = this.game;
     const L = 364, T = BOTTOM_Y, Wd = 348, Hh = H - 8 - T;
-    const pages = ['怎么玩', '弹幕指令', '四种战舰', '装备', '榜单与成长'];   // 礼物效果单独一个框一直显示（左侧）
+    const pages = ['怎么玩', '弹幕指令', '礼物效果①', '礼物效果②', '礼物效果③', '四种战舰', '装备', '榜单与成长'];   // 左侧礼物框是简表，这里轮播详细效果
     const DUR = 7, page = Math.floor(g.clock / DUR) % pages.length, ph = g.clock % DUR;
     this.panelBox(x, L, T, Wd, Hh);
     // 翻页：新页面从右边滑进来
@@ -1336,23 +1336,30 @@ export class Renderer {
         x.font = `12px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(GEAR.stats[d.stat].label, px + 42, py + 10);
       });
       x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('同品质重复强化+1（+2%）· 多余分解，100碎片合高一级', cx, y0 + 168);
-    } else if (name === '礼物效果') {
-      const rows = [
-        ['小心心', '经验+50% 每个30秒可叠，立即放技能'],
-        ['鲜花', '召唤佣兵机甲120秒，立即放大招'],
-        ['爱你哟', '战鼓：全队攻击+30% 60秒·弹幕雨'],
-        ['墨镜', '英雄战机：普攻+30%·超级战机3分钟'],
-        ['礼花筒', '全场掉落×2 5分钟'],
-        ['跑车', '宝箱魔王：打死全员开箱+10倍经验'],
-        ['点赞', '聚士气，满500全队伤害+10% 15秒'],
+    } else if (name.startsWith('礼物效果')) {
+      const G = PVE.gifts;
+      const all = [
+        ['加油鸭', '15抖币', '#ffd23a', `战舰锻造1次（送几个锻几次取最好）：普通/精良/史诗/传说/神话/至尊，全属性×1~3，每种战舰各自品质`],
+        ['小心心', '1抖币', '#ff9ec4', `自己经验+${G.heart.xp * 100}%，每个${G.heart.sec}秒、时间叠加不设上限；立即放一次小技能`],
+        ['鲜花', '10抖币', '#ffb3c8', `召唤佣兵机甲${G.flower.sec}秒（一次最多${G.flower.maxPerGift}台），立即放大招；跨关保留`],
+        ['爱你哟·战鼓', '52抖币', '#ff8a2a', `全队攻击+${G.drum.atk * 100}% ${G.drum.sec}秒，全屏弹幕雨；自己掉落保底传说装${G.drum.floorSec}秒`],
+        ['墨镜·英雄战机', '99抖币', '#7fe3ff', `自己普攻+${G.hero.atk * 100}%、英雄战机跟随${G.hero.sec / 60}分钟（跨关保留）；自己掉落保底史诗装`],
+        ['礼花筒·双倍掉落', '199抖币', '#ffd23a', `全场装备掉落×2 ${G.double.sec / 60}分钟；自己掉落保底神话装${G.double.floorSec / 60}分钟`],
+        ['跑车·宝箱魔王', '1200抖币', '#ff6b7a', `召唤宝箱魔王（当前BOSS血量的${G.treasure.hpFrac * 100}%），打死后在场全员开箱，打过它的人拿${G.treasure.xpMul}倍BOSS经验`],
+        ['任意礼物·机神附体', '每1抖币6秒', '#c58bff', '自动躲子弹、自动躲红区技能、自动放技能和大招；可累积，跟账号保存'],
+        ['点赞·士气', '免费', '#ff9ec4', `全场点赞满${PVE.morale.need}，全队伤害+${PVE.morale.dmg * 100}% ${PVE.morale.sec}秒`],
       ];
-      rows.forEach(([a2, b2], i) => {
-        const y = y0 - 2 + i * 26;
-        if (i % 2) { x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(L + 6, y - 12, Wd - 12, 24); }
-        x.font = `700 13px ${FONT}`; x.fillStyle = i === 6 ? '#ff9ec4' : '#ffd86b'; x.fillText(a2, cx, y);
-        x.font = `12.5px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(b2, cx + 68, y);
-      });
-      x.font = `11px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('爱你哟/墨镜/礼花筒：保底橙/紫/金 · 每1抖币机神附体6秒', cx, y0 + 182);
+      const pg = '①②③'.indexOf(name.slice(-1)), rows = all.slice(pg * 3, pg * 3 + 3);
+      let y = y0 - 4;
+      for (const [nm, price, col, desc] of rows) {
+        x.font = `700 14px ${FONT}`; x.fillStyle = col; x.fillText(nm, cx, y);
+        const w = x.measureText(nm).width;
+        x.font = `11.5px ${NUM}`; x.fillStyle = '#9fb0d0'; x.fillText(price, cx + w + 8, y + 1);
+        x.font = `12px ${FONT}`; x.fillStyle = '#e8eeff';
+        const parts = wrapText(x, desc, maxW);
+        parts.slice(0, 2).forEach((pt, k) => x.fillText(pt, cx + 8, y + 19 + k * 16));
+        y += 30 + Math.min(2, parts.length) * 16 + 8;
+      }
     } else bullets([
       '贡献＝成长分E×有效行为：存活5秒1E、技能6E、大招12E、躲红区3E',
       '经验＝贡献值，战斗中实时升级；E随等级和装备变高',
