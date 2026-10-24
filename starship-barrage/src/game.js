@@ -421,6 +421,9 @@ export class Game {
       if (sk) { const f = this.join(user); if (!f) return false; f.lastActive = this.now(); if (this.phase === 'battle') requestSkill(this, f, sk); return true; }
       const cls = parseClass(text);
       if (cls) { const f = this.join(user); if (f) this.setClass(f, cls); return !!f; }
+      // 快捷输入：1 / 2 / 3 = 左 / 中 / 右（全角数字也认）
+      const quick = { '1': 'L', '2': 'M', '3': 'R', '１': 'L', '２': 'M', '３': 'R' }[String(text || '').trim()];
+      if (quick) { const f = this.join(user); if (!f) return false; f.lastActive = this.now(); f.lane = quick; f.labelUntil = this.clock + 2.5; return true; }
     }
     const cmd = parseCommand(text);
     if (!cmd) return false;

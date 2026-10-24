@@ -810,3 +810,13 @@ test('对战模式关闭时：开局就是讨伐，「换对战」投票和切�
   assert.equal(game.setMode('pvp'), false);
   assert.equal(game.mode, 'pve');
 });
+
+test('快捷输入：1 2 3 对应 左 中 右', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'q', name: 'Q' }, '输出');
+  const f = game.fighters.get('q');
+  game.chat({ id: 'q' }, '1'); assert.equal(f.lane, 'L');
+  game.chat({ id: 'q' }, '2'); assert.equal(f.lane, 'M');
+  game.chat({ id: 'q' }, '3'); assert.equal(f.lane, 'R');
+  game.chat({ id: 'q' }, '１'); assert.equal(f.lane, 'L');
+});
