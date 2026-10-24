@@ -56,6 +56,7 @@ export class Save {
         pity: { gold: clampInt(p.pity?.gold, 0, 1e6, 0), red: clampInt(p.pity?.red, 0, 1e6, 0) },
         gear: validGear(p.gear),
         seenClear: clampInt(p.seenClear, 0, 1e12, 0),
+        buffs: p.buffs && typeof p.buffs === 'object' ? { xp: Number(p.buffs.xp) || 0, hero: Number(p.buffs.hero) || 0, double: Number(p.buffs.double) || 0, super: clampInt(p.buffs.super, 0, 1e7, 0), floors: Array.isArray(p.buffs.floors) ? p.buffs.floors.slice(0, 6).map(x => ({ tier: clampInt(x?.tier, 0, 5, 0), until: Number(x?.until) || 0 })) : [] } : null,
         forge: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forge?.[c], 0, 5, 0)])),
         forgePity: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forgePity?.[c], 0, 1e6, 0)])),
         gv: 3,

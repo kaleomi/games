@@ -113,6 +113,7 @@ export function applyPveGift(game, f, kind, amount) {
     }
     default: break;
   }
+  saveBuffs(game, f);
 }
 
 // ───────── 佣兵机甲（NPC，不进榜，贡献算给召唤的人） ─────────
@@ -224,7 +225,26 @@ export function dailyCheckin(game, f) {
 }
 
 // ───────── 每帧：佣兵到期、弹幕雨、BUFF 刷新 ─────────
+// ───────── 个人BUFF存档：刷新页面不丢（按真实时间存到期时刻） ─────────
+export function saveBuffs(game, f) {
+  const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
+  if (!p) return;
+  const ms = u => (u || 0) > now(game) ? game.now() + (u - now(game)) * 1000 : 0;
+  const sup = (game.pveDrones || []).find(d => d.kind === 'super' && d.owner === f.uid);
+  p.buffs = { xp: ms(f.xpUntil), hero: ms(f.heroUntil), double: ms(f.doubleUntil), floors: (f.floors || []).filter(x => x.until > now(game)).map(x => ({ tier: x.tier, until: ms(x.until) })), super: sup ? Math.round(sup.t) : 0 };
+  game.save.dirty = true;
+}
+export function loadBuffs(game, f, p) {
+  const b = p?.buffs; if (!b) return;
+  const at = ms => ms > game.now() ? now(game) + (ms - game.now()) / 1000 : 0;
+  f.xpUntil = at(b.xp); f.heroUntil = at(b.hero); f.doubleUntil = at(b.double);
+  f.floors = (b.floors || []).map(x => ({ tier: x.tier, until: at(x.until) })).filter(x => x.until > 0);
+  if (b.super > 1 && !(game.pveDrones || []).some(d => d.kind === 'super' && d.owner === f.uid)) summonSuper(game, f, b.super);
+}
+
 export function stepPveGifts(game, dt) {
+  // 每5秒把在场真人的个人BUFF写回存档
+  if ((game.buffSyncT = (game.buffSyncT || 0) - dt) <= 0) { game.buffSyncT = 5; for (const f of game.humans()) if (f.xpUntil || f.heroUntil || f.doubleUntil || f.floors?.length || game.pveDrones?.length) saveBuffs(game, f); }
   for (const m of [...game.fighters.values()]) {
     if (!m.merc) continue;
     if (game.clock > m.until) { game.emit('explode', { x: m.x, y: m.y, size: 1, team: 'blue' }); game.fighters.delete(m.uid); }

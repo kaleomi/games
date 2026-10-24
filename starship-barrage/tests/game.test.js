@@ -959,3 +959,24 @@ test('刷新页面：有机神附体的观众自动上场，且不会因挂机�
   for (let i = 0; i < 70; i++) g2.step(1 / 60);
   assert.ok(g2.fighters.has('m'), '不进后援');
 });
+
+test('个人BUFF（经验加成、英雄、双倍、保底、英雄战机）刷新页面不丢', () => {
+  let t = 2e7;
+  const save = new Save({ storage: memStorage(), now: () => t });
+  const g1 = new Game({ save, random: seeded(), now: () => t, settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  g1.chat({ id: 'b', name: 'B' }, '输出');
+  toBattle(g1);
+  g1.gift({ id: 'b' }, { name: '小心心', price: 1, count: 10 });
+  g1.gift({ id: 'b' }, { name: '墨镜', price: 99, count: 1 });
+  g1.gift({ id: 'b' }, { name: '礼花筒', price: 199, count: 1 });
+  save.flush();
+  t += 60 * 1000;   // 一分钟后刷新
+  const g2 = new Game({ save, random: seeded(2), now: () => t, settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  g2.chat({ id: 'b', name: 'B' }, '1');
+  const f = g2.fighters.get('b');
+  assert.ok(Math.abs((f.xpUntil - g2.clock) - 240) < 2, `经验加成还剩约4分钟 ${f.xpUntil - g2.clock}`);
+  assert.ok(f.heroUntil - g2.clock > 230);
+  assert.ok(f.doubleUntil - g2.clock > 530);
+  assert.ok(f.floors.length >= 1);
+  assert.ok(g2.pveDrones.some(d => d.kind === 'super' && d.owner === 'b'));
+});

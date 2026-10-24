@@ -6,7 +6,7 @@ import { skinFor } from './save.js';
 import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul, failStage, stageKind, stageLabel, smallKill, chapterOf } from './pve.js';
 import { syncDodge, fmtDuration, score, giveItem, makeItem } from './fleet.js';
 import { nearestEnemy } from './fleet.js';
-import { pveGiftKind, applyPveGift, stepPveGifts, moraleLike, dailyCheckin, chestKilled, xpMul, pauseSummons, resumeSummons } from './gifts-pve.js';
+import { pveGiftKind, applyPveGift, stepPveGifts, moraleLike, dailyCheckin, chestKilled, xpMul, pauseSummons, resumeSummons, loadBuffs } from './gifts-pve.js';
 import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter, growthE } from './fleet.js';
 import { GEAR } from './config.js';
 const GEAR_SLOTS = () => GEAR.slots;
@@ -259,7 +259,7 @@ export class Game {
     this.fighters.set(uid, f);
     f.labelUntil = this.clock + 4;
     this.emit('join', { uid, name: f.name, team: t });
-    if (this.mode === 'pve' && !test) this.catchUp(f, prof);
+    if (this.mode === 'pve' && !test) { this.catchUp(f, prof); loadBuffs(this, f, prof); }
     this.syncNpcs();
     return f;
   }
