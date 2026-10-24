@@ -908,3 +908,13 @@ test('战舰锻造：加油鸭×1锻造1次，每种战舰各自品质，全属�
   game.gift({ id: 'z' }, { name: '加油鸭', price: 15, count: 1 });
   assert.equal(save.peek('z').forge.dps, 5);
 });
+
+test('小心心经验加成时间叠加，不设上限', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'x', name: 'X' }, '输出');
+  toBattle(game);
+  game.gift({ id: 'x' }, { name: '小心心', price: 1, count: 30 });
+  game.gift({ id: 'x' }, { name: '小心心', price: 1, count: 30 });
+  const f = game.fighters.get('x');
+  assert.ok(f.xpUntil - game.clock > 1790, `叠到30分钟 ${f.xpUntil - game.clock}`);
+});

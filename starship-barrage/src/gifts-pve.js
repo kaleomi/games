@@ -62,8 +62,8 @@ export function applyPveGift(game, f, kind, amount) {
       forgeShip(game, f, Math.min(n, PVE.forge.maxPerGift));
       break;
     }
-    case 'heart': {   // 自己30秒经验+50%（最多300秒），立即放小技能
-      f.xpUntil = extend(f.xpUntil, game, G.heart.sec * n, G.heart.cap);
+    case 'heart': {   // 自己30秒经验+50%（叠加，不设上限），立即放小技能
+      f.xpUntil = extend(f.xpUntil, game, G.heart.sec * n);
       if (f.skillCd > 0) f.freeSkill = true;   // 礼物触发的技能不算贡献
       f.skillCd = 0;
       game.emit('banner', { team: 'blue', uid: f.uid, name: f.name, text: `经验+50% · 还剩${Math.ceil(f.xpUntil - now(game))}秒，立即放技能`, tier: 1 });
