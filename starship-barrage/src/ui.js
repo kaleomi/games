@@ -17,7 +17,7 @@ export function loadSettings() {
 }
 export function storeSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* 忽略 */ } }
 
-const PVE_GIFT_WORD = { heart: '经验', flower: '佣兵', drum: '战鼓', hero: '英雄', double: '双倍', treasure: '宝箱' };
+const PVE_GIFT_WORD = { forge: '锻造', heart: '经验', flower: '佣兵', drum: '战鼓', hero: '英雄', double: '双倍', treasure: '宝箱' };
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 export function rulesHtml(settings, mode = 'pvp') {
@@ -157,7 +157,7 @@ export class UI {
       <section>
         <h3>讨伐礼物对照</h3>
         <div class="note">默认：${esc(Object.entries(PVE.gifts.byName).filter(([k]) => k !== '爱的爆炸').map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('、'))}；认不出的按单价：1+经验 10+佣兵 52+战鼓 99+英雄 199+双倍 1200+宝箱。</div>
-        <div class="row">追加 / 改礼物（每行「礼物名=效果」，效果填 经验 / 佣兵 / 战鼓 / 英雄 / 双倍 / 宝箱）：</div>
+        <div class="row">追加 / 改礼物（每行「礼物名=效果」，效果填 锻造 / 经验 / 佣兵 / 战鼓 / 英雄 / 双倍 / 宝箱）：</div>
         <textarea id="cfg-pvegifts" rows="3" placeholder="棒棒糖=经验&#10;嘉年华=宝箱">${esc(Object.entries(s.pveGiftByName || {}).map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('\n'))}</textarea>
         <details class="pvp-tiers" ${PVP_ENABLED ? '' : 'hidden'}><summary>对战模式礼物分档（只在红蓝对战里用）</summary>
           <div class="row tiers">${[1, 2, 3, 4].map(i => `${i + 1}档起 <input data-tier="${i}" type="number" min="1" value="${s.tiers[i]}">`).join(' ')}</div>
@@ -210,7 +210,7 @@ export class UI {
     for (const line of document.getElementById('cfg-pvegifts').value.split('\n')) {
       const m = line.trim().match(/^(.{1,30}?)\s*[=＝]\s*(\S+)$/);
       if (m && words[m[2]]) pg[m[1].trim()] = words[m[2]];
-      else if (line.trim()) throw new Error(`看不懂这一行：${line.trim()}（效果填 经验/佣兵/战鼓/英雄/双倍/宝箱）`);
+      else if (line.trim()) throw new Error(`看不懂这一行：${line.trim()}（效果填 锻造/经验/佣兵/战鼓/英雄/双倍/宝箱）`);
     }
     s.pveGiftByName = pg;
     const tiers = [1];

@@ -90,9 +90,18 @@ export function describeItem(item) {
 }
 
 // ───────── 属性 ─────────
+// 战舰锻造品质（每种战舰各自一个，存在账号里）
+export function forgeTier(f, cls = f.cls) { return Math.max(0, Math.min(PVE.forge.tiers.length - 1, (f.forge && f.forge[cls]) | 0)); }
+export function forgeMul(f, cls = f.cls) { return PVE.forge.tiers[forgeTier(f, cls)].mul; }
+export function rollForge(random) {
+  const T = PVE.forge.tiers, total = T.reduce((a, t) => a + t.w, 0);
+  let r = random() * total;
+  for (let i = 0; i < T.length; i++) { r -= T[i].w; if (r <= 0) return i; }
+  return 0;
+}
 export function shipStats(f) {
   const c = CLASSES[f.cls] || CLASSES.dps;
-  const lv = 1 + 0.02 * Math.max(0, (f.level || 1) - 1);
+  const lv = (1 + 0.02 * Math.max(0, (f.level || 1) - 1)) * forgeMul(f);   // 等级 × 锻造品质（全属性）
   const g = gearBonus(f.gear), cap = GEAR.caps;
   return {
     maxHp: Math.round(c.hp * lv * (1 + g.hp)),
@@ -119,7 +128,7 @@ export function critAvg(f) { const st = f.stats; return st ? 1 + st.crit * (st.c
 export function combatPower(f) {
   let sc = 0;
   if (f.gear) for (const slot of Object.keys(GEAR.slots)) if (f.gear[slot]) sc += gearScore({ ...f.gear[slot], slot });
-  return Math.round((f.level || 1) * 50 + sc * 120);
+  return Math.round(((f.level || 1) * 50 + sc * 120) * forgeMul(f));
 }
 // 成长分 E：等级 + 身上装备（临时BUFF不算）；贡献 = E × 有效行为，按行为发生那一刻的E算
 export function growthE(f) {

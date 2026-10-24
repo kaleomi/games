@@ -6,6 +6,7 @@ import { queenSvg, colossusSvg, eyeSvg, bossPodSvg, chestSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR, PVP_ENABLED } from './config.js';
+import { forgeTier } from './fleet.js';
 import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, growthE, pityOf, lootFloorOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
@@ -39,7 +40,7 @@ export class Renderer {
     this.hintIdx = 0;
     this.boardCache = { t: -1, red: [], blue: [] };
     this.shocks = []; this.slashes = []; this.trails = new Map(); this.ripples = []; this.pillars = []; this.muzzles = [];
-    this.reticles = []; this.healLinks = []; this.floaters = []; this.pops = []; this.laneFlashes = []; this.loots = [];
+    this.reticles = []; this.healLinks = []; this.floaters = []; this.pops = []; this.laneFlashes = []; this.loots = []; this.forges = [];
     for (let i = 0; i < 140; i++) this.stars.push({ x: Math.random() * W, y: Math.random() * H, z: 0.2 + Math.random() * 0.8 });
     this.resize();
   }
@@ -217,6 +218,7 @@ export class Renderer {
           break;
         }
         case 'craft': this.toast(`${e.name} 用${GEAR.shardsPerCraft}个${GEAR.tiers[e.from].name}碎片合成了${GEAR.tiers[e.item.tier].name}装备`, null, GEAR.tiers[e.item.tier].color); break;
+        case 'forge': if (this.forges.length < 12) this.forges.push({ ...e, t: 0 }); break;
         case 'catchup': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `欢迎回来！成长汇总：错过${e.stages}关，补发经验${e.xp}${e.levels ? `（升${e.levels}级）` : ''}、装备${e.items}件`, tier: 3 }); break;
         case 'reserve': break;
         case 'pity': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `触发保底！必出${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: 5, gear: e.item }); break;
@@ -621,7 +623,7 @@ export class Renderer {
     }
     if (show) {
       const ly = f.y - 36;
-      const text = `Lv.${f.level || 1} ${f.name}·${CLASSES[f.cls].short}`;
+      const ft = forgeTier(f), text = `Lv.${f.level || 1} ${f.name}·${ft ? PVE.forge.tiers[ft].name : ''}${CLASSES[f.cls].short}`;
       this.label(x, text, f.x, ly, 13, rank != null ? '#ffe28a' : '#ffffff');
       const m = rank != null && this.medalArt(rank);
       if (m) { x.font = `500 13px ${FONT}`; this.blit(x, m, f.x - x.measureText(text).width / 2 - 11, ly - 1); }
@@ -707,6 +709,45 @@ export class Renderer {
 
   // 歼灭光束：自动瞄准，沿 beamAngle 方向；先蓄能 0.5 秒
   // 装备外观：装甲紫色以上脚下光晕；护盾发生器橙色以上外圈护环；瞄准器橙色以上瞄准激光
+  // 锻造动画：熔炉光环里战舰闪过各种品质颜色，锤击火花，最后定格在锻出的品质
+  drawForge(x, dt) {
+    const e = this.forges[0];
+    if (!e) return;
+    const DUR = 3.4, REVEAL = 1.7;
+    e.t += dt;
+    if (e.t > DUR) { this.forges.shift(); return; }
+    const T = PVE.forge.tiers, cx = 360, cy = 380, k = Math.min(1, e.t / 0.25), out = Math.max(0, (e.t - DUR + 0.4) / 0.4);
+    x.save(); x.globalAlpha = k * (1 - out);
+    x.fillStyle = 'rgba(0,0,0,.45)'; x.fillRect(0, cy - 190, W, 380);
+    const rolling = e.t < REVEAL;
+    // 滚动品质：越来越慢，最后停在锻出的品质
+    const spin = rolling ? Math.floor((e.t * (14 - e.t * 6)) * 3) % T.length : e.best;
+    const col = T[rolling ? spin : e.best].color;
+    x.globalCompositeOperation = 'lighter';
+    const glow = this.glowSprite(col, 90 + Math.sin(e.t * 18) * 8 + (rolling ? 0 : 30));
+    x.drawImage(glow, cx - glow.half, cy - glow.half);
+    x.globalCompositeOperation = 'source-over';
+    x.save(); x.translate(cx, cy); x.rotate(e.t * (rolling ? 4 : 1));
+    x.strokeStyle = col; x.lineWidth = 4; x.setLineDash([18, 12]); x.beginPath(); x.arc(0, 0, 96, 0, Math.PI * 2); x.stroke();
+    x.rotate(-e.t * 7); x.lineWidth = 2; x.setLineDash([6, 10]); x.beginPath(); x.arc(0, 0, 118, 0, Math.PI * 2); x.stroke(); x.setLineDash([]);
+    x.restore();
+    const art = this.fighterArt({ cls: e.cls, skin: 3, team: 'blue' });
+    if (art) { x.save(); x.translate(cx, cy + (rolling ? Math.sin(e.t * 40) * 2 : 0)); const sc = rolling ? 1.7 : 1.9 + Math.max(0, 0.4 - (e.t - REVEAL)); x.scale(sc, sc); this.blit(x, art, 0, 0); x.restore(); }
+    if (rolling && Math.floor(e.t / 0.38) !== Math.floor((e.t - dt) / 0.38)) { this.burst(cx + (Math.random() - 0.5) * 60, cy + 30, 0.9, null); this.shake = Math.max(this.shake, 4); }
+    if (!rolling && !e.boom) { e.boom = true; this.ripples.push({ x: cx, y: cy, t: 0, dur: 0.8, r0: 40, r1: 260, color: hexRgb(T[e.best].color), w: 6 }); this.burst(cx, cy, e.best >= 3 ? 3 : 1.6, null); this.shake = Math.max(this.shake, e.best >= 3 ? 14 : 6); this.toast(`${e.name} 锻造${CLASSES[e.cls].name}：${e.up ? `升到${T[e.to].name}级，全属性×${T[e.to].mul}` : `锻出${T[e.best].name}，保留${T[e.from].name}级`}`, null, T[e.to].color); }
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.font = `700 20px ${FONT}`; x.fillStyle = '#fff';
+    x.fillText(`${trim(e.name, 8)} 锻造${CLASSES[e.cls].name}${e.rolls.length > 1 ? ` ×${e.rolls.length}` : ''}`, cx, cy - 150);
+    if (rolling) { x.font = `800 30px ${FONT}`; x.fillStyle = col; x.fillText(`${T[spin].name}…`, cx, cy + 150); }
+    else {
+      const R = T[e.best];
+      x.font = `900 44px ${FONT}`; x.lineWidth = 6; x.strokeStyle = 'rgba(0,0,0,.7)'; x.strokeText(`${R.name}级！`, cx, cy + 140); x.fillStyle = R.color; x.fillText(`${R.name}级！`, cx, cy + 140);
+      x.font = `700 17px ${FONT}`; x.fillStyle = '#ffe28a';
+      x.fillText(e.up ? `全属性 ×${T[e.to].mul}` : `没超过现在的${T[e.from].name}级，保留${T[e.from].name}（×${T[e.from].mul}）`, cx, cy + 178);
+    }
+    x.restore();
+  }
+
   drawGearAura(x, f) {
     const g = this.game, gr = f.gear || {};
     const at = gr.armor ? gr.armor.tier : -1, st = gr.generator ? gr.generator.tier : -1, sc = gr.scope ? gr.scope.tier : -1;
@@ -1178,6 +1219,7 @@ export class Renderer {
       void hint;   // 讨伐：指令提示都放在右下角轮播里
     } else { x.font = `15px ${FONT}`; x.fillStyle = 'rgba(200,215,255,.75)'; x.fillText(hint, 360, hy); }
     this.drawBanners(x, dt);
+    this.drawForge(x, dt);
     this.drawToasts(x, dt);
     if (this.card && this.card.until > g.clock) { if (this.card.gear) this.drawGearCard(x); else this.drawCard(x); }
   }
@@ -1219,7 +1261,7 @@ export class Renderer {
       x.font = `700 14px ${FONT}`; x.fillStyle = i === 0 ? '#ffe28a' : '#e8eeff';
       const nm = trim(f.name, 6); x.fillText(nm, L + 68, y - 9);
       const nw = x.measureText(nm).width;
-      x.font = `11px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText(`Lv${f.level || 1} · ${f.cls ? CLASSES[f.cls].short : ''}`, L + 74 + nw, y - 8.5);
+      x.font = `11px ${FONT}`; x.fillStyle = '#8fa3c8'; { const ft = forgeTier(f); x.fillText(`Lv${f.level || 1} · `, L + 74 + nw, y - 8.5); const w1 = x.measureText(`Lv${f.level || 1} · `).width; if (ft) { x.fillStyle = PVE.forge.tiers[ft].color; x.fillText(PVE.forge.tiers[ft].name, L + 74 + nw + w1, y - 8.5); } x.fillStyle = '#8fa3c8'; x.fillText(f.cls ? CLASSES[f.cls].short : '', L + 74 + nw + w1 + (ft ? x.measureText(PVE.forge.tiers[ft].name).width : 0), y - 8.5); }
       Object.keys(GEAR.slots).forEach((sl, k2) => {
         const it = f.gear?.[sl], cx = L + 78 + k2 * 21, cy = y + 10;
         if (it) { const ic = this.gearIcon(sl, it.tier, 25); if (ic) this.blit(x, ic, cx, cy); }
@@ -1430,6 +1472,7 @@ export class Renderer {
   // 讨伐：礼物效果框，一直显示在左边（和右边贡献榜对称）
   giftBox(x, px, py) {
     const rows = [
+      ['加油鸭', '战舰锻造一次（品质）', '#ffd23a'],
       ['小心心', '经验+50% · 放技能', '#ff9ec4'],
       ['鲜花', '佣兵机甲 · 放大招', '#ffb3c8'],
       ['爱你哟', '战鼓 全队攻击+30%', '#ff8a2a'],
@@ -1593,7 +1636,7 @@ export class Renderer {
     x.textAlign = 'left'; x.textBaseline = 'middle';
     x.font = `700 21px ${FONT}`; x.fillStyle = '#fff'; x.fillText(`Lv.${f.level || 1} ${trim(f.name, 10)} 的装备`, L + 20, T + 28);
     x.font = `13px ${FONT}`; x.fillStyle = '#aab4cc'; x.textAlign = 'right';
-    x.fillText(`${f.cls ? CLASSES[f.cls].name : ''} · 战力 ${combatPower(f)}`, L + Wd - 20, T + 28); x.textAlign = 'left';
+    { const FT = PVE.forge.tiers[forgeTier(f)]; x.fillText(`${FT.name}级${f.cls ? CLASSES[f.cls].name : ''}（×${FT.mul}）· 战力 ${combatPower(f)}`, L + Wd - 20, T + 28); } x.textAlign = 'left';
     if (this.card.pinned) { x.font = `11px ${FONT}`; x.fillStyle = '#6f7894'; x.textAlign = 'center'; x.fillText(`本局贡献 ${Math.floor(f.merit)} · 主播查看中，点任意处关闭`, L + Wd / 2, T + H - 12); x.textAlign = 'left'; }
     x.font = `13px ${FONT}`; x.fillStyle = '#ffe28a';
     x.fillText(`攻击${(st.atk || 0).toFixed(1)}  生命${Math.round(st.maxHp || f.maxHp)}  防御${P(st.armor)}  攻速+${P(st.aspd)}  暴击${P(st.crit)}  爆伤${P(st.critDmg)}`, L + 20, T + 56);

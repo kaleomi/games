@@ -1,10 +1,11 @@
 // 星舰弹幕战 · 讨伐模式礼物、点赞士气、签到
 // 礼物不直接给随机装备：只加 BUFF、召唤帮手，或者给「正常玩法掉落」加保底品质 / 翻倍。
-import { PVE, GEAR } from './config.js';
-import { castUlt, rollItem, giveItem, makeItem, refreshStats, laneCenter, LANES } from './fleet.js';
+import { PVE, GEAR, CLASSES } from './config.js';
+import { castUlt, rollItem, giveItem, makeItem, refreshStats, laneCenter, LANES, forgeTier, rollForge } from './fleet.js';
 import { bossMax, spawnAlien, chapterOf } from './pve.js';
 
 export const GIFT_KINDS = {
+  forge:    { name: '加油鸭',   title: '战舰锻造' },
   heart:    { name: '小心心',   title: '经验加速' },
   flower:   { name: '鲜花',     title: '佣兵机甲' },
   drum:     { name: '爱你哟',   title: '战鼓' },
@@ -57,6 +58,10 @@ export function applyPveGift(game, f, kind, amount) {
   const G = PVE.gifts, n = Math.max(1, amount);
   const tName = t => GEAR.tiers[t].name;
   switch (kind) {
+    case 'forge': {   // 加油鸭：当前战舰锻造 n 次，留最高品质
+      forgeShip(game, f, Math.min(n, PVE.forge.maxPerGift));
+      break;
+    }
     case 'heart': {   // 自己30秒经验+50%（最多300秒），立即放小技能
       f.xpUntil = extend(f.xpUntil, game, G.heart.sec * n, G.heart.cap);
       if (f.skillCd > 0) f.freeSkill = true;   // 礼物触发的技能不算贡献
@@ -157,6 +162,21 @@ function grantXp(game, f, xp) {
 }
 
 // ───────── 点赞士气 ─────────
+export function forgeShip(game, f, times = 1) {
+  if (!f.cls) return null;
+  const T = PVE.forge.tiers, cls = f.cls;
+  const forge = f.forge || (f.forge = {});
+  const from = forgeTier(f, cls);
+  const rolls = []; for (let i = 0; i < times; i++) rolls.push(rollForge(game.random));
+  const best = Math.max(...rolls), to = Math.max(from, best);
+  forge[cls] = to;
+  const p = !f.test && !f.npc ? game.save?.peek(f.uid) : null;
+  if (p) { p.forge = forge; game.save.dirty = true; }
+  refreshStats(f);
+  game.emit('forge', { uid: f.uid, name: f.name, cls, from, to, best, rolls, up: to > from });
+  return { from, to, rolls };
+}
+
 export function moraleLike(game, f, n) {
   const M = PVE.morale;
   if (game.clock - (f.moraleWinT || 0) >= 1) { f.moraleWinT = game.clock; f.moraleWin = 0; }

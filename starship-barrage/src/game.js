@@ -243,7 +243,7 @@ export class Game {
       weapon: ['laser', 'spread', 'charge'][Math.floor(this.random() * 3)],
       lane: ['L', 'M', 'R'][Math.floor(this.random() * 3)], target: 'core',
       lastActive: nowMs, pvpTeam: team || null,
-      gear: test ? {} : (prof.gear ||= {}), prefCls: prof.cls || null, dodgeLeft: test ? 0 : (prof.dodgeLeft || 0),
+      gear: test ? {} : (prof.gear ||= {}), forge: test ? {} : (prof.forge ||= {}), prefCls: prof.cls || null, dodgeLeft: test ? 0 : (prof.dodgeLeft || 0),
     };
     this.resetFighterForRound(f);
     this.fighters.set(uid, f);

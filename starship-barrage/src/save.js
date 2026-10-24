@@ -56,6 +56,7 @@ export class Save {
         pity: { gold: clampInt(p.pity?.gold, 0, 1e6, 0), red: clampInt(p.pity?.red, 0, 1e6, 0) },
         gear: validGear(p.gear),
         seenClear: clampInt(p.seenClear, 0, 1e12, 0),
+        forge: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forge?.[c], 0, 5, 0)])),
         gv: 3,
       };
       // 旧存档迁移：红+1 原来是+10%，现在每级+2% → 等级×5 保持强度；中间版本的「余料」按白碎片折算（10余料=1白碎片）
@@ -82,7 +83,7 @@ export class Save {
   get(uid, name, avatar) {
     let p = this.data.players[uid];
     if (!p) {
-      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: [0, 0, 0, 0, 0], gear: {}, dodgeLeft: 0, gv: 3, seenClear: this.data.clearNo || 0 };
+      p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: [0, 0, 0, 0, 0], gear: {}, forge: {}, dodgeLeft: 0, gv: 3, seenClear: this.data.clearNo || 0 };
       this.prune();
     }
     if (name) p.name = String(name).slice(0, 24);

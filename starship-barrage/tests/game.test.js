@@ -880,3 +880,30 @@ test('英雄战机、佣兵机甲时间没到就跨关保留', () => {
   assert.ok(sup && sup.t > 170, '英雄战机还在');
   assert.ok([...game.fighters.values()].some(f => f.merc && f.owner === 'h'), '佣兵还在');
 });
+
+test('战舰锻造：加油鸭×1锻造1次，每种战舰各自品质，全属性按品质倍率，只升不降', async () => {
+  const { rollForge, forgeMul } = await import('../src/fleet.js');
+  const { PVE } = await import('../src/config.js');
+  let seed = 5; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const cnt = [0, 0, 0, 0, 0, 0]; for (let i = 0; i < 200000; i++) cnt[rollForge(rnd)]++;
+  [40, 35, 18, 5, 1.5, 0.5].forEach((w, i) => assert.ok(Math.abs(cnt[i] / 2000 - w) < Math.max(0.3, w * 0.06), `品质${i} ${cnt[i] / 2000}%`));
+  const { game, save } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'z', name: 'Z' }, '输出');
+  toBattle(game);
+  const z = game.fighters.get('z'), atk0 = z.stats.atkBase, hp0 = z.maxHp;
+  game.drainEvents();
+  game.gift({ id: 'z' }, { name: '加油鸭', price: 15, count: 30 });
+  const ev = game.drainEvents().find(e => e.type === 'forge');
+  assert.ok(ev && ev.rolls.length === 30);
+  const t = save.peek('z').forge.dps;
+  assert.equal(t, Math.max(...ev.rolls));
+  assert.ok(Math.abs(z.stats.atkBase - atk0 * PVE.forge.tiers[t].mul) < 1e-6, '攻击按品质倍率');
+  assert.ok(z.maxHp >= Math.floor(hp0 * PVE.forge.tiers[t].mul) - 1, '生命按品质倍率');
+  // 换成机甲：品质不互通
+  game.chat({ id: 'z' }, '机甲');
+  assert.equal(forgeMul(z), 1);
+  // 只升不降
+  save.peek('z').forge.dps = 5; z.forge.dps = 5; game.chat({ id: 'z' }, '输出');
+  game.gift({ id: 'z' }, { name: '加油鸭', price: 15, count: 1 });
+  assert.equal(save.peek('z').forge.dps, 5);
+});
