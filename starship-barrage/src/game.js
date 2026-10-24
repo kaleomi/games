@@ -628,7 +628,11 @@ export class Game {
       this.phaseT -= dt;
       this.stepBullets(dt, false);
       this.stepFighters(dt, false);
-      if (this.phaseT <= 0) this.startLobby();
+      if (this.phaseT <= 0) {
+        const next = this.mode === 'pve' && this.winner === 'blue';
+        this.startLobby();
+        if (next) this.startBattle();   // 讨伐打赢了：不备战，直接下一关
+      }
       return;
     }
     this.time += dt;

@@ -216,8 +216,10 @@ test('讨伐模式：精英关虫群后BOSS现身，打爆进下一关；首领�
   assert.equal(game.phase, 'result');
   assert.equal(save.data.pveStage, 5);
   assert.equal(save.data.pveBest, 4);
+  // 打赢了：结算完直接下一关，不备战
+  game.phaseT = 0.001; game.step(1 / 60);
+  assert.equal(game.phase, 'battle');
   // 下一局（第5关首领）失败 → 本章第1关
-  game.phaseT = 0.001; game.step(1 / 60); toBattle(game);
   assert.equal(game.pve.stage, 5);
   assert.equal(game.pve.kind, 'boss');
   for (const f of game.fighters.values()) if (!f.alien) { f.alive = false; f.respawn = 99; }
