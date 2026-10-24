@@ -956,6 +956,15 @@ export class Game {
     if (this.mode === 'pve' && team === 'blue') { b.seek = true; if (b.life > 3.5 && !b.missile) b.life = 3.5; }
     if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * (chapterOf(this.pve?.stage || 1) - 1)) * lateMul(this.pve?.stage || 1) : PVE.giftDmg;
     this.bullets.push(b);
+    // 讨伐：敌方弹幕数量×3——每发子弹左右各多一发（稍微错开角度），不再递归
+    if (this.mode === 'pve' && team === 'red' && !b.copy && PVE.enemyBulletCopies > 1) {
+      const sp = Math.hypot(vx, vy), a0 = Math.atan2(vy, vx), spread = 0.16;
+      for (let k = 1; k < PVE.enemyBulletCopies; k++) {
+        if (this.bullets.length >= LIMITS.bullets) break;
+        const a = a0 + (k % 2 ? 1 : -1) * spread * Math.ceil(k / 2);
+        this.bullets.push({ ...b, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, copy: true, hit: null });
+      }
+    }
     return b;
   }
 

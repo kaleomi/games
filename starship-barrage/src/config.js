@@ -133,7 +133,8 @@ export const PVE = {
   podOffsets: [[-200, 40], [200, 40], [-92, 88], [92, 88]],
   podHp: 1500,
   podRespawn: 40,
-  enemyBulletDmg: 12,         // 敌方每发子弹伤害
+  enemyBulletDmg: 36,         // 敌方每发子弹伤害（原来12，×3）
+  enemyBulletCopies: 3,       // 敌方弹幕数量倍数：每发子弹变成3发（左右错开一点角度）
   giftDmg: 8,                 // 礼物弹幕 / 战舰 / 护卫僚机每发伤害
   hazardDmg: 80,              // 激光网格对异形的伤害
   diver: { blast: 34, radius: 62, warn: 2.2 },
