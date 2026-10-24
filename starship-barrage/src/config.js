@@ -108,8 +108,8 @@ export const PVE = {
   alienZone: [140, 520],
   bossHp: 16000,
   bossGrowth: 1.18,           // （旧）每关BOSS血量 ×1.18，现在按 bossCurve 分段
-  // BOSS血量分段增长：1–5关每关×1.18（新人友好），6–10关每关×1.5，11关起每关翻倍
-  bossCurve: [{ to: 5, mul: 1.18 }, { to: 10, mul: 1.5 }, { to: 9999, mul: 2 }],
+  // BOSS血量分段增长：1–5关×1.18（新人友好），6–10关×1.5，11–20关×1.6，21–30关×1.8，31关起每关翻倍
+  bossCurve: [{ to: 5, mul: 1.18 }, { to: 10, mul: 1.5 }, { to: 20, mul: 1.6 }, { to: 30, mul: 1.8 }, { to: 9999, mul: 2 }],
   lateDmg: 1.12,              // 11关起，敌方子弹和红区伤害每关再 ×1.12
   bossY: 140,
   bossHitW: 220,
