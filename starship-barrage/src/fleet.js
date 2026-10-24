@@ -58,10 +58,11 @@ export function rollItem(random, stage, bonusRolls = 0) {
   const slots = Object.keys(GEAR.slots);
   const slot = slots[Math.floor(random() * slots.length)];
   const lift = 1 + GEAR.liftPer * Math.min(GEAR.liftCap - 1, Math.max(0, stage - 1));
+  const liftRed = 1 + GEAR.liftPer * Math.max(0, stage - 1);   // 红装不封顶：关卡越高越容易出
   const top = GEAR.tiers.length - 1;
   let best = 0;
   for (let k = 0; k <= bonusRolls; k++) {
-    const weights = GEAR.tiers.map((t, i) => (i === top && stage < GEAR.redFrom ? 0 : t.w * lift ** i));
+    const weights = GEAR.tiers.map((t, i) => (i === top ? (stage < GEAR.redFrom ? 0 : t.w * liftRed ** i) : t.w * lift ** i));
     const total = weights.reduce((a, b) => a + b, 0);
     let r = random() * total, tier = 0;
     for (let i = 0; i < weights.length; i++) { r -= weights[i]; if (r <= 0) { tier = i; break; } }
