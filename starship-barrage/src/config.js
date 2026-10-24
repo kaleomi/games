@@ -163,7 +163,7 @@ export const PVE = {
     flower: { sec: 120, maxPerGift: 3 },                             // 佣兵机甲120秒，立即放大招
     drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 3, rainPerSec: 70 },   // 全队攻击+30%；自己掉落保底橙装；全屏弹幕雨
     hero: { atk: 0.3, sec: 300, floor: 2, floorSec: 300, superSec: 300 },            // 自己普攻+30%、超级战机5分钟；保底紫装5分钟
-    double: { sec: 600, floor: 4, floorSec: 600 },                   // 只有自己掉落×2 10分钟；自己保底金装10分钟
+    double: { sec: 600, floor: 4, floorSec: 300 },                   // 只有自己掉落×2 10分钟；自己保底金装5分钟
     treasure: { hpFrac: 0.4, xpMul: 10, maxAlive: 2 },              // 宝箱魔王血量=当前关BOSS×40%；参与者10倍BOSS经验；送礼人每个跑车保底1件红装
   },
   // 战舰锻造（礼物「加油鸭」×1 = 锻造1次）：每种战舰各自一个品质，互不相通；锻出更高品质才替换，锻出更低的保留原品质
