@@ -225,19 +225,54 @@ test('讨伐模式：虫群后母舰现身，打爆进下一关，全队阵亡�
   assert.equal(save.data.pveStage, 3);
 });
 
-test('讨伐模式：母舰没出现时送火箭，主炮蓄满等母舰现身再打', () => {
-  const { game } = newGame();
+test('讨伐礼物：小心心/鲜花/爱你哟/墨镜/爱的爆炸/跑车 + 点赞士气 + 签到', async () => {
+  const { lootFloorOf, teamAtkMul } = await import('../src/fleet.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0 } });
   game.setMode('pve');
+  game.chat({ id: 'a', name: 'A' }, '输出');
+  game.chat({ id: 'b', name: 'B' }, '医疗');
   toBattle(game);
-  game.gift({ id: 'r', name: 'R' }, { name: '火箭', price: 1000, count: 1 });
-  const c = game.teams.blue.cannon;
-  for (let i = 0; i < 60 * 10; i++) game.step(1 / 60);
-  assert.equal(c.state, 'charging');
-  game.pve.t = 0.001;
-  for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
-  const before = game.teams.red.core;
-  for (let i = 0; i < 60 * 5 && c.state === 'charging'; i++) game.step(1 / 60);
-  assert.ok(before - game.teams.red.core >= game.teams.red.coreMax * 0.09);
+  const a = game.fighters.get('a'), b = game.fighters.get('b');
+  // 小心心：经验加成 + 立即放小技能
+  a.skillCd = 9;
+  game.gift({ id: 'a' }, { name: '小心心', price: 1, count: 3 });
+  assert.ok(a.xpUntil - game.clock > 85 && a.skillCd === 0);
+  // 鲜花：佣兵机甲 + 立即大招
+  game.gift({ id: 'b' }, { name: '鲜花', price: 10, count: 1 });
+  const merc = [...game.fighters.values()].find(f => f.merc && f.owner === 'b');
+  assert.ok(merc && merc.cls === 'tank' && b.ultCd > 40);
+  // 爱你哟：全队攻击+30%，自己保底橙装
+  game.gift({ id: 'a' }, { name: '爱你哟', price: 52, count: 1 });
+  assert.ok(Math.abs(teamAtkMul(game) - 1.3) < 1e-9);
+  assert.equal(lootFloorOf(game, a), 3);
+  // 墨镜：超级战机 + 保底紫装（橙更高所以还是橙）
+  game.gift({ id: 'a' }, { name: '墨镜', price: 99, count: 1 });
+  assert.ok(game.pveDrones.some(d => d.kind === 'super' && d.owner === 'a'));
+  // 爱的爆炸：全场双倍掉落 + 保底金装
+  game.gift({ id: 'b' }, { name: '爱的爆炸', price: 520, count: 1 });
+  assert.equal(lootFloorOf(game, b), 4);
+  game.humans().forEach(f => { f.merit = 100; });
+  const { rollDrops } = await import('../src/fleet.js');
+  const drops = rollDrops(game, 3);
+  assert.equal(drops.filter(d => d.uid === 'b').length, 2, '双倍掉落');
+  assert.ok(drops.filter(d => d.uid === 'b').every(d => d.item.tier >= 4), '保底金装');
+  assert.ok(drops.filter(d => d.uid === 'a').every(d => d.item.tier >= 3), '保底橙装');
+  // 跑车：宝箱魔王，打死后全员开箱
+  game.gift({ id: 'a' }, { name: '跑车', price: 1200, count: 1 });
+  const chest = [...game.fighters.values()].find(f => f.alien && f.kind === 'chest');
+  assert.ok(chest && chest.maxHp > 1000);
+  game.drainEvents();
+  chest.hitters.add('a'); chest.hp = 1; game.hurtFighter(chest, 10, 'a');
+  const ev = game.drainEvents();
+  assert.ok(ev.filter(e => e.type === 'loot').length >= 2, '全员开箱');
+  // 点赞士气：满500全队+10%
+  game.drumUntil = 0;
+  for (let i = 0; i < 30; i++) { game.clock += 1.01; game.like({ id: 'a' }, 20); }
+  assert.ok(game.moraleUntil > game.clock && Math.abs(teamAtkMul(game) - 1.1) < 1e-9);
+  // 签到：每天一次
+  game.drainEvents();
+  game.chat({ id: 'b' }, '签到'); game.chat({ id: 'b' }, '签到');
+  assert.equal(game.drainEvents().filter(e => e.type === 'loot').length, 1);
 });
 
 test('讨伐模式整局能打完，异形会被击落且不进榜单', () => {

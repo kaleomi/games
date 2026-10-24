@@ -153,12 +153,26 @@ export const PVE = {
     { id: 'colossus', name: '晶核巨像', hp: 1.05, pods: [[-178, 26], [178, 26], [0, 104]],           podKind: 'prism', podName: '棱晶',   core: ['#e8fdff', '#5ff0ff'] },
     { id: 'eye',      name: '深渊之眼', hp: 1.05, pods: [[-196, 60], [196, 60], [-116, 112], [116, 112]], podKind: 'fan', podName: '眼柄', core: ['#ffd0d4', '#ff3b4e'] },
   ],
+  // 讨伐礼物：先按礼物名认，认不出按单个礼物价值（抖币）
+  gifts: {
+    byName: { '小心心': 'heart', '鲜花': 'flower', '爱你哟': 'drum', '墨镜': 'hero', '爱的爆炸': 'double', '跑车': 'treasure' },
+    byValue: [[1200, 'treasure'], [300, 'double'], [99, 'hero'], [52, 'drum'], [10, 'flower'], [1, 'heart']],
+    heart: { xp: 0.5, sec: 30, cap: 300 },                          // 自己30秒经验+50%（最多300秒），立即放小技能
+    flower: { sec: 120, maxPerGift: 3 },                             // 佣兵机甲120秒，立即放大招
+    drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 3, rainPerSec: 70 },   // 全队攻击+30%；自己掉落保底橙装；全屏弹幕雨
+    hero: { atk: 0.3, sec: 180, floor: 2, floorSec: 180, superSec: 180 },            // 自己普攻+30%；超级战机；保底紫装
+    double: { sec: 300, floor: 4, floorSec: 300 },                   // 全场掉落×2；自己保底金装
+    treasure: { hpFrac: 0.4, xpMul: 10, maxAlive: 2 },              // 宝箱魔王血量=当前关BOSS×40%；参与者10倍BOSS经验
+  },
+  // 点赞聚集士气：满500全队伤害+10% 15秒
+  morale: { need: 500, dmg: 0.1, sec: 15, capPerSec: 20 },
   gunnerSkillEvery: 14,
   bossSkillEvery: [16, 13, 11],              // 三个狂暴阶段
   alien: {
     swarm:  { hp: 60,  r: 10, merit: 4 },
     diver:  { hp: 70,  r: 10, merit: 6 },
     gunner: { hp: 300, r: 18, merit: 20 },
+    chest:  { hp: 1000, r: 46, merit: 0 },     // 宝箱魔王（跑车召唤），血量按当前关BOSS算
   },
   // 贡献值：打伤害、给队友回血、替队友挨打都算
   contrib: { dmg: 0.1, heal: 0.8, taken: 0.9 },

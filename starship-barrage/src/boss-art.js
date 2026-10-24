@@ -133,3 +133,34 @@ export function bossPodSvg(boss, px, dead) {
     <path d="M-20,-2 C-12,-16 12,-16 20,-2" fill="none" stroke="#3a0c28" stroke-width="5"/>
   </svg>`;
 }
+
+// ───────── 宝箱魔王：长着獠牙和恶魔角的金边宝箱，嘴里露出金币 ─────────
+export function chestSvg(px) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-60 -60 120 120">
+  <defs>
+    <linearGradient id="wd" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#a0522d"/><stop offset="1" stop-color="#4a200c"/></linearGradient>
+    <linearGradient id="gd" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#fff4c2"/><stop offset=".5" stop-color="#ffcc4d"/><stop offset="1" stop-color="#8a5a00"/></linearGradient>
+    <radialGradient id="mouth" cx="0" cy="0" r="40" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ff4d5e"/><stop offset=".6" stop-color="#5a0010"/><stop offset="1" stop-color="#1a0004"/></radialGradient>
+    <filter id="g"><feGaussianBlur stdDeviation="3"/></filter>
+  </defs>
+  <ellipse cx="0" cy="6" rx="56" ry="40" fill="#ffcc4d" opacity=".35" filter="url(#g)"/>
+  <path d="M-34,-30 C-46,-46 -50,-56 -40,-58 C-38,-48 -30,-40 -24,-34 Z" fill="#2a0a12" stroke="#000" stroke-width="1.5"/>
+  <path d="M34,-30 C46,-46 50,-56 40,-58 C38,-48 30,-40 24,-34 Z" fill="#2a0a12" stroke="#000" stroke-width="1.5"/>
+  <path d="M-44,-4 L44,-4 L40,40 L-40,40 Z" fill="url(#wd)" stroke="#1a0800" stroke-width="2.5"/>
+  <path d="M-44,-4 L-44,-22 C-44,-40 44,-40 44,-22 L44,-4 Z" fill="url(#wd)" stroke="#1a0800" stroke-width="2.5" transform="rotate(-8 -44 -4)"/>
+  <path d="M-40,-2 L40,-2 L36,14 L-36,14 Z" fill="url(#mouth)"/>
+  ${[-30, -18, -6, 6, 18, 30].map(x => `<path d="M${x - 4},-2 L${x},8 L${x + 4},-2 Z" fill="#fff8e8"/>`).join('')}
+  ${[-26, -10, 6, 22].map(x => `<path d="M${x - 4},14 L${x},5 L${x + 4},14 Z" fill="#fff8e8"/>`).join('')}
+  ${[[-14, 4], [10, 6], [0, 9]].map(([x, y]) => `<ellipse cx="${x}" cy="${y}" rx="5" ry="3" fill="url(#gd)" stroke="#8a5a00" stroke-width=".8"/>`).join('')}
+  <g transform="rotate(-8 -44 -4)">
+    <path d="M-44,-22 C-44,-40 44,-40 44,-22" fill="none" stroke="url(#gd)" stroke-width="5"/>
+    <circle cx="-16" cy="-22" r="6" fill="#ff3b4e"/><circle cx="16" cy="-22" r="6" fill="#ff3b4e"/>
+    <circle cx="-16" cy="-22" r="2.4" fill="#fff"/><circle cx="16" cy="-22" r="2.4" fill="#fff"/>
+    <path d="M-24,-30 L-10,-26 M24,-30 L10,-26" stroke="#1a0004" stroke-width="2.4"/>
+  </g>
+  <path d="M-44,-4 L44,-4 M-42,40 L42,40 M-40,22 L40,22" stroke="url(#gd)" stroke-width="4"/>
+  <path d="M-44,-4 L-40,40 M44,-4 L40,40" stroke="url(#gd)" stroke-width="5"/>
+  <rect x="-7" y="18" width="14" height="14" rx="3" fill="url(#gd)" stroke="#5a3a00" stroke-width="1.2"/>
+  <path d="M0,22 L0,28" stroke="#5a3a00" stroke-width="2.4"/>
+</svg>`;
+}

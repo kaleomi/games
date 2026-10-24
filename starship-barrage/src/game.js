@@ -6,6 +6,7 @@ import { skinFor } from './save.js';
 import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul } from './pve.js';
 import { syncDodge, fmtDuration } from './fleet.js';
 import { nearestEnemy } from './fleet.js';
+import { pveGiftKind, applyPveGift, stepPveGifts, moraleLike, dailyCheckin, chestKilled, xpMul } from './gifts-pve.js';
 import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter } from './fleet.js';
 
 const TEAM_IDS = ['red', 'blue'];
@@ -47,6 +48,7 @@ export function parseCommand(text) {
   if (/^中/.test(s)) return { type: 'lane', lane: 'M' };
   if (/^右/.test(s)) return { type: 'lane', lane: 'R' };
   if (has('装备', '背包', 'zb')) return { type: 'gear' };
+  if (has('签到', '打卡')) return { type: 'checkin' };
   if (has('我的', '查询', '战绩')) return { type: 'card' };
   if (has('加入', '参战', '起飞')) return { type: 'join' };
   return null;
@@ -179,7 +181,7 @@ export class Game {
       p.games++; if (win) p.wins++;
       p.kills += f.kills; p.merit += roundMerit; p.weekMerit += roundMerit;
       // 经验 = 本局贡献值（对战=战功），讨伐里战斗中已经实时发过的部分不重复算
-      const gain = this.mode === 'pve' ? Math.max(0, Math.floor(f.merit) - (f.xpCounted || 0)) : roundMerit;
+      const gain = this.mode === 'pve' ? Math.round(Math.max(0, Math.floor(f.merit) - (f.xpCounted || 0)) * xpMul(this, f)) : roundMerit;
       f.xpCounted = Math.floor(f.merit);
       const ups = this.save.addXp(p, 20 + gain);
       if (ups) this.emit('levelup', { uid: f.uid, name: f.name, level: p.level });
@@ -246,8 +248,9 @@ export class Game {
   liveXp() {
     for (const f of this.humans()) {
       if (f.test || !this.save) continue;
-      const gain = Math.floor(f.merit) - (f.xpCounted || 0);
-      if (gain <= 0) continue;
+      const raw = Math.floor(f.merit) - (f.xpCounted || 0);
+      if (raw <= 0) continue;
+      const gain = Math.round(raw * xpMul(this, f));
       const p = this.save.get(f.uid);
       f.xpCounted = Math.floor(f.merit);
       const ups = this.save.addXp(p, gain);
@@ -294,7 +297,7 @@ export class Game {
     for (const team of TEAM_IDS) {
       const humans = this.countTeam(team, true);
       const want = this.mode === 'pve' && team === 'red' ? 0 : Math.max(0, min - humans);
-      const npcs = [...this.fighters.values()].filter(f => f.npc && !f.alien && f.team === team);
+      const npcs = [...this.fighters.values()].filter(f => f.npc && !f.alien && !f.merc && f.team === team);
       for (let i = npcs.length; i < want; i++) {
         const uid = `npc:${++this.npcSeq}`;
         const level = 1 + Math.floor(this.random() * 12);
@@ -335,6 +338,7 @@ export class Game {
       case 'mode': this.voteMode(f, cmd.mode); break;
       case 'card': this.emit('card', { uid: f.uid }); break;
       case 'gear': this.emit('card', { uid: f.uid, gear: true }); break;
+      case 'checkin': if (this.mode === 'pve') dailyCheckin(this, f); break;
       default: break;
     }
     return true;
@@ -351,6 +355,7 @@ export class Game {
     const room = Math.max(0, FIGHTER.likeChargeCapPerSec - f.likeWindow);
     const add = Math.min(room, n * FIGHTER.likeCharge);
     f.likeWindow += add;
+    if (this.mode === 'pve') { moraleLike(this, f, n); return; }
     f.charge = Math.min(100, f.charge + add);
   }
 
@@ -385,6 +390,7 @@ export class Game {
     this.emit('gift', { uid: f.uid, name: f.name, team: f.team, gift: gift.name || '礼物', count: amount, tier });
     if (this.phase !== 'battle') {
       this.pendingGifts.push({ user: { id: f.uid, name: f.name }, gift, amount, tier });
+      if (this.mode === 'pve') { this.emit('toast', { uid: f.uid, text: `${f.name} 的${gift.name || '礼物'}已记下，开战后生效` }); return tier; }
       if (this.pendingGifts.length > 500) this.pendingGifts.shift();
       this.emit('toast', { uid: f.uid, text: `${f.name} 的${gift.name || '礼物'}已记下，开战后生效` });
       // 火力类效果开战前就先给上
@@ -406,6 +412,7 @@ export class Game {
   applyGift(user, gift, amount, tier) {
     const f = this.fighters.get(String(user.id)) || this.join(user);
     if (!f) return;
+    if (this.mode === 'pve') { f.labelUntil = this.clock + 4; applyPveGift(this, f, pveGiftKind(gift), amount); return; }
     const team = this.teams[f.team];
     f.labelUntil = this.clock + 4;
     if (tier === 1) {
@@ -522,6 +529,7 @@ export class Game {
     this.phaseT -= dt;
     if (Math.floor(this.clock) !== Math.floor(this.clock - dt) && Math.floor(this.clock) % 2 === 0) this.syncNpcs();
     if (this.mode === 'pve') stepPve(this, dt);
+    if (this.mode === 'pve' && this.phase === 'battle') stepPveGifts(this, dt);
     if (this.mode === 'pve' && this.phase === 'battle' && Math.floor(this.clock) !== Math.floor(this.clock - dt)) this.liveXp();
     for (const id of TEAM_IDS) this.stepTeam(this.teams[id], dt);
     this.shotFactor = { red: FIGHTER.shotVsFighter * Math.min(1, 10 / Math.max(1, this.attackers('red'))), blue: FIGHTER.shotVsFighter * Math.min(1, 10 / Math.max(1, this.attackers('blue'))) };
@@ -807,6 +815,7 @@ export class Game {
     f.alive = false; f.respawn = this.mode === 'pve' ? PVE.respawn : FIGHTER.respawn; f.shield = 0; f.beamT = 0;
     this.emit('explode', { x: f.x, y: f.y, size: f.alien && f.kind === 'gunner' ? 2 : 1, team: f.team, alien: !!f.alien });
     if (killer && killer.team !== f.team && !killer.alien) { killer.merit += f.alien ? PVE.alien[f.kind].merit : MERIT.kill; killer.kills++; }
+    if (f.alien && f.kind === 'chest') chestKilled(this, f);
     if (f.alien) this.fighters.delete(f.uid);
   }
 

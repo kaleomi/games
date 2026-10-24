@@ -2,11 +2,11 @@
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
 import { bossTimeText, rayHits } from './pve.js';
-import { queenSvg, colossusSvg, eyeSvg, bossPodSvg } from './art.js';
+import { queenSvg, colossusSvg, eyeSvg, bossPodSvg, chestSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR } from './config.js';
-import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, pityOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
+import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, pityOf, lootFloorOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
 const FONT = '"PingFang SC","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif';
@@ -127,7 +127,7 @@ export class Renderer {
   turretArt(team, dead) { return this.art.get(`tu|${team}|${dead ? 1 : 0}`, px => turretSvg(team, px, dead), 58, 58, 3); }
   droneArt(team) { return this.art.get(`dr|${team}`, px => droneSvg(team, px), 24, 24, 3); }
   medalArt(rank) { return this.art.get(`md|${rank}`, px => medalSvg(rank, px), 18, 19.5, 4); }
-  alienArt(kind) { const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
+  alienArt(kind) { if (kind === 'chest') return this.art.get('al|chest', px => chestSvg(px), 110, 110, 2.5); const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
   podArt(dead, id = 'mother') {
     if (id === 'mother') return this.art.get(`pod|${dead ? 1 : 0}`, px => podSvg(px, dead), 58, 58, 3);
     return this.art.get(`pod|${id}|${dead ? 1 : 0}`, px => bossPodSvg(id, px, dead), 58, 58, 3);
@@ -607,6 +607,7 @@ export class Renderer {
       });
     }
     const rank = this.rankOf.get(f.uid);
+    if (f.merc) this.label(x, `${f.name} ${Math.max(0, Math.ceil(f.until - g.clock))}s`, f.x, f.y - 36, 12, '#ffd8a0', true);
     const show = !f.npc && (top.has(f.uid) || f.labelUntil > g.clock || (this.card && this.card.uid === f.uid));
     if (show) {
       const ly = f.y - 36;
@@ -795,6 +796,13 @@ export class Renderer {
   drawDrones(x) {
     const g = this.game;
     for (const d of g.pveDrones || []) {
+      if (d.kind === 'super') {
+        const art = this.art.get('super', px => fighterSvg('blue', 'laser', 3, false, px), 50, 50, 3);
+        x.save(); x.globalCompositeOperation = 'lighter'; const gl = this.glowSprite('#ffd23a', 9 + Math.sin(g.clock * 8)); x.drawImage(gl, d.x - gl.half, d.y + 16 - gl.half); x.restore();
+        if (art) this.blit(x, art, d.x, d.y);
+        this.label(x, `英雄战机 ${Math.ceil(d.t)}s`, d.x, d.y + 34, 11, '#ffe28a', true);
+        continue;
+      }
       const art = this.sprite(`drone|${d.kind}`, px => droneShipSvg(d.kind, px), d.kind === 'guard' ? 30 : 24);
       const a = Math.atan2(d.vx, -d.vy);
       const fade = Math.min(1, d.t / 0.5);
@@ -960,6 +968,11 @@ export class Renderer {
     if (art) this.blit(x, art, 0, 0);
     else { x.fillStyle = '#9a45c8'; x.beginPath(); x.arc(0, 0, 10, 0, Math.PI * 2); x.fill(); }
     x.restore();
+    if (f.kind === 'chest') {
+      const w = 120; x.fillStyle = 'rgba(0,0,0,.65)'; x.fillRect(f.x - w / 2, f.y - 70, w, 8);
+      x.fillStyle = '#ffcc4d'; x.fillRect(f.x - w / 2 + 1, f.y - 69, (w - 2) * Math.max(0, f.hp / f.maxHp), 6);
+      this.label(x, '宝箱魔王 · 打死全员开箱', f.x, f.y - 82, 14, '#ffe28a', true);
+    }
     if (f.kind === 'gunner' && f.hp < f.maxHp) {
       x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(f.x - 22, f.y - 34, 44, 5);
       x.fillStyle = '#8dff5a'; x.fillRect(f.x - 21, f.y - 33, 42 * Math.max(0, f.hp / f.maxHp), 3);
@@ -1230,7 +1243,7 @@ export class Renderer {
       '湮灭炮锁定时全员发「拦截」· 点赞充能打超载炮',
     ], 14, 4);
     else if (name === '弹幕指令') {
-      const cmds = [['输出 / 机甲 / 医疗 / 航母', '选战舰、换战舰'], ['大招', '放大招（冷却45秒）'], ['左 / 中 / 右', '换航道躲红区'], ['拦截', '削弱母舰湮灭炮'], ['装备', '看自己的装备'], ['我的', '看等级、贡献、属性'], ['换对战', '投票切到红蓝对战']];
+      const cmds = [['输出 / 机甲 / 医疗 / 航母', '选战舰、换战舰'], ['大招', '放大招（冷却45秒）'], ['签到', '每天领一次每日战利品'], ['左 / 中 / 右', '换航道躲红区'], ['拦截', '削弱母舰湮灭炮'], ['装备', '看自己的装备'], ['我的', '看等级、贡献、属性'], ['换对战', '投票切到红蓝对战']];
       cmds.forEach(([a, b], i) => {
         const y = y0 + i * 25;
         if (i % 2) { x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(L + 6, y - 12, Wd - 12, 24); }
@@ -1261,14 +1274,22 @@ export class Renderer {
       });
       x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('多余自动分解，100碎片合高一级 · 红装重复+1', cx, y0 + 168);
     } else if (name === '礼物效果') {
-      const rng = i => (i < 4 ? `${t[i]}–${t[i + 1] - 1}` : `${t[i]}+`);
-      const rows = [['任意', '自动躲弹：每1抖币6秒，不设上限'], [rng(0), '火力+1、护盾+10%'], [rng(1), '弹幕阵型'], [rng(2), '激光网格 + 2架护卫僚机'], [rng(3), '召唤战舰50秒，写着你的名字'], [rng(4), '主炮轰掉母舰10%血量']];
-      rows.forEach(([a, b], i) => {
-        const y = y0 + i * 30;
-        if (i % 2) { x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(L + 6, y - 14, Wd - 12, 28); }
-        x.font = `700 14px ${NUM}`; x.fillStyle = i === 0 ? '#7fe3ff' : '#ffd86b'; x.fillText(a, cx, y);
-        x.font = `14px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(b, cx + 92, y);
+      const rows = [
+        ['小心心', '自己经验+50% 30秒，立即放技能'],
+        ['鲜花', '召唤佣兵机甲120秒，立即放大招'],
+        ['爱你哟', '战鼓：全队攻击+30% 60秒·弹幕雨'],
+        ['墨镜', '英雄战机：普攻+30%·超级战机3分钟'],
+        ['爱的爆炸', '全场掉落×2 5分钟'],
+        ['跑车', '宝箱魔王：打死全员开箱+10倍经验'],
+        ['点赞', '聚士气，满500全队伤害+10% 15秒'],
+      ];
+      rows.forEach(([a2, b2], i) => {
+        const y = y0 - 2 + i * 26;
+        if (i % 2) { x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(L + 6, y - 12, Wd - 12, 24); }
+        x.font = `700 13px ${FONT}`; x.fillStyle = i === 6 ? '#ff9ec4' : '#ffd86b'; x.fillText(a2, cx, y);
+        x.font = `12.5px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(b2, cx + 68, y);
       });
+      x.font = `11px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('爱你哟/墨镜/爱的爆炸：自己掉落保底橙/紫/金 · 任意礼物送自动躲弹', cx, y0 + 182);
     } else bullets([
       '贡献＝打伤害＋给队友回血＋替队友挨打，不看消费',
       '经验＝贡献值，战斗中实时升级，每级攻击生命+2%',
@@ -1304,6 +1325,19 @@ export class Renderer {
     x.textAlign = 'right'; x.font = `800 26px ${NUM}`; x.fillStyle = left <= 20 && g.phase === 'battle' ? '#ff6b7a' : '#ffffff';
     x.fillText(`${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`, W - 14, 24);
     x.font = `11px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText(`本关限时 ${PVE.stageSeconds / 60}:00`, W - 14, 46);
+    // 士气条 + 全队BUFF
+    x.fillStyle = 'rgba(4,6,16,.66)'; x.fillRect(0, 58, W, 22);
+    const mk = Math.min(1, (g.morale || 0) / PVE.morale.need);
+    x.textAlign = 'left'; x.font = `700 12px ${FONT}`; x.fillStyle = '#ff9ec4'; x.fillText('点赞士气', 10, 69);
+    x.fillStyle = 'rgba(255,255,255,.1)'; x.fillRect(70, 64, 150, 10);
+    const mg = x.createLinearGradient(70, 0, 220, 0); mg.addColorStop(0, '#ff7aa8'); mg.addColorStop(1, '#ffd86b'); x.fillStyle = mg; x.fillRect(70, 64, 150 * mk, 10);
+    x.font = `11px ${NUM}`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(`${Math.floor(g.morale || 0)}/${PVE.morale.need}`, 145, 69.5);
+    const chips = [];
+    if ((g.moraleUntil || 0) > g.clock) chips.push([`士气 伤害+${Math.round(PVE.morale.dmg * 100)}% ${Math.ceil(g.moraleUntil - g.clock)}s`, '#ff9ec4']);
+    if ((g.drumUntil || 0) > g.clock) chips.push([`战鼓 攻击+${Math.round(PVE.gifts.drum.atk * 100)}% ${Math.ceil(g.drumUntil - g.clock)}s`, '#ff8a2a']);
+    if ((g.doubleUntil || 0) > g.clock) { const s2 = Math.ceil(g.doubleUntil - g.clock); chips.push([`双倍掉落 ${Math.floor(s2 / 60)}:${String(s2 % 60).padStart(2, '0')}`, '#ffd23a']); }
+    let cxp = 232; x.textAlign = 'left'; x.font = `700 12px ${FONT}`;
+    for (const [txt, col] of chips) { const w = x.measureText(txt).width + 14; x.fillStyle = 'rgba(0,0,0,.4)'; roundRect(x, cxp, 61, w, 17, 8); x.fill(); x.strokeStyle = col; x.lineWidth = 1; x.stroke(); x.fillStyle = col; x.fillText(txt, cxp + 7, 69.5); cxp += w + 6; }
   }
 
   teamBar(x, t, y) {
@@ -1504,6 +1538,7 @@ export class Renderer {
     x.font = `12px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText('碎片', sx, T + 78); sx += 30;
     sh.forEach((n, i) => { x.fillStyle = GEAR.tiers[i].color; x.fillText(`${GEAR.tiers[i].name.slice(0, 1)}${n}`, sx, T + 78); sx += x.measureText(`${GEAR.tiers[i].name.slice(0, 1)}${n}`).width + 8; });
     const pt = pityOf(g, f);
+    const flr = lootFloorOf(g, f); if (flr >= 0) { const left = Math.max(...(f.floors || []).filter(q => q.tier === flr).map(q => q.until)) - g.clock; x.font = `700 21px ${FONT}`; const tw = x.measureText(`Lv.${f.level || 1} ${trim(f.name, 10)} 的装备`).width; x.font = `700 12px ${FONT}`; x.fillStyle = GEAR.tiers[flr].color; x.fillText(`掉落保底${GEAR.tiers[flr].name} ${Math.ceil(left)}s`, L + 30 + tw, T + 29); }
     x.textAlign = 'right'; x.fillStyle = '#ffd86b'; x.fillText(`保底 金${pt.gold}/${GEAR.pity.gold} 红${pt.red}/${GEAR.pity.red}`, L + Wd - 20, T + 56); x.textAlign = 'left';
     Object.keys(GEAR.slots).forEach((sl, i) => {
       const it = f.gear?.[sl], y = T + 98 + i * rowH + rowH / 2;

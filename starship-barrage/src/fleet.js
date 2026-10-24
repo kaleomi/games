@@ -97,6 +97,7 @@ export function shipStats(f) {
   return {
     maxHp: Math.round(c.hp * lv * (1 + g.hp)),
     atk: c.atk * lv * (1 + g.atk),
+    atkBase: c.atk * lv * (1 + g.atk),
     armor: Math.min(cap.def, c.armor + g.def),
     heal: (c.heal || 0) * lv * (1 + g.power),
     power: 1 + g.power,
@@ -166,6 +167,15 @@ export function refreshStats(f) {
   f.maxHp = f.stats.maxHp; f.hp = Math.max(1, Math.round(f.maxHp * ratio));
 }
 
+// 礼物 / 士气 BUFF
+export function teamAtkMul(game) {
+  let m = 1;
+  if ((game.drumUntil || 0) > game.clock) m += PVE.gifts.drum.atk;
+  if ((game.moraleUntil || 0) > game.clock) m += PVE.morale.dmg;
+  return m;
+}
+export function lootFloorOf(game, f) { let t = -1; for (const fl of f.floors || []) if (fl.until > game.clock) t = Math.max(t, fl.tier); return t; }
+
 export function hasAutoDodge(game, f) { return !f.npc && (f.dodgeLeft || 0) > 0; }
 // 自动躲弹剩余时间写回账号存档（不设上限）
 export function syncDodge(game, f) {
@@ -179,6 +189,7 @@ export function fmtDuration(sec) {
 
 // ───────── 每帧 ─────────
 export function stepShip(game, f, dt, combat) {
+  if (f.stats) f.stats.atk = (f.stats.atkBase ?? f.stats.atk) * teamAtkMul(game);
   f.hitFlash = Math.max(0, (f.hitFlash || 0) - dt);
   f.invuln = Math.max(0, f.invuln - dt);
   f.taunt = Math.max(0, f.taunt - dt);
@@ -280,7 +291,7 @@ export function stepShip(game, f, dt, combat) {
     const tgt = nearestEnemy(game, f.x, f.y);
     const ang = tgt ? Math.atan2(tgt.y - (f.y - 16), tgt.x - f.x) : -Math.PI / 2;
     f.aimAngle = ang + Math.PI / 2;
-    const base = f.stats.atk * (1 + 0.2 * (f.power - 1));
+    const base = f.stats.atk * (1 + 0.2 * (f.power - 1)) * ((f.heroUntil || 0) > game.clock ? 1 + PVE.gifts.hero.atk : 1);
     // 主炮品质 → 炮管数、子弹外观、穿透
     const wt = f.gear?.weapon ? f.gear.weapon.tier : -1;
     const barrels = wt >= 0 ? GEAR.barrels[wt] : 1;
@@ -543,6 +554,16 @@ export function stepDrones(game, dt) {
     if (d.t <= 0 || !o) { list.splice(i, 1); game.emit('spark', { x: d.x, y: d.y, team: 'blue' }); continue; }
     const atk = o.stats?.atk || 6, pw = o.stats?.power || 1;
     let tx, ty, tgt = null;
+    if (d.kind === 'super') {   // 英雄战机：跟在主人斜上方，三连追踪弹
+      tx = o.x + (o.x < 360 ? 60 : -60); ty = o.y - 60;
+      const k2 = Math.min(1, dt * 4); d.x += (tx - d.x) * k2; d.y += (ty - d.y) * k2; d.vx = 0; d.vy = -1;
+      if (d.cd <= 0) {
+        d.cd = 0.3; const t2 = nearestEnemy(game, d.x, d.y);
+        const a = t2 ? Math.atan2(t2.y - d.y, t2.x - d.x) : -Math.PI / 2;
+        for (const k of [-0.12, 0, 0.12]) { const [dd, crit] = rollCrit(game, o, 1.2 * atk * pw); game.addBullet(d.x, d.y - 12, Math.cos(a + k) * 900, Math.sin(a + k) * 900, 4, dd, 'blue', 'shot', o.uid, 0, { pveScaled: true, crit, wt: 4 }); }
+      }
+      continue;
+    }
     if (d.kind === 'attack') {
       tgt = droneTarget(game, d);
       if (tgt) { tx = tgt.x + Math.cos(d.phase) * 46; ty = tgt.y + 110 + Math.sin(d.phase * 1.3) * 22; }
@@ -683,6 +704,7 @@ export function hurt(game, f, dmg, ownerUid) {
     f.hp -= dmg;
     const o = game.fighters.get(ownerUid);
     if (o && !o.alien) o.merit += done * PVE.contrib.dmg;
+    if (f.hitters && o && !o.alien) f.hitters.add(o.merc ? o.owner : o.uid);
     if (f.hp <= 0) game.killFighter(f, o || null);
     return true;
   }
@@ -713,7 +735,10 @@ export function rollDrops(game, stage) {
   const drops = [];
   dropOrder(game).forEach((f, rank) => {
     if (rank >= 3 && game.random() >= 0.6) return;
+   for (let k = 0; k < ((game.doubleUntil || 0) > game.clock ? 2 : 1); k++) {
     let item = rollItem(game.random, stage, rank === 0 ? 1 : 0);
+    const fl = lootFloorOf(game, f);
+    if (fl > item.tier) item = makeItem(game.random, item.slot, fl);   // 礼物给的保底品质
     // 保底
     const pity = pityOf(game, f), P = GEAR.pity, red = GEAR.tiers.length - 1;
     let pityHit = null;
@@ -729,6 +754,7 @@ export function rollDrops(game, stage) {
     if (pityHit) game.emit('pity', { uid: f.uid, name: f.name, kind: pityHit, item });
     const res = giveItem(game, f, item);
     drops.push({ uid: f.uid, name: f.name, item, gifted: (f.giftRound || 0) > 0, pity: pityHit, ...res });
+   }
   });
   return drops;
 }

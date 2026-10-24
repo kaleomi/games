@@ -297,6 +297,13 @@ export function pickTarget(game) {
 
 export function stepAlien(game, f, dt) {
   f.t += dt;
+  if (f.kind === 'chest') {   // 宝箱魔王：慢慢飘进来，左右晃，偶尔撒金币弹幕
+    f.vy = f.y < f.yStop ? 70 : Math.sin(f.t * 0.8) * 12; f.vx = Math.sin(f.t * 0.6 + f.seed) * 90;
+    f.x = Math.max(120, Math.min(W - 120, f.x + f.vx * dt)); f.y += f.vy * dt;
+    f.fireCd -= dt;
+    if (f.fireCd <= 0) { f.fireCd = 3.5; game.spawnPattern('red', 'podFan', f.x, f.y + 30, null); }
+    return;
+  }
   if (f.kind === 'swarm') {
     if (f.t > f.life) { f.vy = -150; f.vx *= 0.95; }
     else if (f.y < f.yStop) { f.vy = 110; f.vx = Math.sin(f.t * 2 + f.seed) * 70; }
