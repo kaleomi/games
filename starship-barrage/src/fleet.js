@@ -716,7 +716,12 @@ export function rollDrops(game, stage) {
     // 保底
     const pity = pityOf(game, f), P = GEAR.pity, red = GEAR.tiers.length - 1;
     let pityHit = null;
-    if (stage >= GEAR.redFrom && pity.red + 1 >= P.red && item.tier < red) { item = makeItem(game.random, item.slot, red); pityHit = 'red'; }
+    if (stage >= GEAR.redFrom && pity.red + 1 >= P.red && item.tier < red) {
+      // 红装保底优先补还没有红装的部位
+      const missing = Object.keys(GEAR.slots).filter(sl => !(f.gear?.[sl]?.tier >= red));
+      const slot = missing.length ? missing[Math.floor(game.random() * missing.length)] : item.slot;
+      item = makeItem(game.random, slot, red); pityHit = 'red';
+    }
     else if (pity.gold + 1 >= P.gold && item.tier < red - 1) { item = makeItem(game.random, item.slot, red - 1); pityHit = 'gold'; }
     pity.gold = item.tier >= red - 1 ? 0 : pity.gold + 1;
     if (stage >= GEAR.redFrom) pity.red = item.tier >= red ? 0 : pity.red + 1;
