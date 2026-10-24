@@ -410,7 +410,14 @@ function meleeTarget(game, f) {
     const d = (e.x - f.x) ** 2 + (e.y - f.y) ** 2;
     if (d < bd) { bd = d; best = e; }
   }
+  // 附近没怪、BOSS在场：冲到BOSS身下砍核心和炮台（打完退回本航道）
+  if (!best) { const boss = game.teams.red; if (boss.present && game.pve?.sub === 'boss') return bossSpot(boss, f); }
   return best;
+}
+// BOSS身下的落点：在BOSS可命中宽度内、离机甲最近的位置
+function bossSpot(boss, f) {
+  const half = boss.hitW / 2 - 16;
+  return { boss: true, alive: true, x: Math.max(boss.x - half, Math.min(boss.x + half, f.x)), y: boss.y + boss.coreDy + 80 };
 }
 function stepMelee(game, f, dt) {
   const M = PVE.melee;
@@ -419,16 +426,18 @@ function stepMelee(game, f, dt) {
     if (f.meleeCd > 0) return false;
     const t = meleeTarget(game, f);
     if (!t) return false;
-    f.mel = { ph: 'go', tgt: t, t: 0 }; f.returning = false;
+    f.mel = { ph: 'go', tgt: t, t: 0, boss: !!t.boss }; f.returning = false;
   }
   const m = f.mel;
   m.t += dt;
+  if (m.boss) f.invuln = Math.max(f.invuln, 0.35);   // 冲向BOSS这一趟（去、砍、刚回头）带护体，不会一冲就被弹幕打死
   if (m.ph === 'go') {
     const t = m.tgt;
-    if (!t.alive) { const n = meleeTarget(game, f); if (n) m.tgt = n; else { f.mel = null; f.returning = true; return false; } }
-    const tx = m.tgt.x, ty = m.tgt.y + 30, dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy);
+    if (t.boss) { const boss = game.teams.red; if (boss.present) m.tgt = bossSpot(boss, f); else { f.mel = null; f.returning = true; return false; } }
+    else if (!t.alive) { const n = meleeTarget(game, f); if (n) m.tgt = n; else { f.mel = null; f.returning = true; return false; } }
+    const tx = m.tgt.x, ty = m.tgt.y + (m.tgt.boss ? 0 : 30), dx = tx - f.x, dy = ty - f.y, d = Math.hypot(dx, dy);
     const sp = M.speed * dt;
-    if (d <= sp + 6 || m.t > 0.7) {
+    if (d <= sp + 6 || m.t > (m.tgt.boss ? 1.1 : 0.7)) {
       f.x = Math.max(20, Math.min(W - 20, f.x + (d > 0 ? dx / d * Math.min(d, sp) : 0))); f.y += d > 0 ? dy / d * Math.min(d, sp) : 0;
       // 砍
       const wt = f.gear?.weapon ? f.gear.weapon.tier : -1;
@@ -444,9 +453,25 @@ function stepMelee(game, f, dt) {
         if (crit) game.emit('crit', { x: e.x, y: e.y, dmg: Math.round(d2) });
         if (hits <= 2) game.emit('spark', { x: e.x, y: e.y, team: 'blue', big: true });
       }
+      // 砍到BOSS：核心 + 附近的炮台
+      const boss = game.teams.red;
+      if (boss.present) {
+        const cy = boss.y + boss.coreDy;
+        if (Math.abs(f.x - boss.x) < boss.hitW / 2 && f.y - cy < 130) {
+          const [d3, crit] = rollCrit(game, f, base);
+          game.damageFlag('red', d3, f.uid, 'shot');
+          if (crit) game.emit('crit', { x: f.x, y: cy + 40, dmg: Math.round(d3) });
+          game.emit('spark', { x: f.x, y: cy + 50, team: 'blue', big: true });
+        }
+        for (const tu of boss.turrets || []) {
+          if (tu.dead || (tu.x - f.x) ** 2 + (tu.y - f.y + 24) ** 2 > (M.slashR + 30) ** 2) continue;
+          tu.hp -= base; game.emit('spark', { x: tu.x, y: tu.y, team: 'blue', big: true });
+          if (tu.hp <= 0) game.killTurret(boss, tu, f.uid);
+        }
+      }
       for (const b of game.bullets) if (b.team === 'red' && b.life > 0 && (b.x - f.x) ** 2 + (b.y - f.y + 24) ** 2 < M.slashR * M.slashR) b.life = 0;
       game.emit('slash', { uid: f.uid, x: f.x, y: f.y, ang, wt: Math.max(0, wt) });
-      f.mel = { ph: 'slash', t: 0, ang };
+      f.mel = { ph: 'slash', t: 0, ang, boss: m.boss };
     } else { f.vx = dx / d * M.speed; f.vy = dy / d * M.speed; f.x += f.vx * dt; f.y += f.vy * dt; }
     return true;
   }

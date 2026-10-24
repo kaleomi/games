@@ -836,3 +836,21 @@ test('战舰不会每局自动换：第一次分配的也记住，回到场上�
   g2.chat({ id: 'c', name: 'C' }, '左');
   assert.equal(g2.fighters.get('c').cls, cls);
 });
+
+test('机甲：附近没怪时冲到BOSS身下近战砍核心', () => {
+  const { game } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.save.data.pveStage = 5; game.startLobby();
+  game.chat({ id: 't', name: 'T' }, '机甲');
+  toBattle(game);
+  game.pve.t = 0.001;
+  for (let i = 0; i < 60 * 4; i++) game.step(1 / 60);
+  assert.equal(game.pve.sub, 'boss');
+  game.pve.spawnT = 999;
+  for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid);
+  const t = game.fighters.get('t'); t.invuln = 99; t.skillCd = 999; t.ultCd = 999;
+  const boss = game.teams.red, c0 = boss.core;
+  let minY = 1e9;
+  for (let i = 0; i < 60 * 3; i++) { game.step(1 / 60); minY = Math.min(minY, t.y); t.invuln = 99; for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid); }
+  assert.ok(minY < boss.y + 140, `机甲冲到了BOSS身下 ${Math.round(minY)}`);
+  assert.ok(boss.core < c0, '砍到了BOSS');
+});
