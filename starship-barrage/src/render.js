@@ -607,7 +607,7 @@ export class Renderer {
     }
     const rank = this.rankOf.get(f.uid);
     if (f.merc) this.label(x, `${f.name} ${Math.max(0, Math.ceil(f.until - g.clock))}s`, f.x, f.y - 36, 12, '#ffd8a0', true);
-    const show = !f.npc && (top.has(f.uid) || f.labelUntil > g.clock || (this.card && this.card.uid === f.uid));
+    const show = !f.npc;   // 讨伐：所有真人一直显示名字
     // 个人BUFF：名字上方一行一个（机神附体、经验加成、英雄战机、佣兵、掉落保底），带剩余时间
     const buffs = this.personalBuffs(g, f);
     if (buffs.length) {
