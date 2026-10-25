@@ -262,13 +262,7 @@ export class UI {
         if (g.mode === 'pve' && g.phase === 'lobby') g.startLobby();
         this.note('讨伐模式已回到第1关'); break;
       case 'end-now': if (g.phase === 'battle') g.phaseT = 0.01; break;
-      case 'export': {
-        const blob = new Blob([this.save.exportJson()], { type: 'application/json' });
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-        a.download = `星舰弹幕战存档-${new Date().toISOString().slice(0, 10)}.json`; a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-        break;
-      }
+      case 'export': this.exportFile(); break;
       case 'import': document.getElementById('import-file').click(); break;
       case 'clear':
         if (!confirm('确定清空全部玩家存档？等级、战功都会归零。建议先导出。')) break;
@@ -278,6 +272,27 @@ export class UI {
       default: break;
     }
     this.refreshPanel();
+  }
+
+  // 导出存档：Chrome / Edge 弹出「另存为」窗口选位置和文件名；不支持的浏览器退回普通下载
+  async exportFile() {
+    const json = this.save.exportJson();
+    const name = `星舰弹幕战存档-${new Date().toISOString().slice(0, 10)}.json`;
+    if (window.showSaveFilePicker) {
+      try {
+        const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: '星舰弹幕战存档', accept: { 'application/json': ['.json'] } }] });
+        const w = await h.createWritable(); await w.write(json); await w.close();
+        this.note(`存档已保存：${h.name}`);
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') { this.note('已取消导出'); return; }
+        console.warn('另存为失败，改用下载', e);
+      }
+    }
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    this.note('存档已下载到浏览器的下载文件夹');
   }
 
   async importFile(file) {
