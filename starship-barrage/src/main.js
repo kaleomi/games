@@ -4,10 +4,19 @@ import { Relay } from './relay.js';
 import { Renderer } from './render.js';
 import { Audio } from './audio.js';
 import { UI, loadSettings, storeSettings } from './ui.js';
+import { openStore } from './idb-store.js';
 
 const settings = loadSettings();
-const save = new Save({ storage: window.localStorage });
-const game = new Game({ save, settings: {
+// 存档：本地数据库（IndexedDB），启动时先读进来；写入失败会在画面上提示
+let saveErrAt = 0;
+const store = await openStore({
+  onError: e => { if (Date.now() - saveErrAt > 30000) { saveErrAt = Date.now(); game?.emit('toast', { text: `存档写入失败：${e?.message || e}，请在设置里导出存档留底` }); } },
+});
+const save = new Save({ storage: store.storage });
+save.store = store;
+save.hotSource = () => [...game.fighters.keys(), ...game.reserve.keys()];   // 在场和后援的玩家每次保存都写
+save.onError = e => { if (Date.now() - saveErrAt > 30000) { saveErrAt = Date.now(); game?.emit('toast', { text: `存档写入失败（空间可能满了）：${e?.message || e}，请在设置里导出存档留底` }); } };
+var game = new Game({ save, settings: {
   battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName,
 } });
 const audio = new Audio();

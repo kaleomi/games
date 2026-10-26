@@ -1006,3 +1006,25 @@ test('礼花筒双倍期间送跑车：每个跑车2件红装', () => {
   game.gift({ id: 'r' }, { name: '跑车', price: 1200, count: 1 });
   assert.equal(Object.values(f.gear).filter(it => it.tier === 5).length, 2);
 });
+
+test('增量存档：只写有变化的玩家，导入/清空时整份重写', () => {
+  const writes = [];
+  const store = { players: {}, meta: null };
+  const storage = {
+    loadSave: () => (store.meta ? { ...store.meta, players: { ...store.players } } : null), migrated: () => false,
+    writeSave: (meta, entries, removed, full) => { writes.push({ n: entries.length, full }); if (full) store.players = {}; for (const [k, v] of entries) store.players[k] = JSON.parse(JSON.stringify(v)); for (const k of removed) delete store.players[k]; store.meta = meta; },
+    getItem: () => null, setItem() {},
+  };
+  const save = new Save({ storage });
+  for (let i = 0; i < 50; i++) save.get('p' + i, 'P' + i);
+  save.flush();
+  assert.equal(writes.at(-1).n, 50);
+  save.peek('p3').level = 9; save.dirty = true; save.flush();
+  assert.equal(writes.at(-1).n, 1, '只写改过的那个');
+  const again = new Save({ storage });
+  assert.equal(again.peek('p3').level, 9);
+  assert.equal(Object.keys(again.data.players).length, 50);
+  again.clear();
+  assert.equal(writes.at(-1).full, true);
+  assert.equal(Object.keys(store.players).length, 0);
+});

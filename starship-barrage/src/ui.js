@@ -335,7 +335,7 @@ export class UI {
     try {
       if (!String(text || '').trim()) throw new Error('没有粘贴内容');
       const backup = this.save.exportJson();
-      try { localStorage.setItem('starship-barrage-save-backup', backup); } catch { /* 忽略 */ }
+      try { this.save.storage.setItem('starship-barrage-save-backup', backup); } catch { /* 忽略 */ }
       const n = this.save.importJson(text);
       document.getElementById('save-text-box').hidden = true;
       this.note(`已导入${n}名玩家（原存档已自动备份一份）`);
@@ -347,7 +347,7 @@ export class UI {
     if (!file) return;
     try {
       const backup = this.save.exportJson();
-      try { localStorage.setItem('starship-barrage-save-backup', backup); } catch { /* 忽略 */ }
+      try { this.save.storage.setItem('starship-barrage-save-backup', backup); } catch { /* 忽略 */ }
       const n = this.save.importJson(await file.text());
       this.note(`已导入${n}名玩家（原存档已自动备份一份）`);
     } catch (e) { this.note('导入失败：' + e.message); }
@@ -363,7 +363,11 @@ export class UI {
     const n = Object.keys(this.save.data.players).length;
     const mi = document.getElementById('mode-info');
     if (mi) mi.textContent = `当前：${this.game.mode === 'pve' ? `讨伐模式 · ${stageLabel(this.save.data.pveStage || 1)}（最高通关第${this.save.data.pveBest || 0}关）` : '对战模式'}`;
-    document.getElementById('save-info').textContent = `存档玩家 ${n} 人 · 累计 ${this.save.data.rounds} 局 · 本周从 ${this.save.data.week} 开始`;
+    const si = this.save.store?.info?.();
+    const mb = si ? (si.bytes / 1024 / 1024).toFixed(2) : '?';
+    const where = si?.kind === 'indexedDB' ? '本地数据库' : '浏览器 localStorage（容量约5MB）';
+    const status = !si ? '' : si.error ? ` · ⚠ 写入失败：${si.error}` : si.savedAt ? ` · 上次保存 ${new Date(si.savedAt).toLocaleTimeString()}` : '';
+    document.getElementById('save-info').textContent = `存档玩家 ${n} 人 · 约 ${mb}MB · 存在${where}${status} · 累计 ${this.save.data.rounds} 局 · 本周从 ${this.save.data.week} 开始`;
   }
 
   // 每帧调用：开局页与结算页

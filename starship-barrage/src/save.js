@@ -1,5 +1,5 @@
 // 玩家存档：按抖音用户ID保存等级、经验、战功、胜场、涂装。
-// 存在主播这台电脑的浏览器 localStorage 里；可导出/导入 JSON。
+// 存在主播这台电脑这个浏览器的本地数据库（IndexedDB，见 idb-store.js）里，别人读不到；可导出/导入 JSON。
 import { GEAR, LEVEL, SKINS } from './config.js';
 
 const KEY = 'starship-barrage-save-v1';
@@ -24,10 +24,18 @@ export class Save {
     this.now = now;
     this.data = { version: 1, players: {}, week: weekKeyOf(now()), rounds: 0, mode: 'pvp', pveStage: 1, pveBest: 0, clearNo: 0 };
     this.dirty = false;
+    // 增量保存（本地数据库）：只写有变化的玩家。get/peek 过的、hotSource 给出的（在场/后援）算有变化
+    this.hot = new Set(); this.removed = new Set(); this.full = false; this.hotSource = null;
     if (storage) {
       try {
-        const raw = storage.getItem(KEY);
-        if (raw) this.data = Save.validate(JSON.parse(raw));
+        if (storage.loadSave) {
+          const obj = storage.loadSave();
+          if (obj) this.data = Save.validate(obj);
+          if (storage.migrated?.()) { this.full = true; this.dirty = true; }
+        } else {
+          const raw = storage.getItem(KEY);
+          if (raw) this.data = Save.validate(JSON.parse(raw));
+        }
       } catch (e) { console.warn('存档读取失败，使用空存档', e); }
     }
     this.rollWeek();
@@ -78,7 +86,7 @@ export class Save {
     if (this.data.week !== wk) {
       for (const p of Object.values(this.data.players)) p.weekMerit = 0;
       this.data.week = wk;
-      this.dirty = true;
+      this.dirty = true; this.full = true;
     }
   }
 
@@ -88,6 +96,7 @@ export class Save {
       p = this.data.players[uid] = { uid, name: '飞行员', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: [0, 0, 0, 0, 0], gear: {}, forge: {}, dodgeLeft: 0, gv: 3, seenClear: this.data.clearNo || 0 };
       this.prune();
     }
+    this.hot.add(uid);
     if (name) p.name = String(name).slice(0, 24);
     if (avatar) p.avatar = avatar;
     p.seen = this.now();
@@ -95,7 +104,7 @@ export class Save {
     return p;
   }
 
-  peek(uid) { return this.data.players[uid] || null; }
+  peek(uid) { const p = this.data.players[uid] || null; if (p) this.hot.add(uid); return p; }
 
   addXp(p, xp) {
     p.xp += Math.max(0, Math.floor(xp));
@@ -114,24 +123,32 @@ export class Save {
     const all = Object.values(this.data.players);
     if (all.length <= MAX_PROFILES) return;
     all.sort((a, b) => a.seen - b.seen);
-    for (const p of all.slice(0, all.length - MAX_PROFILES)) delete this.data.players[p.uid];
+    for (const p of all.slice(0, all.length - MAX_PROFILES)) { delete this.data.players[p.uid]; this.removed.add(p.uid); this.hot.delete(p.uid); }
   }
 
   flush() {
     if (!this.dirty || !this.storage) return false;
+    if (this.storage.writeSave) {
+      const P = this.data.players;
+      const ids = this.full ? Object.keys(P) : [...new Set([...this.hot, ...(this.hotSource?.() || [])])].filter(uid => P[uid]);
+      const { players, ...meta } = this.data; void players;
+      this.storage.writeSave(meta, ids.map(uid => [uid, P[uid]]), [...this.removed], this.full);
+      this.hot.clear(); this.removed.clear(); this.full = false; this.dirty = false;
+      return true;
+    }
     try { this.storage.setItem(KEY, JSON.stringify(this.data)); this.dirty = false; return true; }
-    catch (e) { console.warn('存档写入失败', e); return false; }
+    catch (e) { console.warn('存档写入失败', e); this.onError?.(e); return false; }
   }
 
   exportJson() { return JSON.stringify(this.data); }
 
   importJson(text) {
     const next = Save.validate(JSON.parse(text));
-    this.data = next; this.rollWeek(); this.dirty = true; this.flush();
+    this.data = next; this.rollWeek(); this.dirty = true; this.full = true; this.flush();
     return Object.keys(next.players).length;
   }
 
-  clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0, mode: this.data.mode || 'pvp', pveStage: 1, pveBest: 0, clearNo: 0 }; this.dirty = true; this.flush(); }
+  clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0, mode: this.data.mode || 'pvp', pveStage: 1, pveBest: 0, clearNo: 0 }; this.dirty = true; this.full = true; this.flush(); }
 }
 
 // 装备存档校验（旧版只有主炮/装甲/引擎/核心且没有副属性，照样能读）
