@@ -84,7 +84,7 @@ export function frostDragonSvg(pxW, pxH) {
   const wingGeo = s => {
     const x = side(s);
     const S = x([70, -16]), E = x([150, 24]), W = x([222, 8]), B = x([58, -84]);
-    const T = [[298, -2], [294, -80], [252, -134], [176, -146]].map(x);
+    const T = [[290, -4], [288, -80], [250, -134], [176, -146]].map(x);
     const inner = { a: T[3], c: x([124, -94]), b: B };
     const outs = [[3, 2], [2, 1], [1, 0]].map(([i, j]) => ({ a: T[i], c: lerp(lerp(T[i], T[j], .5), W, .24), b: T[j] }));
     return { x, S, E, W, B, T, inner, outs };
@@ -271,7 +271,7 @@ export function frostDragonSvg(pxW, pxH) {
   <g filter="url(#b9)">
     <ellipse cx="0" cy="-10" rx="250" ry="110" fill="#2aa8d8" opacity=".32"/>
     <ellipse cx="0" cy="10" rx="120" ry="120" fill="#5ff0ff" opacity=".28"/>
-    <ellipse cx="0" cy="150" rx="60" ry="22" fill="#e8fdff" opacity=".4"/>
+    <ellipse cx="0" cy="146" rx="60" ry="18" fill="#e8fdff" opacity=".35"/>
   </g>
   ${hind(-1)}${hind(1)}
   ${membrane(-1)}${membrane(1)}
@@ -295,6 +295,7 @@ export function frostDragonSvg(pxW, pxH) {
   <g>${gem}<path d="${poly(hx)}Z" fill="none" stroke="#e8fdff" stroke-width="1.6"/><path d="${poly(hin)}Z" fill="url(#gemC)" stroke="#ffffff" stroke-width="1"/>
     ${hx.map((p, i) => `<path d="M${pt(...p)} L${pt(...hin[i])}" stroke="#e8fdff" stroke-width=".8" opacity=".8"/>`).join('')}</g>
   <path d="M-30,-6 A34,34 0 0 1 -6,-24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".75"/>
+  <g transform="translate(0,66) scale(.93) translate(0,-72)">
   ${horn(-1)}${horn(1)}
   <path d="${head}" fill="url(#headG)" stroke="${O}" stroke-width="2.6"/>
   <g clip-path="url(#hc)">
@@ -311,8 +312,9 @@ export function frostDragonSvg(pxW, pxH) {
     <path d="M${s * 12},117 Q${s * 20},106 ${s * 36},104 Q${s * 26},116 ${s * 12},117Z" fill="#e8fdff" stroke="${O}" stroke-width="1.2"/>
     <path d="M${s * 22},108 L${s * 25},114" stroke="#06304a" stroke-width="2" stroke-linecap="round"/>
     <path d="M${s * 5},146 Q${s * 8},142 ${s * 11},147" fill="none" stroke="${O}" stroke-width="2.2"/>`).join('')}
+  </g>
   <g filter="url(#b4)" opacity=".75">
-    <path d="M-16,150 C-30,156 -36,162 -50,160 M16,150 C30,156 36,162 50,160 M0,156 C-4,162 4,166 0,170" stroke="#f4feff" stroke-width="8" fill="none" stroke-linecap="round"/>
+    <path d="M-14,144 C-28,150 -36,154 -52,152 M14,144 C28,150 36,154 52,152 M0,148 C-4,152 4,154 0,158" stroke="#f4feff" stroke-width="8" fill="none" stroke-linecap="round"/>
     <path d="M-150,130 C-120,120 -100,128 -84,124 M150,132 C122,122 104,130 86,126 M-270,-20 C-250,-40 -240,-30 -230,-50 M270,-20 C250,-40 240,-30 230,-50 M-206,-110 C-186,-120 -170,-112 -150,-120 M206,-110 C186,-120 170,-112 150,-120" stroke="#e8fdff" stroke-width="7" fill="none" stroke-linecap="round" opacity=".55"/>
   </g>
   ${snow}${spk}
@@ -364,7 +366,7 @@ export function iceCrystalSvg(px, dead) {
       <path d="M-7,-12 L-6,12 M-6.4,-14 L-1.4,-25" stroke="#fff" stroke-width="1.1" stroke-linecap="round" opacity=".95"/>
     </g>
     <ellipse cx="0" cy="-4" rx="6" ry="12" fill="url(#core)" filter="url(#g2)"/>
-    ${[[0, -31, 4.6], [-15, -7, 2.6], [15, -4, 2.2], [-17, 14, 1.8], [17, 15, 1.8]].map(([x, y, r]) => `<path d="M${x},${y - r} Q${x + r * .18},${y - r * .18} ${x + r},${y} Q${x + r * .18},${y + r * .18} ${x},${y + r} Q${x - r * .18},${y + r * .18} ${x - r},${y} Q${x - r * .18},${y - r * .18} ${x},${y - r}Z" fill="#fff"/>`).join('')}
+    ${[[0, -28.5, 3.4], [-15, -7, 2.6], [15, -4, 2.2], [-17, 14, 1.8], [17, 15, 1.8]].map(([x, y, r]) => `<path d="M${x},${y - r} Q${x + r * .18},${y - r * .18} ${x + r},${y} Q${x + r * .18},${y + r * .18} ${x},${y + r} Q${x - r * .18},${y + r * .18} ${x - r},${y} Q${x - r * .18},${y - r * .18} ${x},${y - r}Z" fill="#fff"/>`).join('')}
   </svg>`;
 }
 
@@ -378,7 +380,7 @@ export function demonLordSvg(pxW, pxH) {
   const wingGeo = s => {
     const x = side(s);
     const S = x([70, -84]), E = x([152, -124]), W = x([226, -104]), B = x([104, -24]);
-    const T = [[290, -146], [300, -60], [290, 22], [246, 82]].map(x);
+    const T = [[284, -146], [292, -60], [282, 22], [242, 80]].map(x);
     const tips = [T[0], T[1], T[2], T[3]];
     const inner = { a: T[3], c: lerp(lerp(T[3], B, .5), W, .22), b: B };
     const outs = [[3, 2], [2, 1], [1, 0]].map(([i, j]) => ({ a: tips[i], c: lerp(lerp(tips[i], tips[j], .5), W, .26), b: tips[j] }));
@@ -487,8 +489,9 @@ export function demonLordSvg(pxW, pxH) {
 
   // 魔眼（核心）：胸口撕裂的血肉眼窝
   let rim = '';
-  for (let i = 0; i < 28; i++) { const a = i / 28 * Math.PI * 2, rr = i % 2 ? 1 : 1.13; rim += `${i ? 'L' : 'M'}${pt(Math.cos(a) * 58 * rr, 10 + Math.sin(a) * 48 * rr)} `; }
-  rim += 'Z';
+  const rimP = [];
+  for (let i = 0; i < 26; i++) { const a = (i + R() * .5) / 26 * Math.PI * 2, rr = i % 2 ? .98 + R() * .04 : 1.08 + R() * .12; rimP.push([Math.cos(a) * 58 * rr, 10 + Math.sin(a) * 48 * rr, i % 2 ? 1 : .35]); }
+  rim = spline(rimP);
   let eyeVeins = '';
   for (let i = 0; i < 14; i++) { const a = i / 14 * Math.PI * 2 + R() * .3; const c = crackPts(R, Math.cos(a) * 46, 10 + Math.sin(a) * 36, a + Math.PI, 16 + R() * 10, 4, .5); eyeVeins += `<path d="${poly(c)}"/>`; }
   let iris = '';
@@ -587,6 +590,7 @@ export function demonLordSvg(pxW, pxH) {
   <path d="M-52,12 C-40,50 40,50 52,12 C36,36 -36,36 -52,12Z" fill="url(#lid)" stroke="${O}" stroke-width="2.2"/>
   <path d="M-40,-10 C-24,-22 22,-22 40,-10" fill="none" stroke="#e08070" stroke-width="1.2" opacity=".6"/>
   <path d="M-26,-2 C-18,-10 -6,-12 4,-10" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  <g transform="translate(0,60) scale(.9) translate(0,-66)">
   ${horn(-1)}${horn(1)}
   ${[-1, 1].map(s => spike([[44, 100], [64, 92], [80, 80]], 6, s) + spike([[48, 118], [64, 118], [76, 112]], 4.6, s) + spike([[38, 140], [50, 146], [58, 146]], 3.6, s)).join('')}
   <path d="${head}" fill="url(#headG)" stroke="${O}" stroke-width="2.8"/>
@@ -603,6 +607,7 @@ export function demonLordSvg(pxW, pxH) {
   <path d="M-26,140 C-14,136 14,136 26,140 C22,152 12,158 0,158 C-12,158 -22,152 -26,140Z" fill="url(#mouth)" stroke="${O}" stroke-width="1.8"/>
   ${[-1, 1].map(s => `<path d="M${s * 22},139 L${s * 17},154 L${s * 14},139Z" fill="#f4e4cc" stroke="${O}" stroke-width=".9"/><path d="M${s * 9},138 L${s * 7},146 L${s * 4},138Z" fill="#f4e4cc" stroke="${O}" stroke-width=".7"/><path d="M${s * 14},158 L${s * 11},148 L${s * 7},158Z" fill="#e8d4b8" stroke="${O}" stroke-width=".7"/>`).join('')}
   ${[-1, 1].map(s => spike([[10, 162], [12, 170], [8, 178]], 3.6, s)).join('')}
+  </g>
   <g filter="url(#b1)">${embers}</g>
 </svg>`;
 }
