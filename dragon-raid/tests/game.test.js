@@ -1028,3 +1028,26 @@ test('祝福效果：不屈意志4秒复活、圣光庇护减伤30%、贪婪之�
   const boss = game.teams.red, c0 = boss.core; game.damageFlag('red', 100, 'a', 'shot', true);
   assert.ok(Math.abs((c0 - boss.core) - 80) < 1e-6);
 });
+
+test('增量存档：只写有变化的玩家，导入/清空时整份重写', () => {
+  const writes = [];
+  const store = { players: {}, meta: null };
+  const storage = {
+    loadSave: () => (store.meta ? { ...store.meta, players: { ...store.players } } : null), migrated: () => false,
+    writeSave: (meta, entries, removed, full) => { writes.push({ n: entries.length, full }); if (full) store.players = {}; for (const [k, v] of entries) store.players[k] = JSON.parse(JSON.stringify(v)); for (const k of removed) delete store.players[k]; store.meta = meta; },
+    getItem: () => null, setItem() {},
+  };
+  const save = new Save({ storage });
+  for (let i = 0; i < 50; i++) save.get('p' + i, 'P' + i);
+  save.flush();
+  assert.equal(writes.at(-1).n, 50);
+  save.peek('p3').level = 9; save.peek('p3').slays = 2; save.dirty = true; save.flush();
+  assert.equal(writes.at(-1).n, 1, '只写改过的那个');
+  const again = new Save({ storage });
+  assert.equal(again.peek('p3').level, 9);
+  assert.equal(again.peek('p3').slays, 2, '屠龙次数也存下来');
+  assert.equal(Object.keys(again.data.players).length, 50);
+  again.clear();
+  assert.equal(writes.at(-1).full, true);
+  assert.equal(Object.keys(store.players).length, 0);
+});

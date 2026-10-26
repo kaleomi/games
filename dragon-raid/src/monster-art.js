@@ -353,13 +353,13 @@ export function mimicSvg(px) {
   const box = 'M-46,6 L46,6 L43,46.6 Q43,50 39.6,50 L-39.6,50 Q-43,50 -43,46.6 Z';
   const lid = 'M-47.4,-21 L47.4,-21 L44.6,-43 C36,-57.6 -36,-57.6 -44.6,-43 Z';
   const mouth = 'M-45.4,-22 L45.4,-22 C46.6,-10 46.6,-1 45.6,8 L-45.6,8 C-46.6,-1 -46.6,-10 -45.4,-22 Z';
-  const tongue = 'M6,2 C14,-2 24,-1 27,4 C29,9 28.4,20 26,30 C24.8,35.6 20.4,37.4 17.4,34.4 C15.4,32 15.8,24 14.4,16 C13.4,10.6 9,8.6 6,6 Z';
+  const tongue = 'M6,5.4 C14,1.6 24,2.6 27,7.4 C29,12.4 28.4,23.4 26,33.4 C24.8,39 20.4,40.8 17.4,37.8 C15.4,35.4 15.8,27.4 14.4,19.4 C13.4,14 9,12 6,9.4 Z';
   const sil = P(box) + P(lid) + P(mouth) + P(tongue);
   const upper = [-38, -28.5, -19, -9.5, 0, 9.5, 19, 28.5, 38].map((x, i) => { const big = i === 1 || i === 7, h = big ? 13 : (i % 2 ? 8.4 : 9.6), w = big ? 4.6 : 3.8; return `M${x - w},-18 Q${x - w * .3},${-18 + h * .55} ${x},${-18 + h} Q${x + w * .3},${-18 + h * .55} ${x + w},-18 Z`; }).join(' ');
   const lower = [-33, -22, -11, 0, 33].map((x, i) => { const big = i === 0 || i === 4, h = big ? 10 : 6.6, w = big ? 4.2 : 3.4; return `M${x - w},7 Q${x - w * .3},${7 - h * .55} ${x},${7 - h} Q${x + w * .3},${7 - h * .55} ${x + w},7 Z`; }).join(' ');
   const coin = (x, y, r, sq = .55, rot = 0) => `<g transform="translate(${x},${y}) rotate(${rot})"><ellipse rx="${r}" ry="${f2(r * sq)}" fill="#8a5600" stroke="${O}" stroke-width=".9"/><ellipse cy="${f2(-r * sq * .18)}" rx="${f2(r * .92)}" ry="${f2(r * sq * .85)}" fill="url(#gc)"/><ellipse cy="${f2(-r * sq * .18)}" rx="${f2(r * .58)}" ry="${f2(r * sq * .52)}" fill="none" stroke="#c88a10" stroke-width=".7"/><ellipse cx="${f2(-r * .35)}" cy="${f2(-r * sq * .45)}" rx="${f2(r * .28)}" ry="${f2(r * sq * .2)}" fill="#fff" opacity=".85"/></g>`;
-  const pile = [[-30, 3, 5], [-21, 4.4, 5.4], [-11, 3.6, 5], [-25.6, -0.6, 4.6], [-16, -0.4, 4.8], [20, 4, 4.6], [30, 3.8, 5], [-34, -1, 4]].map(([x, y, r]) => coin(x, y, r)).join('');
-  const spill = [[-40.4, 13, 4.6, .9, -60], [-47.6, 24, 4.4, .95, 30], [-44, 37, 4.8, .5, 10], [-52, 48, 4.6, .55, -8], [-42, 52.6, 5, .5, 4], [-31.6, 54, 4.6, .5, 0], [-20, 55.4, 4.4, .5, -4], [-34, 48, 4, .5, 12], [34, 53.8, 4.6, .5, 0], [45, 51.6, 4.8, .5, -6], [51.6, 40, 4.2, .9, 50], [22, 33.2, 3.6, .9, 15]].map(a => coin(...a)).join('');
+  const pile = [[-36, 4, 4.6], [-27.6, 5, 5], [-19, 5.4, 4.6], [-32, 0.4, 4.4], [-8, 5.6, 4.2], [31, 4.6, 4.6], [39, 3.4, 4.2]].map(([x, y, r]) => coin(x, y, r)).join('');
+  const spill = [[-40.4, 13, 4.6, .9, -60], [-47.6, 24, 4.4, .95, 30], [-44, 37, 4.8, .5, 10], [-52, 48, 4.6, .55, -8], [-42, 52.6, 5, .5, 4], [-31.6, 54, 4.6, .5, 0], [-20, 55.4, 4.4, .5, -4], [-34, 48, 4, .5, 12], [34, 53.8, 4.6, .5, 0], [45, 51.6, 4.8, .5, -6], [51.6, 40, 4.2, .9, 50], [11, 33.6, 3.6, .9, 15]].map(a => coin(...a)).join('');
   const sparkle = (x, y, r) => `<path d="M${x},${y - r} Q${x},${y} ${x + r},${y} Q${x},${y} ${x},${y + r} Q${x},${y} ${x - r},${y} Q${x},${y} ${x},${y - r} Z" fill="#fff"/>`;
   return doc(px, 60, `<defs>
     ${lin('wd', 0, 0, 0, 1, ['#c87a44', [.5, '#8a4a22', 1], [1, '#3e1c0a', 1]])}
@@ -413,11 +413,11 @@ export function mimicSvg(px) {
   ${P(upper, `fill="url(#tooth)" stroke="${O}" stroke-width=".9" stroke-linejoin="round"`)}
   ${P(lower, `fill="url(#tooth)" stroke="${O}" stroke-width=".9" stroke-linejoin="round"`)}
   ${P(tongue, 'fill="url(#tg)"')}
-  ${P('M12,8 C17,12 20,20 21.4,32', 'stroke="#8a1030" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"')}
-  ${P('M10.6,5 C16,2.4 22,3 25,6', 'stroke="#ffd0dc" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"')}
+  ${P('M12,11.4 C17,15.4 20,23.4 21.4,35.4', 'stroke="#8a1030" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"')}
+  ${P('M10.6,8.4 C16,5.8 22,6.4 25,9.4', 'stroke="#ffd0dc" stroke-width="1.2" fill="none" stroke-linecap="round" opacity=".7"')}
   ${lit(P(box) + P(lid), 'lt')}
   ${spill}
-  ${coin(21.6, 26.4, 3.8, .95, 20)}
-  ${P('M24,36 C24,38.6 25.6,40.6 25,42.6 C24.4,44 22.6,43.6 22.6,42 C22.6,40.4 23.6,38.6 24,36 Z', 'fill="#ffd0e0" opacity=".85"')}
+  ${coin(21.4, 29, 3.8, .95, 20)}
+  ${P('M23.6,39.4 C23.6,42 25.2,44 24.6,46 C24,47.4 22.2,47 22.2,45.4 C22.2,43.8 23.2,42 23.6,39.4 Z', 'fill="#ffd0e0" opacity=".85"')}
   ${sparkle(-46, 14, 3.2)}${sparkle(-24, -1, 2.4)}${sparkle(48, 44, 2.8)}${sparkle(-38, 50, 2.4)}${sparkle(30, 0, 2)}${sparkle(-30, -46, 2.6)}`);
 }
