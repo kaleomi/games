@@ -204,3 +204,5 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; font-f
 #result .pvetable .empty { color: var(--dim); padding: 12px; text-align: center; }
 #result .pvetable .tag { font-style: normal; font-size: 11px; color: #1a1200; background: #ffd86b; border-radius: 6px; padding: 0 4px; margin-left: 5px; vertical-align: 1px; }
 #result .pvetable .tag.gift { background: #ff7aa8; color: #2a0012; }
+#panel [hidden] { display: none !important; }
+#save-text { font-family: ui-monospace, Consolas, monospace; font-size: 11px; }

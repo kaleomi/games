@@ -180,6 +180,13 @@ export class UI {
       <section>
         <h3>存档</h3>
         <div class="row wrap"><button data-act="export">导出存档</button><button data-act="import">导入存档</button><button data-act="clear" class="danger">清空存档</button></div>
+        <div class="row wrap"><button data-act="save-text">复制存档文本</button><button data-act="paste-import">粘贴文本导入</button></div>
+        <div class="note">OBS「浏览器」源里不能下载文件（导出会是0KB），请用「复制存档文本」，粘贴到记事本另存为 .json；还原时用「粘贴文本导入」。</div>
+        <div id="save-text-box" hidden>
+          <div class="row" id="save-text-tip"></div>
+          <textarea id="save-text" rows="6" spellcheck="false"></textarea>
+          <div class="row wrap"><button data-act="save-text-copy" class="primary" id="save-text-copy">复制</button><button data-act="save-text-import" class="primary" id="save-text-import">导入这段文本</button><button data-act="save-text-close">收起</button></div>
+        </div>
         <div id="save-info" class="note"></div>
         <input id="import-file" type="file" accept=".json,application/json" hidden>
       </section>
@@ -264,6 +271,11 @@ export class UI {
       case 'end-now': if (g.phase === 'battle') g.phaseT = 0.01; break;
       case 'export': this.exportFile(); break;
       case 'import': document.getElementById('import-file').click(); break;
+      case 'save-text': this.showSaveText('export'); break;
+      case 'paste-import': this.showSaveText('import'); break;
+      case 'save-text-copy': this.copySaveText(); break;
+      case 'save-text-import': this.importText(document.getElementById('save-text').value); break;
+      case 'save-text-close': document.getElementById('save-text-box').hidden = true; break;
       case 'clear':
         if (!confirm('确定清空全部玩家存档？等级、战功都会归零。建议先导出。')) break;
         if (prompt('再确认一次：请输入「清空」两个字') !== '清空') break;
@@ -275,24 +287,60 @@ export class UI {
   }
 
   // 导出存档：Chrome / Edge 弹出「另存为」窗口选位置和文件名；不支持的浏览器退回普通下载
+  // OBS「浏览器」源（内置 CEF）不支持下载和另存为，写出来是 0KB → 直接改成显示存档文本让主播复制
   async exportFile() {
     const json = this.save.exportJson();
     const name = `星舰弹幕战存档-${new Date().toISOString().slice(0, 10)}.json`;
+    if (window.obsstudio) { this.showSaveText('export', '检测到在 OBS 浏览器源里，没法直接保存文件。点「复制」，打开记事本粘贴，另存为 .json 文件：'); return; }
     if (window.showSaveFilePicker) {
       try {
         const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: '星舰弹幕战存档', accept: { 'application/json': ['.json'] } }] });
         const w = await h.createWritable(); await w.write(json); await w.close();
-        this.note(`存档已保存：${h.name}`);
+        const size = (await h.getFile()).size;   // 写完核对大小，0KB 就说明这个浏览器写不进去
+        if (size < json.length / 4) throw new Error('写入的文件是空的');
+        this.note(`存档已保存：${h.name}（${Math.ceil(size / 1024)}KB）`);
         return;
       } catch (e) {
         if (e && e.name === 'AbortError') { this.note('已取消导出'); return; }
-        console.warn('另存为失败，改用下载', e);
+        console.warn('另存为失败', e);
+        this.showSaveText('export', '这个浏览器保存文件失败（可能是 0KB）。点「复制」，打开记事本粘贴，另存为 .json 文件：');
+        return;
       }
     }
     const blob = new Blob([json], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
     this.note('存档已下载到浏览器的下载文件夹');
+  }
+
+  // 存档文本：复制出去 / 粘贴进来（OBS 浏览器源里用）
+  showSaveText(mode, tip) {
+    const box = document.getElementById('save-text-box'), ta = document.getElementById('save-text');
+    box.hidden = false;
+    document.getElementById('save-text-copy').hidden = mode !== 'export';
+    document.getElementById('save-text-import').hidden = mode !== 'import';
+    document.getElementById('save-text-tip').textContent = tip || (mode === 'export' ? '下面是全部存档文本。点「复制」，打开记事本粘贴，另存为 .json 文件：' : '把之前复制的存档文本粘贴到下面，点「导入这段文本」（原存档会先自动备份）：');
+    ta.readOnly = mode === 'export';
+    ta.value = mode === 'export' ? this.save.exportJson() : '';
+    ta.focus(); if (mode === 'export') ta.select();
+  }
+  async copySaveText() {
+    const ta = document.getElementById('save-text');
+    let ok = false;
+    try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(ta.value); ok = true; } } catch { /* OBS 里可能不让用剪贴板接口 */ }
+    if (!ok) { ta.readOnly = false; ta.focus(); ta.select(); try { ok = document.execCommand('copy'); } catch { ok = false; } ta.readOnly = true; }
+    this.note(ok ? `已复制存档（${Math.ceil(ta.value.length / 1024)}KB），去记事本粘贴保存` : '自动复制失败：文本已全选，请按 Ctrl+C 复制');
+  }
+  importText(text) {
+    try {
+      if (!String(text || '').trim()) throw new Error('没有粘贴内容');
+      const backup = this.save.exportJson();
+      try { localStorage.setItem('starship-barrage-save-backup', backup); } catch { /* 忽略 */ }
+      const n = this.save.importJson(text);
+      document.getElementById('save-text-box').hidden = true;
+      this.note(`已导入${n}名玩家（原存档已自动备份一份）`);
+    } catch (e) { this.note('导入失败：' + e.message); }
+    this.refreshPanel();
   }
 
   async importFile(file) {
