@@ -176,11 +176,11 @@ const SKILL_SYM = {
   },
   // 鹰群风暴：中心一只灵鹰，外圈群鹰盘旋
   swarm(f) {
-    // 外圈 5 只小鹰顺时针盘旋（剪影简化，小尺寸不糊），身后拖着风痕
-    const A = [0, 72, 144, 216, 288].map(a => a + 36);
-    const ring = A.map(a => { const [x, y] = P(14.2, a); return `<path d="${BIRD}" transform="translate(${x},${y}) rotate(${a + 90}) scale(.36)" fill="url(#sy)" stroke="${f.ink}" stroke-width="2.6" stroke-linejoin="round"/>`; }).join('');
-    const swirl = A.map(a => `<path d="M${P(14.2, a - 60).join(',')} A14.2,14.2 0 0 1 ${P(14.2, a - 18).join(',')}" fill="none" stroke="${f.tint}" stroke-width="1.4" stroke-linecap="round" opacity=".7"/>`).join('');
-    return `${swirl}<g transform="translate(0,1.2) scale(.62)">${eagle('url(#sy)', f.ink, 1.8, false)}</g>${ring}`;
+    // 四只灵鹰沿对角线顺时针盘旋（方形图标对角更宽敞），身后拖风痕；中心一只领头鹰
+    const A = [45, 135, 225, 315];
+    const ring = A.map(a => { const [x, y] = P(15, a); return `<path d="${BIRD}" transform="translate(${x},${y}) rotate(${a + 90}) scale(.46)" fill="url(#sy)" stroke="${f.ink}" stroke-width="2.2" stroke-linejoin="round"/>`; }).join('');
+    const swirl = A.map(a => `<path d="M${P(15, a - 72).join(',')} A15,15 0 0 1 ${P(15, a - 22).join(',')}" fill="none" stroke="${f.tint}" stroke-width="1.5" stroke-linecap="round" opacity=".75"/>`).join('');
+    return `${swirl}<g transform="translate(0,1) scale(.54)">${eagle('url(#sy)', f.ink, 1.9, false)}</g>${ring}`;
   },
   // 圣盾：金边鸢盾 + 圣十字 + 光芒
   shield(f) {
@@ -361,8 +361,8 @@ export function zoneGlyphSvg(px) {
   // 三趾龙足印：从脚跟放射出的修长脚趾 + 弯钩利爪
   // 龙爪印：一块掌垫 + 三个分开的趾垫，每个趾垫前端一枚弯钩白爪
   const toe = (x, y, a) => `<g transform="translate(${x},${y}) rotate(${a})">
-      <path d="M-1.9,-3.6 C-2.2,-7.6 -.6,-10.6 2.6,-12.6 C1.4,-9.6 1.6,-6.8 2,-3.8 Z" fill="url(#tl)" stroke="#1a0004" stroke-width=".9" stroke-linejoin="round"/>
-      <ellipse rx="3.6" ry="4.8" fill="url(#cl)" stroke="#1a0004" stroke-width="1.1"/>
+      <path d="M-2,-3.4 C-2.6,-8.6 -.8,-12.4 3.2,-14.6 C1.6,-11 1.8,-7.4 2.2,-3.6 Z" fill="url(#tl)" stroke="#1a0004" stroke-width=".9" stroke-linejoin="round"/>
+      <path d="M0,-5.6 C2.8,-5.6 3.8,-2.6 3.6,1 C3.4,4 2,5.4 0,5.4 C-2,5.4 -3.4,4 -3.6,1 C-3.8,-2.6 -2.8,-5.6 0,-5.6 Z" fill="url(#cl)" stroke="#1a0004" stroke-width="1.1"/>
       <path d="M-1.8,-2 C-1.6,-3.2 -.8,-3.8 .2,-3.8" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round" opacity=".8"/>
     </g>`;
   return svg(px, px, '-32 -32 64 64', `<defs>
@@ -382,10 +382,6 @@ export function zoneGlyphSvg(px) {
     <path d="M-7.6,8 C-8.4,2.4 -4.6,-.6 0,-.6 C4.6,-.6 8.4,2.4 7.6,8 C7,12.4 3.6,14.6 0,13.6 C-3.6,14.6 -7,12.4 -7.6,8 Z" fill="url(#cl)" stroke="#1a0004" stroke-width="1.2"/>
     <path d="M-4.6,3.4 C-3.2,1.8 -1.4,1.2 .6,1.2" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round" opacity=".8"/>
     ${toe(-10.6, -4.4, -32)}${toe(0, -9.6, 0)}${toe(10.6, -4.4, 32)}`);
-}
-    <path d="M0,13.6 C-1,16 -1.2,17.6 -.4,19.6 C1,18 1.4,16 1.2,13.6 Z" fill="url(#tl)" stroke="#1a0004" stroke-width=".8"/>
-    <path d="M-6.4,6.6 C-6.6,2.4 -3.6,-.2 0,-.2 C3.6,-.2 6.6,2.4 6.4,6.6 C6.2,10.6 3.4,13.6 0,13.6 C-3.4,13.6 -6.2,10.6 -6.4,6.6 Z" fill="url(#cl)" stroke="#1a0004" stroke-width="1.2"/>
-    <path d="M-3.8,3.4 C-2.6,1.8 -1,1.2 .6,1.2" fill="none" stroke="#fff" stroke-width="1" stroke-linecap="round" opacity=".8"/>`);
 }
 
 // ═════════════════════════ 「英灵附体」金色符文环（56，绕英雄旋转，中心透明） ═════════════════════════
@@ -413,7 +409,7 @@ export function shockArcSvg(pxW, pxH) {
   const streaks = [[-64, 74, 89], [-52, 79, 91], [-41, 70, 84], [-27, 77, 92], [-15, 72, 88], [-4, 80, 93], [9, 71, 86], [21, 78, 92], [33, 73, 87], [46, 79, 91], [58, 70, 85], [67, 76, 88]].map(([a, r0, r1]) => `<path d="M${at(r0, a).join(',')} L${at(r1, a).join(',')}"/>`).join('');
   const shards = [-56, -30, 0, 30, 56].map(a => { const [x, y] = at(86, a); return `<path transform="translate(${x},${y}) rotate(${a})" d="M0,-5 L2,0 L0,4 L-2,0 Z"/>`; }).join('');
   return svg(pxW, pxH, '-100 -70 200 90', `<defs>
-      <radialGradient id="sw" cx="0" cy="20" r="93" gradientUnits="userSpaceOnUse"><stop offset=".6" stop-color="#ffb43a" stop-opacity="0"/><stop offset=".8" stop-color="#ffd86b" stop-opacity=".45"/><stop offset=".93" stop-color="#fffbea"/><stop offset="1" stop-color="#ffd86b" stop-opacity="0"/></radialGradient>
+      <radialGradient id="sw" cx="0" cy="20" r="93" gradientUnits="userSpaceOnUse"><stop offset=".64" stop-color="#ffe08a" stop-opacity="0"/><stop offset=".82" stop-color="#ffe9a8" stop-opacity=".32"/><stop offset=".9" stop-color="#fff6d6" stop-opacity=".75"/><stop offset=".95" stop-color="#ffffff"/><stop offset="1" stop-color="#ffe08a" stop-opacity="0"/></radialGradient>
       <linearGradient id="fx" x1="-100" y1="0" x2="100" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".2" stop-color="#fff"/><stop offset=".8" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
       <mask id="m" maskUnits="userSpaceOnUse" x="-100" y="-70" width="200" height="90"><rect x="-100" y="-70" width="200" height="90" fill="url(#fx)"/></mask>
       ${blurU('b', 2.6, -100, -70, 200, 90)}${blurU('b2', 5, -100, -70, 200, 90)}
@@ -432,11 +428,13 @@ export function shockArcSvg(pxW, pxH) {
 
 // ═════════════════════════ 旋风斩刀光环（中心透明，整体旋转绘制，叠加混合） ═════════════════════════
 export function whirlSvg(px) {
-  const crescent = (a, ro, ri0, span, id) => {
+  // 月牙剑气：前缘最厚、向后收成一根细丝
+  const crescent = (a, ro, w, span, id) => {
     const o = [], i = [];
-    for (let k = 0; k <= 16; k++) { const t = k / 16; o.push(P(ro - 6 * t, a - span * t)); i.push(P(ri0 + (ro - 6 - ri0) * t ** 1.4, a - span * t)); }
+    for (let k = 0; k <= 20; k++) { const t = k / 20, r = ro - 4 * t; o.push(P(r, a - span * t)); i.push(P(r - w * (1 - t) ** 1.3, a - span * t)); }
     return `<path d="M${pts(o)} L${pts(i.reverse())} Z" fill="url(#${id})"/>`;
   };
+  const edge = (a, r, span, id, sw) => `<path d="M${P(r, a).join(',')} A${r},${r} 0 0 0 ${P(r - 3, a - span).join(',')}" fill="none" stroke="url(#${id})" stroke-width="${sw}" stroke-linecap="round"/>`;
   const grad = (a, span, id, c0, c1) => { const [x1, y1] = P(66, a), [x2, y2] = P(60, a - span); return `<linearGradient id="${id}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${c0}"/><stop offset=".35" stop-color="${c1}" stop-opacity=".75"/><stop offset="1" stop-color="${c1}" stop-opacity="0"/></linearGradient>`; };
   const sword = (a, op) => `<g transform="rotate(${a})" opacity="${op}">
       <path d="M0,-69 L3.6,-62 L3.4,-30 L-3.4,-30 L-3.6,-62 Z" fill="url(#bl)"/>
@@ -446,15 +444,17 @@ export function whirlSvg(px) {
     </g>`;
   const A = [0, 120, 240];
   return svg(px, px, '-72 -72 144 144', `<defs>
-      <radialGradient id="rg" cx="0" cy="0" r="72" gradientUnits="userSpaceOnUse"><stop offset=".5" stop-color="#3a8cff" stop-opacity="0"/><stop offset=".8" stop-color="#7fc8ff" stop-opacity=".16"/><stop offset=".92" stop-color="#bfe6ff" stop-opacity=".22"/><stop offset="1" stop-color="#7fc8ff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="rg" cx="0" cy="0" r="72" gradientUnits="userSpaceOnUse"><stop offset=".5" stop-color="#3a8cff" stop-opacity="0"/><stop offset=".8" stop-color="#7fc8ff" stop-opacity=".08"/><stop offset=".93" stop-color="#bfe6ff" stop-opacity=".16"/><stop offset="1" stop-color="#7fc8ff" stop-opacity="0"/></radialGradient>
       <linearGradient id="bl" x1="-4" y1="0" x2="4" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#cfeaff"/><stop offset="1" stop-color="#5aa8ff"/></linearGradient>
       ${A.map(a => grad(a, 118, `c${a}`, '#ffffff', '#8fd0ff') + grad(a + 60, 80, `d${a}`, '#fff3c4', '#ffcc4d')).join('')}
       ${blurU('g', 3, -72, -72, 144, 144)}${blurU('g2', 1.2, -72, -72, 144, 144)}
     </defs>
     <circle r="70" fill="url(#rg)"/>
-    <g filter="url(#g)" opacity=".85">${A.map(a => crescent(a, 68, 44, 118, `c${a}`)).join('')}</g>
-    ${A.map(a => crescent(a, 68, 50, 118, `c${a}`)).join('')}
-    ${A.map(a => crescent(a + 60, 56, 46, 80, `d${a}`)).join('')}
+    <g filter="url(#g)" opacity=".7">${A.map(a => crescent(a, 68, 16, 110, `c${a}`)).join('')}</g>
+    ${A.map(a => crescent(a, 68, 11, 110, `c${a}`)).join('')}
+    ${A.map(a => edge(a, 68, 100, `c${a}`, 1.6)).join('')}
+    ${A.map(a => crescent(a + 60, 54, 6, 76, `d${a}`)).join('')}
+    ${A.map(a => edge(a + 60, 54, 70, `d${a}`, 1)).join('')}
     <g filter="url(#g2)">${A.map(a => sword(a - 22, .18) + sword(a - 11, .35)).join('')}</g>
     <g filter="url(#g)" opacity=".8">${A.map(a => sword(a, 1)).join('')}</g>
     ${A.map(a => sword(a, 1)).join('')}

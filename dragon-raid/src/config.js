@@ -289,7 +289,7 @@ export const RAID = {
   stagger: { max: 100, downSec: 8, dmgMul: 2, grow: 1.25, impact: 2, whirl: 0.3, overload: 3, shotDown: 60, drop: 50 },
   // 巨龙升空（flies 的BOSS，半血以后）：每24~30秒一次，飞10秒，期间受到伤害×0.25，每2.4秒往一条航道砸「天火」；
   //   被巨弩射中直接击落、倒地；没被射下来，落地时对人最多的航道俯冲「龙爪撕裂」
-  air: { every: [24, 30], sec: 10, rise: 110, dmgMul: 0.25, rainEvery: 2.4 },
+  air: { every: [24, 30], sec: 10, rise: 80, dmgMul: 0.25, rainEvery: 2.4 },
   // 神殿祝福：每章第1关开打时弹出3个祝福，观众发 A/B/C 投票15秒（本章送过礼的人一票算5票），得票最多的整章生效
   bless: { voteSec: 15, giftWeight: 5 },
   // 四象阵：一条航道里同时有法师、骑士、牧师、游侠（活着的，含NPC和佣兵）→ 这条道攻击+15%、受到伤害-10%

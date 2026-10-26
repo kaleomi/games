@@ -224,7 +224,7 @@ export function frostDragonSvg(pxW, pxH) {
   for (let i = 1; i < 12; i++) { const a = i * 30, big = i % 2 === 0; crest += crys(Math.sin(a * Math.PI / 180) * 44, 10 - Math.cos(a * Math.PI / 180) * 44, a, big ? 24 : 13, big ? 6.4 : 4.4); }
   const hexPts = (r, rot = 0) => Array.from({ length: 6 }, (_, i) => { const a = (i * 60 + rot) * Math.PI / 180; return [Math.sin(a) * r, 10 - Math.cos(a) * r]; });
   const hx = hexPts(30), hin = hexPts(13);
-  const facetCols = ['#dffbff', '#8fe2f6', '#3a9cc8', '#1a5a86', '#2f86b4', '#a8eefc'];
+  const facetCols = ['#ffffff', '#c4f4ff', '#6cc8ea', '#2f86b4', '#58b4dc', '#e2fbff'];
   const gem = hx.map((p, i) => { const q = hx[(i + 1) % 6], a = hin[i], b = hin[(i + 1) % 6]; return `<path d="M${pt(...p)} L${pt(...q)} L${pt(...b)} L${pt(...a)}Z" fill="${facetCols[i]}" fill-opacity=".9"/>`; }).join('');
 
   // ── 雪花闪点
@@ -250,6 +250,7 @@ export function frostDragonSvg(pxW, pxH) {
     <linearGradient id="memAR" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#9ae2fa" stop-opacity=".7"/><stop offset=".45" stop-color="#3a8cbc" stop-opacity=".5"/><stop offset="1" stop-color="#c8f2ff" stop-opacity=".66"/></linearGradient>
     <linearGradient id="memBR" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#7ad4f4" stop-opacity=".66"/><stop offset=".5" stop-color="#2a74a6" stop-opacity=".48"/><stop offset="1" stop-color="#b4ecff" stop-opacity=".6"/></linearGradient>
     <radialGradient id="mnt" cx=".4" cy=".38" r=".62"><stop offset="0" stop-color="#03101e"/><stop offset=".62" stop-color="#0c3454"/><stop offset=".86" stop-color="#5fd8f2"/><stop offset="1" stop-color="#174868"/></radialGradient>
+    <radialGradient id="gemC" cx="-3" cy="6" r="14" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#bff8ff"/><stop offset="1" stop-color="#5ff0ff"/></radialGradient>
     <radialGradient id="sock" cx="0" cy="10" r="50" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0a2a44"/><stop offset=".64" stop-color="#0a2238"/><stop offset=".84" stop-color="#5ff0ff" stop-opacity=".75"/><stop offset="1" stop-color="#0c3050"/></radialGradient>
     <radialGradient id="vig" cx="0" cy="-20" r="150" gradientUnits="userSpaceOnUse"><stop offset=".55" stop-color="#021020" stop-opacity="0"/><stop offset="1" stop-color="#021020" stop-opacity=".6"/></radialGradient>
     <pattern id="scale" width="20" height="13" patternUnits="userSpaceOnUse" x="-10" y="-150">
@@ -291,7 +292,7 @@ export function frostDragonSvg(pxW, pxH) {
   ${crest}
   <circle cx="0" cy="10" r="46" fill="url(#sock)" stroke="${O}" stroke-width="3"/>
   <circle cx="0" cy="10" r="46" fill="none" stroke="#e8fdff" stroke-width="1.4" opacity=".8"/>
-  <g>${gem}<path d="${poly(hx)}Z" fill="none" stroke="#e8fdff" stroke-width="1.6"/><path d="${poly(hin)}Z" fill="#c8f6ff" fill-opacity=".55" stroke="#ffffff" stroke-width="1"/>
+  <g>${gem}<path d="${poly(hx)}Z" fill="none" stroke="#e8fdff" stroke-width="1.6"/><path d="${poly(hin)}Z" fill="url(#gemC)" stroke="#ffffff" stroke-width="1"/>
     ${hx.map((p, i) => `<path d="M${pt(...p)} L${pt(...hin[i])}" stroke="#e8fdff" stroke-width=".8" opacity=".8"/>`).join('')}</g>
   <path d="M-30,-6 A34,34 0 0 1 -6,-24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" opacity=".75"/>
   ${horn(-1)}${horn(1)}
@@ -301,8 +302,9 @@ export function frostDragonSvg(pxW, pxH) {
     <path d="M24,84 C36,104 34,128 18,156" fill="none" stroke="#021020" stroke-width="10" opacity=".3" filter="url(#b3)"/>
   </g>
   ${frill(-1)}${frill(1)}${teeth(-1)}${teeth(1)}
-  <path d="M0,78 L0,150" stroke="${O}" stroke-width="1.6" opacity=".55"/>
-  <path d="M-3,80 L-3,98 M-3,120 L-3,146" stroke="#fff" stroke-width="1" opacity=".55"/>
+  ${crys(0, 128, 180, 12, 4)}${crys(-7, 150, 196, 8, 3)}${crys(7, 150, 164, 8, 3)}
+  <path d="M0,78 L0,124" stroke="${O}" stroke-width="1.6" opacity=".55"/>
+  <path d="M-3,80 L-3,98" stroke="#fff" stroke-width="1" opacity=".55"/>
   ${[-1, 1].map(s => `<path d="M${s * 6},104 L${s * 22},96 L${s * 42},86 L${s * 44},94 L${s * 26},106 L${s * 9},113Z" fill="url(#plate)" stroke="${O}" stroke-width="1.6" stroke-linejoin="round"/>
     <path d="M${s * 8},106 L${s * 24},98 L${s * 40},90" fill="none" stroke="#fff" stroke-width="1" opacity=".7"/>
     <path d="M${s * 12},117 Q${s * 20},106 ${s * 36},104 Q${s * 26},116 ${s * 12},117Z" fill="#5ff0ff" filter="url(#b2)"/>
@@ -329,8 +331,8 @@ export function iceCrystalSvg(px, dead) {
   const defs = `<defs>
     <linearGradient id="iL" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".45" stop-color="#bdf3ff" stop-opacity=".95"/><stop offset="1" stop-color="#3aa6d4" stop-opacity=".9"/></linearGradient>
     <linearGradient id="iR" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#c8f4ff"/><stop offset=".5" stop-color="#46a8d4" stop-opacity=".9"/><stop offset="1" stop-color="#0e3a5e" stop-opacity=".95"/></linearGradient>
-    <linearGradient id="dL" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#9ab8c8"/><stop offset="1" stop-color="#2a4a62"/></linearGradient>
-    <linearGradient id="dR" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#5a7a90"/><stop offset="1" stop-color="#132a3e"/></linearGradient>
+    <linearGradient id="dL" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#d0ecf6"/><stop offset="1" stop-color="#3a6a88"/></linearGradient>
+    <linearGradient id="dR" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#7aa8c0"/><stop offset="1" stop-color="#18384e"/></linearGradient>
     <radialGradient id="core" cx="0" cy="-4" r="16" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="#9ff6ff" stop-opacity=".8"/><stop offset="1" stop-color="#5ff0ff" stop-opacity="0"/></radialGradient>
     <radialGradient id="base" cx="0" cy="0" r="22" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#e8fdff" stop-opacity=".55"/><stop offset=".5" stop-color="#5ff0ff" stop-opacity=".3"/><stop offset="1" stop-color="#5ff0ff" stop-opacity="0"/></radialGradient>
     <filter id="g" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>
@@ -338,7 +340,8 @@ export function iceCrystalSvg(px, dead) {
   </defs>`;
   if (dead) {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${PVB}>${defs}
-    <ellipse cx="0" cy="3" rx="22" ry="17" fill="#0a1a2a" opacity=".75"/>
+    <ellipse cx="0" cy="3" rx="22" ry="17" fill="#0e2a40" opacity=".85"/>
+    <ellipse cx="0" cy="3" rx="22" ry="17" fill="none" stroke="#4a8aa8" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>
     <path d="M-17,4 L-6,0 L2,6 L12,-2 L19,5 M-6,0 L-9,-11 M2,6 L4,16 M12,-2 L15,-12 M-6,0 L-14,-6" fill="none" stroke="#5fa8c8" stroke-width="1" stroke-opacity=".7"/>
     ${shard(-14, 10, -118, 13, 3.6, 'dL', 'dR')}${shard(15, 9, 104, 14, 4, 'dL', 'dR')}${shard(-5, 17, -168, 10, 3.2, 'dL', 'dR')}
     ${shard(9, -11, 32, 11, 3.4, 'dL', 'dR')}${shard(-12, -9, -40, 9, 3, 'dL', 'dR')}${shard(3, 18, 160, 8, 2.6, 'dL', 'dR')}
@@ -453,15 +456,6 @@ export function demonLordSvg(pxW, pxH) {
   // 骨刺（黑曜石色）
   const spike = (pts, w, s = 1) => { const t = taper(pts.map(side(s)), w, .3, 6); return `<path d="${t.d}" fill="url(#hornS)" stroke="${O}" stroke-width="1.5" stroke-linejoin="round"/><path d="${poly(t.L.slice(1, -2))}" fill="none" stroke="#ffb08a" stroke-width=".9" opacity=".5"/>`; };
   const armSpikes = s => spike([[214, 50], [236, 36], [252, 30]], 7, s) + spike([[214, 66], [238, 70], [254, 76]], 6, s) + spike([[150, -40], [160, -62], [158, -82]], 7, s) + spike([[164, -22], [184, -36], [198, -40]], 6, s);
-  const bracer = s => {
-    const f = foreT(s), i0 = 7, i1 = 15;
-    const band = [...f.L.slice(i0, i1 + 1), ...f.R.slice(i0, i1 + 1).reverse()];
-    let st = '';
-    for (const i of [8, 11, 14]) { const p = f.L[i], n = f.N[i]; st += spike([[p[0], p[1]], [p[0] + n[0] * 10, p[1] + n[1] * 10], [p[0] + n[0] * 18, p[1] + n[1] * 16]], 4.2); }
-    return `<path d="${poly(band)}Z" fill="url(#iron)" stroke="${O}" stroke-width="1.8"/>
-      <path d="${poly(f.L.slice(i0, i1 + 1).map((p, k) => lerp(p, f.R[i0 + k], .22)))}" fill="none" stroke="#c89a80" stroke-width="1" opacity=".55"/>
-      <path d="${poly(f.L.slice(i0, i1 + 1).map((p, k) => lerp(p, f.R[i0 + k], .5)))}" fill="none" stroke="${LAVA[1]}" stroke-width="1.6" stroke-dasharray="3 5"/>${st}`;
-  };
 
   // 熔岩缝：腹肌之间、胸肌下缘、白线
   const seams = ['M0,-152 L0,-60', 'M-40,-76 L-4,-74 M4,-74 L40,-76', 'M-36,-106 L-4,-104 M4,-104 L36,-106', 'M-34,-136 L-4,-134 M4,-134 L34,-136',
@@ -520,8 +514,8 @@ export function demonLordSvg(pxW, pxH) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" ${VB}>
   <defs>
     <radialGradient id="skin" cx="-50" cy="-70" r="240" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#a8483a"/><stop offset=".3" stop-color="#6a1c1c"/><stop offset=".65" stop-color="#360a0e"/><stop offset="1" stop-color="#140306"/></radialGradient>
-    <radialGradient id="dl" cx=".3" cy=".25" r=".85"><stop offset="0" stop-color="#d47a5a"/><stop offset=".4" stop-color="#7a2620"/><stop offset="1" stop-color="#1e0508"/></radialGradient>
-    <radialGradient id="dr" cx=".3" cy=".25" r=".85"><stop offset="0" stop-color="#a24a38"/><stop offset=".4" stop-color="#5a1818"/><stop offset="1" stop-color="#140306"/></radialGradient>
+    <radialGradient id="dl" cx=".3" cy=".25" r=".85"><stop offset="0" stop-color="#e08a64"/><stop offset=".4" stop-color="#8a2e24"/><stop offset="1" stop-color="#26060a"/></radialGradient>
+    <radialGradient id="dr" cx=".3" cy=".25" r=".85"><stop offset="0" stop-color="#b85440"/><stop offset=".4" stop-color="#6a1e1c"/><stop offset="1" stop-color="#180406"/></radialGradient>
     <radialGradient id="mus" cx=".32" cy=".26" r=".8"><stop offset="0" stop-color="#c8664c"/><stop offset=".5" stop-color="#6e2020"/><stop offset="1" stop-color="#2a070a"/></radialGradient>
     <radialGradient id="musR" cx=".32" cy=".26" r=".8"><stop offset="0" stop-color="#a04634"/><stop offset=".5" stop-color="#561618"/><stop offset="1" stop-color="#1e0408"/></radialGradient>
     <radialGradient id="headG" cx="-18" cy="92" r="84" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#d0704e"/><stop offset=".4" stop-color="#7a2420"/><stop offset=".8" stop-color="#2e080a"/><stop offset="1" stop-color="#160406"/></radialGradient>
@@ -531,7 +525,6 @@ export function demonLordSvg(pxW, pxH) {
     <radialGradient id="memOR" cx="226" cy="-104" r="170" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1e0408"/><stop offset=".6" stop-color="#3e0a12"/><stop offset="1" stop-color="#781828"/></radialGradient>
     <linearGradient id="wbone" x1="0" y1="0" x2=".4" y2="1"><stop offset="0" stop-color="#8a5a48"/><stop offset=".5" stop-color="#4a2420"/><stop offset="1" stop-color="#1a0606"/></linearGradient>
     <linearGradient id="hornS" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7a5a4c"/><stop offset=".5" stop-color="#2a1210"/><stop offset="1" stop-color="#0a0202"/></linearGradient>
-    <linearGradient id="iron" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6a5a58"/><stop offset=".5" stop-color="#2a2224"/><stop offset="1" stop-color="#0a0808"/></linearGradient>
     <linearGradient id="hornL" x1="-26" y1="82" x2="-122" y2="-84" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#1e0808"/><stop offset=".3" stop-color="#5a3428"/><stop offset=".65" stop-color="#b08c74"/><stop offset="1" stop-color="#fff0dc"/></linearGradient>
     <linearGradient id="hornR" x1="26" y1="82" x2="122" y2="-84" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#160404"/><stop offset=".3" stop-color="#40221c"/><stop offset=".65" stop-color="#8a6a58"/><stop offset="1" stop-color="#e8d4bc"/></linearGradient>
     <linearGradient id="clawG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1a0606"/><stop offset=".6" stop-color="#5a3a30"/><stop offset="1" stop-color="#f0dcc4"/></linearGradient>
@@ -559,7 +552,9 @@ export function demonLordSvg(pxW, pxH) {
   ${wing(-1)}${wing(1)}
   ${[-1, 1].map(s => shade(upperT(s).d, s < 0 ? 'dl' : 'dr')).join('')}
   ${armSpikes(-1)}${armSpikes(1)}
-  ${[-1, 1].map(s => shade(foreT(s).d, s < 0 ? 'dl' : 'dr') + bracer(s) + claws(s) + shade(palm(s), s < 0 ? 'dl' : 'dr')).join('')}
+  ${[-1, 1].map(s => { const f = foreT(s), u = upperT(s); return shade(f.d, s < 0 ? 'dl' : 'dr') + claws(s) + shade(palm(s), s < 0 ? 'dl' : 'dr')
+    + `<path d="${poly((s < 0 ? u.L : u.R).slice(1, -1))}" fill="none" stroke="#ffb090" stroke-width="2" opacity=".45"/><path d="${poly((s < 0 ? f.L : f.R).slice(1, -2))}" fill="none" stroke="#ff8a5a" stroke-width="2" opacity=".4"/>`
+    + spike([[200, 84], [222, 96], [236, 106]], 5, s) + spike([[180, 102], [196, 118], [204, 132]], 4.4, s); }).join('')}
   <path d="${torso}" fill="url(#skin)" stroke="${O}" stroke-width="3"/>
   ${abs.map((d, i) => `<path d="${d}" fill="url(#${i % 2 ? 'musR' : 'mus'})" stroke="${O}" stroke-width="1.6"/>`).join('')}
   ${[-1, 1].map(s => `<path d="${serr(s)}" fill="url(#${s < 0 ? 'mus' : 'musR'})" stroke="${O}" stroke-width="1.4"/>`).join('')}

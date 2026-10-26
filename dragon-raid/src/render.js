@@ -276,8 +276,9 @@ export class Renderer {
   giftToast(e) {
     const key = e.uid + '|' + e.gift;
     const old = this.toasts.find(t => t.key === key && t.t < 3);
-    if (old) { old.count += e.count; old.t = 0; old.text = `${e.name} 送出 ${e.gift}×${old.count} · 火力强化`; return; }
-    this.toast(`${e.name} 送出 ${e.gift}×${e.count} · 火力强化`, e.team);
+    const tail = this.game.mode === 'pve' ? '' : ' · 火力强化';
+    if (old) { old.count += e.count; old.t = 0; old.text = `${e.name} 送出 ${e.gift}×${old.count}${tail}`; return; }
+    this.toast(`${e.name} 送出 ${e.gift}×${e.count}${tail}`, e.team);
     const t = this.toasts[this.toasts.length - 1]; t.key = key; t.count = e.count;
   }
 
@@ -768,7 +769,7 @@ export class Renderer {
     x.restore(); x.globalAlpha = 1;
     if (f.cls === 'tank') this.drawMechFx(x, f, art, 'over');
     if (f.cls === 'dps' && f.beamT > 0 && f.beamCharge > 0) this.drawBeamCharge(x, f);
-    if (f.shieldHp > 0) { const sb = this.sprite('bubble', px => shieldBubbleSvg(px), 58); if (sb) { x.globalAlpha = Math.min(1, 0.4 + f.shieldHp / f.maxHp); this.blit(x, sb, f.x, f.y); x.globalAlpha = 1; } }
+    if (f.shieldHp > 0) { const sb = this.sprite('bubble', px => shieldBubbleSvg(px), 58); if (sb) { x.globalAlpha = Math.min(0.6, 0.22 + f.shieldHp / f.maxHp); this.blit(x, sb, f.x, f.y); x.globalAlpha = 1; } }
     const av = !f.npc && this.avatar(f.avatar);
     if (av) {
       const ay = f.y + 4;
@@ -1072,12 +1073,12 @@ export class Renderer {
       const k = t / dur, a = p.dur ? Math.min(1, t / 0.3, (dur - t) / 0.5) * (0.75 + 0.25 * Math.sin(g.clock * 6 + p.delay * 20)) : Math.sin(k * Math.PI);
       const top = f.y - 380;
       const grd = x.createLinearGradient(f.x - 20, 0, f.x + 20, 0);
-      grd.addColorStop(0, 'rgba(120,255,170,0)'); grd.addColorStop(0.5, `rgba(170,255,200,${0.32 * a})`); grd.addColorStop(1, 'rgba(120,255,170,0)');
+      grd.addColorStop(0, 'rgba(120,255,170,0)'); grd.addColorStop(0.5, `rgba(170,255,200,${0.2 * a})`); grd.addColorStop(1, 'rgba(120,255,170,0)');
       const fade = x.createLinearGradient(0, top, 0, f.y);
       x.globalAlpha = 1; x.fillStyle = grd; x.fillRect(f.x - 20, top, 40, f.y - top + 10);
-      fade.addColorStop(0, 'rgba(255,255,255,0)'); fade.addColorStop(1, `rgba(255,255,255,${0.45 * a})`);
+      fade.addColorStop(0, 'rgba(255,255,255,0)'); fade.addColorStop(1, `rgba(255,255,255,${0.28 * a})`);
       x.fillStyle = fade; x.fillRect(f.x - 2.5, top, 5, f.y - top);
-      const gl = this.glowSprite('#9dffc4', 22); x.globalAlpha = a * 0.8; x.drawImage(gl, f.x - gl.half, f.y - gl.half);
+      const gl = this.glowSprite('#9dffc4', 12); x.globalAlpha = a * 0.45; x.drawImage(gl, f.x - gl.half, f.y + 18 - gl.half);
       if (Math.random() < 0.06) this.floaters.push({ x: f.x + (Math.random() - 0.5) * 30, y: f.y + 10, text: '', color: '#9dffc4', t: 0 });
     }
     for (let i = this.muzzles.length - 1; i >= 0; i--) {
@@ -1845,10 +1846,14 @@ export class Renderer {
       x.fillStyle = grad; x.fillRect(-w / 2, -h / 2, w, h);
       x.fillStyle = big ? '#ffd86b' : col; x.fillRect(-w / 2 + 50, -h / 2, w - 100, 2); x.fillRect(-w / 2 + 50, h / 2 - 2, w - 100, 2);
       x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.font = `700 ${big ? 26 : 19}px ${FONT}`;
-      x.fillStyle = '#ffffff';
       const name = b.name ? `${trim(b.name, 10)} ` : '';
       const icon = b.icon ? this.bannerIcon(b.icon, big ? 50 : 36) : b.gear ? this.gearIcon(b.gear.slot, b.gear.tier, big ? 66 : 50) : null;
+      // 字太长就缩小，保证整条横幅不出屏
+      let fs = big ? 26 : 19;
+      const maxW = W - 40 - (icon ? (big ? 58 : 44) : 0);
+      x.font = `700 ${fs}px ${FONT}`;
+      while (fs > 12 && x.measureText(`${name}${b.text}`).width > maxW) { fs -= 1; x.font = `700 ${fs}px ${FONT}`; }
+      x.fillStyle = '#ffffff';
       if (icon) {
         const tw = x.measureText(`${name}${b.text}`).width, iw = big ? 50 : 36;
         this.blit(x, icon, -(tw + iw + 8) / 2 + iw / 2, 0);
