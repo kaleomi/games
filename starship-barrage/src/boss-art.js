@@ -123,6 +123,26 @@ export function bossPodSvg(boss, px, dead) {
       <circle cy="-6" r="3.4" fill="#fff"/>
     </svg>`;
   }
+  if (boss === 'thunder') {   // 电塔：金属尖塔+电球
+    if (dead) return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${vb}><path d="M-10,20 L-4,-6 L4,-6 L10,20 Z" fill="#20263a" stroke="#454c60" stroke-width="2"/></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${vb}><defs><filter id="g"><feGaussianBlur stdDeviation="2"/></filter></defs>
+      <path d="M-12,22 L-5,-12 L5,-12 L12,22 Z" fill="#4a5268" stroke="#0c0c14" stroke-width="2"/>
+      ${[-4, 4, 12].map(y => `<ellipse cy="${y}" rx="${9 - y * 0.15}" ry="2.4" fill="none" stroke="#ffd23a" stroke-width="1.6"/>`).join('')}
+      <circle cy="-18" r="9" fill="#ffd23a" opacity=".6" filter="url(#g)"/><circle cy="-18" r="5" fill="#fffbd0"/>
+      <path d="M-4,-20 L-12,-26 M4,-20 L12,-28" stroke="#fff6a0" stroke-width="1.6"/></svg>`;
+  }
+  if (boss === 'magma') {   // 巨钳：张开的蟹钳
+    if (dead) return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${vb}><path d="M-16,10 C-18,-10 -4,-18 6,-14 C0,-6 2,4 14,10 Z" fill="#2a0a04" stroke="#5a2010" stroke-width="2"/></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${vb}><defs><linearGradient id="s" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#b04a28"/><stop offset="1" stop-color="#2a0804"/></linearGradient></defs>
+      <path d="M-20,14 C-26,-12 -8,-28 8,-22 C0,-12 0,-2 10,4 C18,-8 26,-4 26,4 C22,22 0,28 -20,14 Z" fill="url(#s)" stroke="#120402" stroke-width="2"/>
+      <path d="M-14,4 C-8,-4 -2,-8 4,-14 M2,10 C8,8 14,6 20,8" stroke="#ff6a1a" stroke-width="2" fill="none"/></svg>`;
+  }
+  if (boss === 'void') {   // 星核：紫色旋涡小球
+    if (dead) return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${vb}><circle r="12" fill="#12062a" stroke="#3a1a6a" stroke-width="2"/></svg>`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${vb}><defs><radialGradient id="o"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="#b08aff"/><stop offset="1" stop-color="#2a0a5a"/></radialGradient><filter id="g"><feGaussianBlur stdDeviation="2.4"/></filter></defs>
+      <circle r="20" fill="#8a4dff" opacity=".45" filter="url(#g)"/><circle r="14" fill="url(#o)"/>
+      <path d="M-18,0 C-10,-14 10,-14 18,0 M-18,0 C-10,10 10,10 18,0" fill="none" stroke="#e8dcff" stroke-width="1.6" opacity=".8"/></svg>`;
+  }
   // 深渊之眼：眼柄末端的小眼睛
   if (dead) return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${vb}><circle r="16" fill="#22051a" stroke="#5a1a3a" stroke-width="2"/><path d="M-10,0 L10,0" stroke="#5a1a3a" stroke-width="3"/></svg>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" ${vb}>
@@ -162,5 +182,89 @@ export function chestSvg(px) {
   <path d="M-44,-4 L-40,40 M44,-4 L40,40" stroke="url(#gd)" stroke-width="5"/>
   <rect x="-7" y="18" width="14" height="14" rx="3" fill="url(#gd)" stroke="#5a3a00" stroke-width="1.2"/>
   <path d="M0,22 L0,28" stroke="#5a3a00" stroke-width="2.4"/>
+</svg>`;
+}
+
+// ───────── 雷霆要塞：钢铁堡垒，两侧高耸电塔，金色电弧，中心反应炉 ─────────
+export function thunderSvg(pxW, pxH) {
+  const spire = s => `<g transform="scale(${s},1)">
+      <path d="M-150,40 L-170,-70 L-160,-118 L-146,-70 L-130,30 Z" fill="url(#steel)" stroke="#0c0c14" stroke-width="2.5"/>
+      <path d="M-212,60 L-238,-10 L-226,-54 L-210,-10 L-190,50 Z" fill="url(#steel)" stroke="#0c0c14" stroke-width="2"/>
+      ${[-100, -80, -60, -40].map(y => `<ellipse cx="${-160 + (y + 100) * 0.12}" cy="${y}" rx="14" ry="4" fill="none" stroke="#ffd23a" stroke-width="2.2" opacity=".85"/>`).join('')}
+      <circle cx="-160" cy="-120" r="8" fill="#fffbd0" filter="url(#g1)"/><circle cx="-226" cy="-56" r="6" fill="#fffbd0" filter="url(#g1)"/>
+      <path d="M-160,-120 L-178,-96 L-166,-92 L-190,-60" fill="none" stroke="#fff6a0" stroke-width="2.6" filter="url(#g1)"/>
+      <path d="M-226,-56 L-246,-34 L-236,-30 L-256,0" fill="none" stroke="#fff6a0" stroke-width="2" filter="url(#g1)"/>
+    </g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" ${VB}>
+  <defs>
+    <linearGradient id="steel" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#9aa4b8"/><stop offset=".45" stop-color="#3a4256"/><stop offset="1" stop-color="#11141e"/></linearGradient>
+    <linearGradient id="hull" x1="-1" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#1c2030"/><stop offset=".5" stop-color="#5a6278"/><stop offset="1" stop-color="#1c2030"/></linearGradient>
+    <radialGradient id="sock" cx="0" cy="10" r="58" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#050505"/><stop offset=".6" stop-color="#2a2208"/><stop offset=".85" stop-color="#ffd23a" stop-opacity=".75"/><stop offset="1" stop-color="#2a2410"/></radialGradient>
+    <filter id="g1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>
+    <filter id="g2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <g opacity=".45" filter="url(#g2)"><ellipse cx="0" cy="-10" rx="230" ry="100" fill="#ffd23a"/></g>
+  ${spire(1)}${spire(-1)}
+  <path d="M-130,-40 L-60,-96 L60,-96 L130,-40 L140,40 L90,96 L40,118 L-40,118 L-90,96 L-140,40 Z" fill="url(#hull)" stroke="#0c0c14" stroke-width="3"/>
+  <path d="M-110,-30 L-50,-78 L50,-78 L110,-30 M-120,36 L-80,84 M120,36 L80,84" fill="none" stroke="#0c0c14" stroke-width="2"/>
+  ${pair('M-120,-20 L-84,-20 L-84,20 L-120,20 Z', 'fill="#20263a" stroke="#ffd23a" stroke-width="1.4" stroke-opacity=".7"')}
+  ${pair('M-60,-90 L-40,-118 L-24,-90 Z', 'fill="url(#steel)" stroke="#0c0c14" stroke-width="2"')}
+  <path d="M-40,118 L0,140 L40,118 Z" fill="url(#steel)" stroke="#0c0c14" stroke-width="2.5"/>
+  <circle cx="0" cy="10" r="54" fill="url(#sock)" stroke="#0c0c14" stroke-width="3"/>
+  ${Array.from({ length: 8 }, (_, i) => `<path transform="translate(0,10) rotate(${i * 45})" d="M-5,-64 L5,-64 L3,-54 L-3,-54 Z" fill="#ffd23a"/>`).join('')}
+  <path d="M-100,0 L-70,-12 L-76,4 L-56,-6" fill="none" stroke="#fff6a0" stroke-width="2" filter="url(#g1)"/>
+  <path d="M100,0 L70,-12 L76,4 L56,-6" fill="none" stroke="#fff6a0" stroke-width="2" filter="url(#g1)"/>
+</svg>`;
+}
+
+// ───────── 熔岩巨蟹：黑红甲壳，熔岩裂纹，两只巨钳，眼柄 ─────────
+export function magmaSvg(pxW, pxH) {
+  const leg = (sx, sy, mx, my, ex, ey) => `<path d="M${sx},${sy} L${mx},${my} L${ex},${ey}" fill="none" stroke="#120402" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/><path d="M${sx},${sy} L${mx},${my} L${ex},${ey}" fill="none" stroke="url(#shellG)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const claw = s => `<g transform="scale(${s},1)">
+      <path d="M-110,30 C-150,40 -170,60 -186,70" fill="none" stroke="#120402" stroke-width="20" stroke-linecap="round"/>
+      <path d="M-110,30 C-150,40 -170,60 -186,70" fill="none" stroke="url(#shellG)" stroke-width="13" stroke-linecap="round"/>
+      <path d="M-170,40 C-230,20 -262,60 -246,104 C-236,80 -214,74 -196,84 C-214,100 -214,122 -196,132 C-176,110 -160,86 -170,40 Z" fill="url(#shellG)" stroke="#120402" stroke-width="3"/>
+      <path d="M-236,70 C-224,60 -206,62 -196,76 M-210,112 C-202,104 -192,104 -184,110" fill="none" stroke="#ff6a1a" stroke-width="2.4" filter="url(#g1)"/>
+    </g>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" ${VB}>
+  <defs>
+    <linearGradient id="shellG" x1="0" y1="-1" x2="0" y2="1"><stop offset="0" stop-color="#8a3a20"/><stop offset=".5" stop-color="#3a1008"/><stop offset="1" stop-color="#140402"/></linearGradient>
+    <radialGradient id="cara" cx="-30" cy="-40" r="200" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#9a4024"/><stop offset=".5" stop-color="#40120a"/><stop offset="1" stop-color="#120402"/></radialGradient>
+    <radialGradient id="sock" cx="0" cy="10" r="56" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#050100"/><stop offset=".6" stop-color="#3a0c02"/><stop offset=".85" stop-color="#ff6a1a" stop-opacity=".8"/><stop offset="1" stop-color="#2a0802"/></radialGradient>
+    <filter id="g1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.2"/></filter>
+    <filter id="g2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <g opacity=".55" filter="url(#g2)"><ellipse cx="0" cy="10" rx="220" ry="100" fill="#ff4a10"/></g>
+  ${leg(-90, -20, -170, -60, -240, -20)}${leg(90, -20, 170, -60, 240, -20)}${leg(-100, 0, -200, -10, -270, 40)}${leg(100, 0, 200, -10, 270, 40)}
+  ${claw(1)}${claw(-1)}
+  <path d="M-150,0 C-150,-90 -80,-112 0,-112 C80,-112 150,-90 150,0 C150,60 90,100 0,104 C-90,100 -150,60 -150,0 Z" fill="url(#cara)" stroke="#120402" stroke-width="3"/>
+  <g fill="none" stroke="#ff6a1a" stroke-width="3" filter="url(#g1)" opacity=".9">
+    <path d="M-120,-30 L-80,-40 L-60,-20 L-30,-60"/><path d="M120,-30 L80,-40 L60,-20 L30,-60"/><path d="M-110,40 L-70,30 L-56,60"/><path d="M110,40 L70,30 L56,60"/>
+  </g>
+  <g fill="none" stroke="#ffd080" stroke-width="1.2"><path d="M-120,-30 L-80,-40 L-60,-20 L-30,-60"/><path d="M120,-30 L80,-40 L60,-20 L30,-60"/></g>
+  ${pair('M-36,-104 L-46,-136 M-46,-136 m-8,0 a8,8 0 1 0 16,0 a8,8 0 1 0 -16,0', 'fill="#ffb070" stroke="#120402" stroke-width="3"')}
+  <circle cx="0" cy="10" r="50" fill="url(#sock)" stroke="#120402" stroke-width="3"/>
+  ${Array.from({ length: 12 }, (_, i) => `<path transform="translate(0,10) rotate(${i * 30})" d="M-3,-58 L3,-58 L0,-48 Z" fill="#ffb070"/>`).join('')}
+</svg>`;
+}
+
+// ───────── 噬星者：深紫星云里一张环形巨口，一圈利齿，周围漂着星核 ─────────
+export function voidSvg(pxW, pxH) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${pxW}" height="${pxH}" ${VB}>
+  <defs>
+    <radialGradient id="neb" cx="0" cy="0" r="230" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3a1a6a"/><stop offset=".55" stop-color="#1a0a34"/><stop offset="1" stop-color="#1a0a34" stop-opacity="0"/></radialGradient>
+    <radialGradient id="flesh" cx="-30" cy="-30" r="180" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#6a3aa8"/><stop offset=".5" stop-color="#2a1048"/><stop offset="1" stop-color="#0c0418"/></radialGradient>
+    <radialGradient id="sock" cx="0" cy="10" r="62" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#000000"/><stop offset=".65" stop-color="#12022a"/><stop offset=".86" stop-color="#8a4dff" stop-opacity=".85"/><stop offset="1" stop-color="#1a0a34"/></radialGradient>
+    <filter id="g1" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4"/></filter>
+    <filter id="g2" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="10"/></filter>
+  </defs>
+  <g opacity=".75" filter="url(#g2)"><ellipse cx="0" cy="0" rx="270" ry="120" fill="url(#neb)"/></g>
+  ${[[-220, -40, 40, -20], [220, -40, -40, -20], [-160, 90, 30, 20], [160, 90, -30, 20], [-60, -110, 10, -30], [60, -110, -10, -30]].map(([x, y, cx, cy]) => `<path d="M${x},${y} Q${x / 2 + cx},${y / 2 + cy} 0,10" fill="none" stroke="#120626" stroke-width="18" stroke-linecap="round"/><path d="M${x},${y} Q${x / 2 + cx},${y / 2 + cy} 0,10" fill="none" stroke="url(#flesh)" stroke-width="11" stroke-linecap="round"/>`).join('')}
+  <circle cx="0" cy="10" r="112" fill="url(#flesh)" stroke="#0c0418" stroke-width="3"/>
+  ${Array.from({ length: 16 }, (_, i) => `<path transform="translate(0,10) rotate(${i * 22.5})" d="M-9,-108 L0,-84 L9,-108 Z" fill="#e8dcff" stroke="#2a1048" stroke-width="1.2"/>`).join('')}
+  <circle cx="0" cy="10" r="82" fill="#0a0216" stroke="#8a4dff" stroke-width="2" stroke-opacity=".6"/>
+  ${Array.from({ length: 12 }, (_, i) => `<path transform="translate(0,10) rotate(${i * 30 + 15})" d="M-6,-80 L0,-64 L6,-80 Z" fill="#c8b0ff"/>`).join('')}
+  <circle cx="0" cy="10" r="56" fill="url(#sock)"/>
+  ${Array.from({ length: 24 }, (_, i) => `<circle cx="${Math.round(Math.cos(i * 2.4) * (130 + (i * 37) % 120))}" cy="${Math.round(Math.sin(i * 2.4) * (40 + (i * 23) % 70))}" r="${1 + (i % 3)}" fill="#fff" opacity="${0.4 + (i % 4) * 0.15}"/>`).join('')}
 </svg>`;
 }

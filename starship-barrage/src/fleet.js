@@ -767,6 +767,7 @@ export function hurt(game, f, dmg, ownerUid) {
   if (f.alien) {
     // 精英头目按进攻人数归一（和BOSS一样），人多不会秒杀
     if (f.kind === 'elite') dmg *= Math.pow(6 / Math.max(6, game.attackers('blue')), 0.7);
+    if (f.shieldHp > 0) { const s = Math.min(f.shieldHp, dmg); f.shieldHp -= s; dmg -= s; if (f.shieldHp <= 0) game.emit('spark', { x: f.x, y: f.y, team: 'red', big: true }); if (dmg <= 0) return true; }   // 盾虫：先打盾
     f.hp -= dmg;
     const o = game.fighters.get(ownerUid);
     if (f.hitters && o && !o.alien) f.hitters.add(o.merc ? o.owner : o.uid);

@@ -147,13 +147,31 @@ export const PVE = {
     pool:   { name: '酸液池', frac: 0, dps: 0.14, dot: 5 },   // 钢铁虫后：倒计时结束后变成持续5秒的酸液池，每秒掉14%血
     spike:  { name: '晶刺', frac: 0.55 },     // 晶核巨像：左中右依次爆发
     gaze:   { name: '深渊凝视', frac: 0.85 }, // 深渊之眼：盯着贡献最高的人那条航道
+    // ── 后面章节解锁的新红区 ──
+    storm:  { name: '雷暴', frac: 0.6 },      // 雷霆要塞：先劈两路，3秒后余雷补劈刚才安全的那路（要换回去）
+    tail:   { name: '余雷', frac: 0.6, warn: 3 },
+    pinch:  { name: '巨钳', frac: 0.9, warn: 5 },   // 熔岩巨蟹：只给5秒，躲慢了很疼
+    magma:  { name: '熔岩地', frac: 0, dps: 0.1, dot: 8 },   // 熔岩巨蟹：命中后变成烧8秒的熔岩地
+    shift:  { name: '日蚀', frac: 0.8, shiftAt: 4 },  // 噬星者：剩4秒时整片红区挪到隔壁航道，要再躲一次
   },
   // 四种BOSS按关卡轮换：第1关异形母舰、第2关钢铁虫后、第3关晶核巨像、第4关深渊之眼，第5关再从头
   bosses: [
-    { id: 'mother',   name: '异形母舰', hp: 1,    pods: [[-200, 40], [200, 40], [-92, 88], [92, 88]], podKind: 'fan',   podName: '触手炮', core: ['#e7a6ff', '#c45cff'] },
-    { id: 'queen',    name: '钢铁虫后', hp: 1,    pods: [[-150, 70], [150, 70]],                     podKind: 'brood', podName: '卵囊',   core: ['#ffd08a', '#ff7a2e'] },
-    { id: 'colossus', name: '晶核巨像', hp: 1.05, pods: [[-178, 26], [178, 26], [0, 104]],           podKind: 'prism', podName: '棱晶',   core: ['#e8fdff', '#5ff0ff'] },
-    { id: 'eye',      name: '深渊之眼', hp: 1.05, pods: [[-196, 60], [196, 60], [-116, 112], [116, 112]], podKind: 'fan', podName: '眼柄', core: ['#ffd0d4', '#ff3b4e'] },
+    { id: 'mother',   name: '异形母舰', hp: 1,    pods: [[-200, 40], [200, 40], [-92, 88], [92, 88]], podKind: 'fan',   podName: '触手炮', core: ['#e7a6ff', '#c45cff'], from: 1 },
+    { id: 'queen',    name: '钢铁虫后', hp: 1,    pods: [[-150, 70], [150, 70]],                     podKind: 'brood', podName: '卵囊',   core: ['#ffd08a', '#ff7a2e'], from: 2 },
+    { id: 'colossus', name: '晶核巨像', hp: 1.05, pods: [[-178, 26], [178, 26], [0, 104]],           podKind: 'prism', podName: '棱晶',   core: ['#e8fdff', '#5ff0ff'], from: 3 },
+    { id: 'eye',      name: '深渊之眼', hp: 1.05, pods: [[-196, 60], [196, 60], [-116, 112], [116, 112]], podKind: 'fan', podName: '眼柄', core: ['#ffd0d4', '#ff3b4e'], from: 4 },
+    // ── 后面章节解锁的新BOSS（解锁那一章的首领一定是它，之后加入轮换） ──
+    { id: 'thunder',  name: '雷霆要塞', hp: 1.08, pods: [[-210, 30], [210, 30], [-110, 96], [110, 96]], podKind: 'tesla', podName: '电塔', core: ['#fffbd0', '#ffd23a'], from: 5 },
+    { id: 'magma',    name: '熔岩巨蟹', hp: 1.1,  pods: [[-200, 70], [200, 70]],                     podKind: 'claw',  podName: '巨钳', core: ['#fff0c0', '#ff6a1a'], from: 7 },
+    { id: 'void',     name: '噬星者',   hp: 1.12, pods: [[-180, 50], [180, 50], [-90, 110], [90, 110]], podKind: 'orb',  podName: '星核', core: ['#e0d0ff', '#8a4dff'], from: 9 },
+  ],
+  // 新小怪按章解锁：第2章盾虫、第3章分裂虫、第4章狙击虫、第6章治疗虫、第8章布雷虫
+  newAliens: [
+    { kind: 'shield',   from: 2, name: '盾虫',   tip: '带能量盾，先打碎盾才掉血' },
+    { kind: 'splitter', from: 3, name: '分裂虫', tip: '打死会裂成3只小虫' },
+    { kind: 'sniper',   from: 4, name: '狙击虫', tip: '瞄准1秒后打一发高速重弹，看到红线就躲' },
+    { kind: 'medic',    from: 6, name: '治疗虫', tip: '给附近的虫子回血，优先打掉' },
+    { kind: 'miner',    from: 8, name: '布雷虫', tip: '撒下慢慢飘落的水雷，碰到会炸' },
   ],
   // 讨伐礼物：先按礼物名认，认不出按单个礼物价值（抖币）
   gifts: {
@@ -185,7 +203,12 @@ export const PVE = {
     diver:  { hp: 70,  r: 10, merit: 6 },
     gunner: { hp: 300, r: 18, merit: 20 },
     chest:  { hp: 1000, r: 46, merit: 0 },     // 宝箱魔王（跑车召唤），血量按当前关BOSS算
-    elite:  { hp: 1000, r: 34, merit: 0 },     // 精英头目（1–3关），血量按当前关BOSS×35%算
+    elite:  { hp: 1000, r: 34, merit: 0 },
+    shield:   { hp: 90,  r: 12, merit: 0, shield: 120 },
+    splitter: { hp: 150, r: 13, merit: 0 },
+    sniper:   { hp: 160, r: 12, merit: 0 },
+    medic:    { hp: 220, r: 14, merit: 0, healR: 150, healPerSec: 0.08 },
+    miner:    { hp: 200, r: 14, merit: 0 },     // 精英头目（1–3关），血量按当前关BOSS×35%算
   },
   // 贡献值 = 成长分E × 有效行为（不再按伤害/治疗/承伤算，职业之间天然公平）
   //   E 由等级和身上装备决定（临时BUFF不影响）：E = 1 + 0.02×(等级-1) + 0.02×装备总评分，每次行为按当时的E算，后来升级不追溯

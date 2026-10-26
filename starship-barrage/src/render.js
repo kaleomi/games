@@ -2,7 +2,7 @@
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
 import { bossTimeText, rayHits, stageKind, chapterOf, stepOf, KIND_NAMES, leaderMax } from './pve.js';
-import { queenSvg, colossusSvg, eyeSvg, bossPodSvg, chestSvg } from './art.js';
+import { queenSvg, colossusSvg, eyeSvg, thunderSvg, magmaSvg, voidSvg, bossPodSvg, chestSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR, PVP_ENABLED } from './config.js';
@@ -128,13 +128,13 @@ export class Renderer {
   turretArt(team, dead) { return this.art.get(`tu|${team}|${dead ? 1 : 0}`, px => turretSvg(team, px, dead), 58, 58, 3); }
   droneArt(team) { return this.art.get(`dr|${team}`, px => droneSvg(team, px), 24, 24, 3); }
   medalArt(rank) { return this.art.get(`md|${rank}`, px => medalSvg(rank, px), 18, 19.5, 4); }
-  alienArt(kind) { if (kind === 'elite') return this.art.get('al|elite', px => alienSvg('gunner', px), 104, 104, 2.5); if (kind === 'chest') return this.art.get('al|chest', px => chestSvg(px), 110, 110, 2.5); const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
+  alienArt(kind) { if (kind === 'elite') return this.art.get('al|elite', px => alienSvg('gunner', px), 104, 104, 2.5); if (kind === 'chest') return this.art.get('al|chest', px => chestSvg(px), 110, 110, 2.5); const sz = kind === 'gunner' ? 54 : kind === 'diver' ? 34 : ({ shield: 46, splitter: 46, sniper: 42, medic: 48, miner: 48 })[kind] || 30; return this.art.get(`al|${kind}`, px => alienSvg(kind, px), sz, sz, 3); }
   podArt(dead, id = 'mother') {
     if (id === 'mother') return this.art.get(`pod|${dead ? 1 : 0}`, px => podSvg(px, dead), 58, 58, 3);
     return this.art.get(`pod|${id}|${dead ? 1 : 0}`, px => bossPodSvg(id, px, dead), 58, 58, 3);
   }
   bossArt(id = 'mother') {
-    const make = { mother: bossSvg, queen: queenSvg, colossus: colossusSvg, eye: eyeSvg }[id] || bossSvg;
+    const make = { mother: bossSvg, queen: queenSvg, colossus: colossusSvg, eye: eyeSvg, thunder: thunderSvg, magma: magmaSvg, void: voidSvg }[id] || bossSvg;
     return this.art.get(`boss|${id}`, (w, h) => make(w, h), BOSS_VIEW.w, BOSS_VIEW.h, 2);
   }
   sprite(key, make, w, h = w, res = 3) { return this.art.get(key, make, w, h, res); }
@@ -149,6 +149,7 @@ export class Renderer {
       switch (e.type) {
         case 'explode': this.burst(e.x, e.y, e.size, e.team); if (e.size >= 3) this.shake = Math.max(this.shake, e.size * 4); break;
         case 'spark': this.burst(e.x, e.y, e.big ? 1.5 : 0.6, e.team); break;
+        case 'alienHeal': this.ripples.push({ x: e.x, y: e.y, t: 0, dur: 0.6, r0: 10, r1: e.r, color: '141,255,90', w: 2 }); break;
         case 'shieldhit': this.ring(e.x, e.y, '#bfe8ff', 16); break;
         case 'intercept': this.ring(e.x, e.y, '#ffffff', 22); break;
         case 'overload': this.ring(e.x, e.y, '#fff3a8', 30); break;
@@ -928,16 +929,17 @@ export class Renderer {
     const glyph = this.sprite('zg', px => zoneGlyphSvg(px), 56);
     const y0 = 64, y1 = BOTTOM_Y - 6;   // 红区整条航道都标出来（顶栏下到底部面板上）
     for (const z of g.zones) {
-      if (z.active) {   // 酸液池：持续伤害中
+      if (z.active) {   // 酸液池 / 熔岩地：持续伤害中
+        const lava = z.kind === 'magma', rgb = lava ? '255,106,26' : '141,255,90';
         for (const l of z.lanes) {
           const [a, b] = PVE.lanes[l];
           x.save(); x.globalAlpha = 0.35 + 0.1 * Math.sin(g.clock * 6);
-          const gr = x.createLinearGradient(a, 0, b, 0); gr.addColorStop(0, 'rgba(141,255,90,.15)'); gr.addColorStop(0.5, 'rgba(141,255,90,.55)'); gr.addColorStop(1, 'rgba(141,255,90,.15)');
+          const gr = x.createLinearGradient(a, 0, b, 0); gr.addColorStop(0, `rgba(${rgb},.15)`); gr.addColorStop(0.5, `rgba(${rgb},.55)`); gr.addColorStop(1, `rgba(${rgb},.15)`);
           x.fillStyle = gr; x.fillRect(a, y0, b - a, y1 - y0);
           x.globalAlpha = 0.8;
-          for (let i = 0; i < 8; i++) { const bx = a + ((i * 53 + g.clock * 20) % (b - a)), by = y1 - ((g.clock * 60 + i * 97) % (y1 - y0)); const gl = this.glowSprite('#8dff5a', 4); x.drawImage(gl, bx - gl.half, by - gl.half); }
+          for (let i = 0; i < 8; i++) { const bx = a + ((i * 53 + g.clock * 20) % (b - a)), by = y1 - ((g.clock * 60 + i * 97) % (y1 - y0)); const gl = this.glowSprite(lava ? '#ff8a2a' : '#8dff5a', 4); x.drawImage(gl, bx - gl.half, by - gl.half); }
           x.restore();
-          this.label(x, `酸液池 ${Math.ceil(z.left)}s`, (a + b) / 2, (y0 + y1) / 2, 18, '#c8ffb0', true);
+          this.label(x, `${z.name} ${Math.ceil(z.left)}s`, (a + b) / 2, (y0 + y1) / 2, 18, lava ? '#ffd0a0' : '#c8ffb0', true);
         }
         continue;
       }
@@ -962,6 +964,8 @@ export class Renderer {
         x.fillStyle = urgent ? '#ffffff' : '#ff8a96'; x.fillText(String(Math.ceil(z.warn)), cx, cy + 16);
         this.label(x, `${z.caster}·${z.name}`, cx, cy + 70, 17, '#ffd0d6', true);
         if (z.kind === 'cannon') this.label(x, `发「拦截」削弱 已-${Math.round(Math.min(0.6, z.intercept) * 100)}%`, cx, cy + 96, 15, '#ffe28a', true);
+        if (z.kind === 'shift' && !z.shifted) this.label(x, '剩4秒会挪到隔壁航道！', cx, cy + 96, 15, '#d0b0ff', true);
+        if (z.kind === 'storm') this.label(x, '劈完3秒后余雷补劈另一路', cx, cy + 96, 15, '#fff0a0', true);
         x.restore();
       }
     }
@@ -1086,7 +1090,23 @@ export class Renderer {
       x.fillStyle = '#ff6b5a'; x.fillRect(f.x - w / 2 + 1, f.y - 65, (w - 2) * Math.max(0, f.hp / f.maxHp), 6);
       this.label(x, '精英头目 · 打死过关', f.x, f.y - 78, 14, '#ffb36b', true);
     }
-    if (f.kind === 'gunner' && f.hp < f.maxHp) {
+    // 新小怪的特效：盾虫的能量盾、治疗虫的回血光圈、狙击虫的瞄准红线
+    if (f.kind === 'shield' && f.shieldHp > 0) {
+      x.save(); x.globalAlpha = 0.35 + 0.35 * (f.shieldHp / f.shieldMax); x.strokeStyle = '#7fe3ff'; x.lineWidth = 2.5;
+      x.beginPath(); x.arc(f.x, f.y, 24, 0, Math.PI * 2); x.stroke(); x.globalAlpha *= 0.4; x.fillStyle = '#5ff0ff'; x.fill(); x.restore();
+    }
+    if (f.kind === 'medic') {
+      const pr = 0.5 + 0.5 * Math.sin(f.t * 3);
+      x.save(); x.globalAlpha = 0.12 + 0.1 * pr; x.strokeStyle = '#8dff5a'; x.lineWidth = 2; x.setLineDash([6, 8]);
+      x.beginPath(); x.arc(f.x, f.y, PVE.alien.medic.healR, 0, Math.PI * 2); x.stroke(); x.setLineDash([]); x.restore();
+    }
+    if (f.kind === 'sniper' && f.aim) {
+      const k = 1 - Math.max(0, f.aim.t) / 1.1;
+      x.save(); x.globalAlpha = 0.35 + 0.6 * k; x.strokeStyle = k > 0.75 ? '#ffffff' : '#ff3b4e'; x.lineWidth = 1 + k * 2; x.setLineDash([10, 6]);
+      x.beginPath(); x.moveTo(f.x, f.y + 12); x.lineTo(f.aim.x, f.aim.y); x.stroke(); x.setLineDash([]);
+      x.beginPath(); x.arc(f.aim.x, f.aim.y, 18 - k * 8, 0, Math.PI * 2); x.stroke(); x.restore();
+    }
+    if ((f.kind === 'gunner' || ['shield', 'splitter', 'sniper', 'medic', 'miner'].includes(f.kind)) && f.hp < f.maxHp) {
       x.fillStyle = 'rgba(0,0,0,.6)'; x.fillRect(f.x - 22, f.y - 34, 44, 5);
       x.fillStyle = '#8dff5a'; x.fillRect(f.x - 21, f.y - 33, 42 * Math.max(0, f.hp / f.maxHp), 3);
     }
@@ -1330,7 +1350,7 @@ export class Renderer {
   infoPanel(x) {
     const g = this.game;
     const L = 364, T = BOTTOM_Y, Wd = 348, Hh = H - 8 - T;
-    const pages = ['怎么玩', '弹幕指令', '礼物效果①', '礼物效果②', '礼物效果③', '四种战舰', '装备', '榜单与成长'];   // 左侧礼物框是简表，这里轮播详细效果
+    const pages = ['怎么玩', '弹幕指令', '礼物效果①', '礼物效果②', '礼物效果③', '敌人图鉴', '四种战舰', '装备', '榜单与成长'];   // 左侧礼物框是简表，这里轮播详细效果
     const DUR = 7, page = Math.floor(g.clock / DUR) % pages.length, ph = g.clock % DUR;
     this.panelBox(x, L, T, Wd, Hh);
     // 翻页：新页面从右边滑进来
@@ -1390,6 +1410,14 @@ export class Renderer {
         x.font = `12px ${FONT}`; x.fillStyle = '#ffd86b'; x.fillText(GEAR.stats[d.stat].label, px + 42, py + 10);
       });
       x.font = `12px ${FONT}`; x.fillStyle = '#9fb0d0'; x.fillText('同品质重复强化+1（+2%）· 多余分解，100碎片合高一级', cx, y0 + 168);
+    } else if (name === '敌人图鉴') { bullets([
+      '第2章 盾虫：带能量盾，先打碎盾 · 第3章 分裂虫：死后裂成3只',
+      '第4章 狙击虫：红线瞄准1秒后重弹 · 第6章 治疗虫：给虫回血',
+      '第8章 布雷虫：撒慢慢飘落的水雷',
+      '第5章 雷霆要塞：雷暴劈两路，3秒后余雷补劈另一路',
+      '第7章 熔岩巨蟹：巨钳只给5秒；熔岩地烧8秒',
+      '第9章 噬星者：日蚀剩4秒挪到隔壁航道，要再躲一次',
+    ], 13, 3);
     } else if (name.startsWith('礼物效果')) {
       const G = PVE.gifts;
       const all = [

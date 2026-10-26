@@ -14,11 +14,21 @@ export function failStage(stage) {
   const ch = chapterOf(stage);
   return Math.max(0, ch - 2) * PVE.chapter.size + 1;
 }
-// 章节BOSS按章轮换；第4关的精英是下一章BOSS的精英形态（半血）
-export function bossFor(stage) {
-  const ch = chapterOf(stage) - 1 + (stageKind(stage) === 'elite' ? 1 : 0);
-  return PVE.bosses[ch % PVE.bosses.length];
+// 章节BOSS：新BOSS在解锁那一章登场，之后加入轮换（已解锁的按章轮流）；第4关的精英是下一章首领的精英形态（半血）
+export function chapterBoss(ch) {
+  const fresh = PVE.bosses.find(b => (b.from || 1) === ch);
+  if (fresh) return fresh;
+  const pool = PVE.bosses.filter(b => (b.from || 1) <= ch);
+  return pool[(ch - 1) % pool.length];
 }
+export function bossFor(stage) {
+  return chapterBoss(chapterOf(stage) + (stageKind(stage) === 'elite' ? 1 : 0));
+}
+// 这一章新解锁的东西（第一关开打时提示）
+export function unlocksAt(ch) {
+  return { bosses: PVE.bosses.filter(b => (b.from || 1) === ch && ch > 1), aliens: PVE.newAliens.filter(a => a.from === ch) };
+}
+export function aliensUnlocked(ch) { return PVE.newAliens.filter(a => a.from <= ch).map(a => a.kind); }
 // 难度按「章」算：第N章 = 原来的第N关（BOSS血量曲线、怪物强度、掉落品质、经验都看章）
 export function stageMul(stage) {
   stage = chapterOf(stage);
@@ -56,6 +66,10 @@ export function startPve(game) {
   const kind = stageKind(stage);
   game.pve = { stage, lv: chapterOf(stage), kind, sub: 'wave', t: PVE.waveSeconds(chapterOf(stage)), spawnT: 1.2, left: PVE.stageSeconds, smallDrops: 0 };
   game.emit('announce', { text: `${stageLabel(stage)}，${kind === 'wave' ? '虫群来袭！' : kind === 'elite' ? '精英关！' : '首领关！'}`, voice: true });
+  // 新章第一关：提示这一章解锁的新敌人；首领关：新BOSS第一次登场
+  const ch = chapterOf(stage), un = unlocksAt(ch);
+  if (stepOf(stage) === 1 && un.aliens.length) game.emit('banner', { team: 'red', text: `第${ch}章新敌人：${un.aliens.map(a => `${a.name}（${a.tip}）`).join('；')}`, tier: 4 });
+  if (kind === 'boss' && un.bosses.length) game.emit('banner', { team: 'red', text: `新BOSS登场：${un.bosses[0].name}！`, tier: 5 });
 }
 
 export function stepPve(game, dt) {
@@ -115,6 +129,9 @@ const RAGE_TEXT = {
   queen: ['虫后受创，酸液池翻倍！', '虫后狂暴！虫潮倾巢而出'],
   colossus: ['巨像受创，棱光射线加速！', '巨像狂暴！晶刺连环爆发'],
   eye: ['深渊之眼睁开了第二层瞳孔！', '深渊之眼狂暴！引力漩涡'],
+  thunder: ['雷霆要塞充能完毕，雷暴更频繁！', '雷霆要塞超载！雷暴接连落下'],
+  magma: ['熔岩巨蟹甲壳裂开，熔岩地变宽！', '熔岩巨蟹狂暴！巨钳连夹'],
+  void: ['噬星者张开了第二张口！', '噬星者狂暴！日蚀接连偏移'],
 };
 const cd = (boss, key, dt, every) => { boss[key] = (boss[key] ?? every * 0.6) - dt; if (boss[key] > 0) return false; boss[key] = every; return true; };
 const BOSS_AI = {
@@ -161,6 +178,39 @@ const BOSS_AI = {
         game.spawnPattern('red', 'podSpiral', boss.x, boss.y + boss.coreDy + 40, null);
         game.emit('banner', { team: 'red', text: `${boss.bossName}「引力漩涡」！战舰被吸向中间`, tier: 4 });
       } else castGaze(game, boss);
+    }
+  },
+  // 雷霆要塞：放射闪电弹 + 雷暴（先劈两路，3秒后余雷补劈刚才安全的那路）
+  thunder(game, boss, dt, rage) {
+    if (cd(boss, 'patT', dt, [5.2, 4.5, 3.8][rage - 1])) {
+      const n = 10 + rage * 4, off = game.random() * Math.PI;
+      for (let i = 0; i < n; i++) { const a = off + (i / n) * Math.PI * 2; if (Math.sin(a) < -0.2) continue; game.addBullet(boss.x, boss.y + boss.coreDy + 40, Math.cos(a) * 210, Math.sin(a) * 210, 5, 1, 'red', 'shot', null, 0, { laser: true, hue: 4 }); }
+    }
+    if (cd(boss, 'skillT', dt, PVE.bossSkillEvery[rage - 1])) {
+      if (game.random() < (rage >= 2 ? 0.7 : 0.5)) castZone(game, 'storm', 2, boss.bossName);
+      else castZone(game, 'strike', 1, boss.bossName);
+    }
+  },
+  // 熔岩巨蟹：熔岩弹雨 + 巨钳（只给5秒）+ 熔岩地（命中后烧8秒）
+  magma(game, boss, dt, rage) {
+    if (cd(boss, 'patT', dt, [5.5, 4.8, 4.2][rage - 1])) {
+      const n = 6 + rage * 3;
+      for (let i = 0; i < n; i++) game.addBullet(60 + game.random() * 600, 60 - game.random() * 80, (game.random() - 0.5) * 40, 180 + game.random() * 80, 8, 1.4, 'red', 'danmaku', null, 0, { hue: 1 });
+    }
+    if (cd(boss, 'skillT', dt, PVE.bossSkillEvery[rage - 1])) {
+      const r = game.random();
+      if (r < 0.45) castZone(game, 'magma', rage >= 2 ? 2 : 1, boss.bossName);
+      else castZone(game, 'pinch', rage === 3 ? 2 : 1, boss.bossName);
+    }
+  },
+  // 噬星者：螺旋星屑 + 日蚀（剩4秒时红区挪到隔壁航道）+ 狂暴后引力漩涡
+  void(game, boss, dt, rage) {
+    if (cd(boss, 'patT', dt, [5, 4.4, 3.8][rage - 1])) game.spawnPattern('red', rage >= 2 ? 'bossFlower' : 'podSpiral', boss.x, boss.y + boss.coreDy + 40, null);
+    if (cd(boss, 'skillT', dt, PVE.bossSkillEvery[rage - 1])) {
+      if (rage === 3 && game.random() < 0.35 && !game.gravity) {
+        game.gravity = { t: 4.5, max: 4.5, x: boss.x };
+        game.emit('banner', { team: 'red', text: `${boss.bossName}「吞噬」！战舰被吸向中间`, tier: 4 });
+      } else castZone(game, 'shift', 1, boss.bossName);
     }
   },
 };
@@ -223,15 +273,16 @@ export function castZone(game, kind, laneCount, caster, force = null) {
   for (const f of game.fighters.values()) if (!f.alien && f.team === 'blue' && f.alive) count[f.lane]++;
   const pick = force ? force.filter(l => free.includes(l)).slice(0, room) : free.sort((a, b) => count[b] - count[a] + (game.random() - 0.5) * 2).slice(0, room);
   if (!pick.length) return null;
-  const def = PVE.zones[kind];
-  const z = { id: ++game.zoneSeq, kind, name: def.name, frac: def.frac, lanes: pick, warn: PVE.zoneWarn, max: PVE.zoneWarn, caster, intercept: 0, dot: def.dot || 0, dps: def.dps || 0 };
+  const def = PVE.zones[kind], warn = def.warn || PVE.zoneWarn;
+  const z = { id: ++game.zoneSeq, kind, name: def.name, frac: def.frac, lanes: pick, warn, max: warn, caster, intercept: 0, dot: def.dot || 0, dps: def.dps || 0, shiftAt: def.shiftAt || 0 };
   // 预警时在红区里的人：命中时躲出去了 → 有效躲避 +3E
   z.inside = new Set(); for (const f of game.fighters.values()) if (!f.alien && !f.npc && f.team === 'blue' && f.alive && pick.includes(f.lane)) z.inside.add(f.uid);
   game.zones.push(z);
   const where = pick.map(l => LANE_NAMES[l]).join('、');
   const safe = LANES.filter(l => !pick.includes(l) && !used.has(l)).map(l => LANE_NAMES[l]).join('、');
   game.emit('zone', { kind, name: def.name, lanes: pick, caster });
-  game.emit('banner', { team: 'red', text: `${caster}「${def.name}」锁定${where}路！${PVE.zoneWarn}秒后命中${safe ? `，往${safe}躲` : ''}${kind === 'cannon' ? '，或发「拦截」' : ''}`, tier: kind === 'cannon' ? 5 : 3 });
+  const extra = kind === 'cannon' ? '，或发「拦截」' : kind === 'storm' ? '，劈完3秒后余雷会补劈另一路' : kind === 'shift' ? '，剩4秒会挪到隔壁航道！' : kind === 'magma' ? '，命中后变成熔岩地烧8秒' : '';
+  game.emit('banner', { team: 'red', text: `${caster}「${def.name}」锁定${where}路！${warn}秒后命中${safe && kind !== 'shift' ? `，往${safe}躲` : ''}${extra}`, tier: kind === 'cannon' ? 5 : 3 });
   if (kind === 'cannon' || laneCount > 1) game.emit('announce', { text: `${def.name}锁定${where}路，快躲`, voice: true });
   return z;
 }
@@ -239,7 +290,21 @@ export function castZone(game, kind, laneCount, caster, force = null) {
 function stepZones(game, dt) {
   for (let i = game.zones.length - 1; i >= 0; i--) {
     const z = game.zones[i];
+    const before = z.warn;
     z.warn -= dt;
+    // 日蚀：剩 shiftAt 秒时挪到隔壁没被占的航道
+    if (z.shiftAt && before > z.shiftAt && z.warn <= z.shiftAt && !z.shifted) {
+      z.shifted = true;
+      const used = new Set(game.zones.filter(q => q !== z).flatMap(q => q.lanes));
+      const order = { L: ['M'], M: game.random() < 0.5 ? ['L', 'R'] : ['R', 'L'], R: ['M'] };
+      const to = (order[z.lanes[0]] || []).find(l => !used.has(l));
+      if (to) {
+        z.lanes = [to];
+        z.inside = new Set(); for (const f of game.fighters.values()) if (!f.alien && !f.npc && f.team === 'blue' && f.alive && f.lane === to) z.inside.add(f.uid);
+        game.emit('zone', { kind: z.kind, name: z.name, lanes: z.lanes, caster: z.caster });
+        game.emit('banner', { team: 'red', text: `日蚀偏移到${LANE_NAMES[to]}路！${Math.ceil(z.warn)}秒后命中，快躲`, tier: 4 });
+      }
+    }
     if (z.warn > 0) continue;
     if (z.dot) {   // 酸液池：持续伤害
       if (!z.active) { z.active = true; z.left = z.dot; dodgeScore(game, z); game.emit('strike', { kind: z.kind, lanes: z.lanes, hit: 0, intercept: 0 }); }
@@ -260,6 +325,11 @@ function stepZones(game, dt) {
       hit++;
     }
     game.emit('strike', { kind: z.kind, lanes: z.lanes, hit, intercept: z.intercept });
+    // 雷暴：劈完后，刚才安全的那路3秒后挨余雷
+    if (z.kind === 'storm') {
+      const safe = LANES.filter(l => !z.lanes.includes(l) && !game.zones.some(q => q.lanes.includes(l)));
+      if (safe.length === 1) castZone(game, 'tail', 1, z.caster, safe);
+    }
   }
 }
 
@@ -296,6 +366,15 @@ export function spawnFormation(game, light, forceKind = null, ox = null, oy = nu
     for (let i = 0; i < k; i++) spawnAlien(game, 'gunner', 180 + game.random() * 360, -40 - i * 60);
     return;
   }
+  // 按章解锁的新小怪：解锁越多出现得越多（最多约4成）
+  const unlocked = aliensUnlocked(p.lv || 1);
+  if (unlocked.length && game.random() < Math.min(0.4, 0.14 + unlocked.length * 0.06)) {
+    const k = unlocked[Math.floor(game.random() * unlocked.length)];
+    const cnt = { shield: 3, splitter: Math.max(2, n >> 1), sniper: 1 + (game.random() < 0.4 ? 1 : 0), medic: 1, miner: 2 }[k] || 2;
+    for (let i = 0; i < Math.min(room, cnt); i++) spawnAlien(game, k, 120 + game.random() * 480, -30 - i * 40);
+    if (k === 'medic') for (let i = 0; i < Math.min(room - 1, 4); i++) spawnAlien(game, 'swarm', 200 + game.random() * 320, -60 - i * 20);   // 治疗虫带一小队小虫
+    return;
+  }
   const kind = r < gunnerP + 0.3 ? 'diver' : 'swarm';
   const cx = 140 + game.random() * 440;
   const shape = game.random() < 0.5 ? 'line' : 'v';
@@ -312,15 +391,18 @@ export function spawnAlien(game, kind, x, y) {
   const def = PVE.alien[kind];
   const lv = chapterOf(game.pve?.stage || 1);
   const hp = Math.round(def.hp * (1 + 0.15 * (lv - 1)));
+  const NEW_STOP = { shield: 260, splitter: 280, sniper: 120, medic: 230, miner: 170 };
   const [z0, z1] = PVE.alienZone;
   const f = {
     uid: `alien:${++game.alienSeq}`, alien: true, npc: true, kind, team: 'red', name: '',
     x, y, vx: 0, vy: 0, hp, maxHp: hp, alive: true, invuln: 0, shield: 0, merit: 0, kills: 0,
     level: 1, skin: 0, weapon: 'laser', power: 1, charge: 0, drones: 0, labelUntil: 0, lastActive: 0,
     t: 0, seed: game.random() * 10, fireCd: 2 + game.random() * 3, stage: 0, skillT: 4 + game.random() * 4,
-    yStop: kind === 'gunner' ? 190 + game.random() * 130 : kind === 'diver' ? 220 + game.random() * 120 : z0 + 120 + game.random() * (z1 - z0 - 140),
-    life: kind === 'gunner' ? 32 : 14 + game.random() * 6, tx: 360, ty: 900,
+    yStop: NEW_STOP[kind] ? NEW_STOP[kind] + game.random() * 90 : kind === 'gunner' ? 190 + game.random() * 130 : kind === 'diver' ? 220 + game.random() * 120 : z0 + 120 + game.random() * (z1 - z0 - 140),
+    life: kind === 'gunner' || NEW_STOP[kind] ? 32 : 14 + game.random() * 6, tx: 360, ty: 900,
   };
+  if (def.shield) f.shieldHp = f.shieldMax = Math.round(def.shield * (1 + 0.15 * (lv - 1)));
+  if (NEW_STOP[kind]) f.hitR = def.r;
   game.fighters.set(f.uid, f);
   return f;
 }
@@ -351,6 +433,7 @@ export function stepAlien(game, f, dt) {
     if (f.skillT <= 0 && f.y >= f.yStop - 5) { f.skillT = 13; if (castZone(game, game.random() < 0.5 ? 'acid' : 'strike', 1, '精英头目')) game.emit('cast', { uid: f.uid, x: f.x, y: f.y }); }
     return;
   }
+  if (NEW_KIND_AI[f.kind]) { NEW_KIND_AI[f.kind](game, f, dt); f.x = Math.max(20, Math.min(W - 20, f.x + f.vx * dt)); f.y += f.vy * dt; if (f.y < -90 && f.t > 2) game.fighters.delete(f.uid); return; }
   if (f.kind === 'swarm') {
     if (f.t > f.life) { f.vy = -150; f.vx *= 0.95; }
     else if (f.y < f.yStop) { f.vy = 110; f.vx = Math.sin(f.t * 2 + f.seed) * 70; }
@@ -393,6 +476,67 @@ export function stepAlien(game, f, dt) {
   f.y += f.vy * dt;
   if (f.y < -90 && f.t > 2) game.fighters.delete(f.uid);
   else if (f.y > H + 40) game.fighters.delete(f.uid);
+}
+
+// ───────── 按章解锁的新小怪 ─────────
+const drift = (game, f, stopV = 80, sway = 70) => {
+  if (f.t > f.life) { f.vy = -110; return; }
+  f.vy = f.y < f.yStop ? stopV : Math.sin(f.t + f.seed) * 10;
+  f.vx = Math.sin(f.t * 0.8 + f.seed) * sway;
+};
+const NEW_KIND_AI = {
+  // 盾虫：慢慢压上来，偶尔吐一发；盾在 hurt 里先扣
+  shield(game, f, dt) {
+    drift(game, f, 60, 50);
+    f.fireCd -= dt;
+    if (f.fireCd <= 0 && f.y > 40) { f.fireCd = 3.5 + game.random() * 2; const tg = pickTarget(game); if (tg) { const a = Math.atan2(tg.y - f.y, tg.x - f.x); game.addBullet(f.x, f.y + 10, Math.cos(a) * 200, Math.sin(a) * 200, 6, 1, 'red', 'danmaku', f.uid, 0, { hue: 0 }); } }
+  },
+  // 分裂虫：左右扭着往下爬，死了在 killFighter 里裂成3只小虫
+  splitter(game, f, dt) {
+    drift(game, f, 70, 110);
+    f.fireCd -= dt;
+    if (f.fireCd <= 0 && f.y > 40) { f.fireCd = 3 + game.random() * 2; for (const k of [-0.3, 0, 0.3]) game.addBullet(f.x, f.y + 10, Math.sin(k) * 200, Math.cos(k) * 200, 5, 1, 'red', 'danmaku', f.uid, 0, { hue: 1 }); }
+  },
+  // 狙击虫：停在高处，瞄准1.1秒（画红线），然后打一发高速重弹
+  sniper(game, f, dt) {
+    drift(game, f, 90, 30);
+    f.fireCd -= dt;
+    if (f.aim) {
+      f.aim.t -= dt;
+      const tg = game.fighters.get(f.aim.uid);
+      if (tg && tg.alive && f.aim.t > 0.25) { f.aim.x = tg.x; f.aim.y = tg.y; }
+      if (f.aim.t <= 0) {
+        const a = Math.atan2(f.aim.y - f.y, f.aim.x - f.x);
+        game.addBullet(f.x, f.y + 12, Math.cos(a) * 760, Math.sin(a) * 760, 7, 2, 'red', 'shot', f.uid, 0, { laser: true, hue: 0, copy: true, snipe: true });
+        f.aim = null; f.fireCd = 4.5 + game.random() * 2;
+      }
+    } else if (f.fireCd <= 0 && f.y > 60 && f.t < f.life) {
+      const tg = pickTarget(game);
+      if (tg) f.aim = { uid: tg.uid, x: tg.x, y: tg.y, t: 1.1 };
+    }
+  },
+  // 治疗虫：给附近的虫子回血（不奶BOSS），绿色光圈
+  medic(game, f, dt) {
+    drift(game, f, 60, 60);
+    const D = PVE.alien.medic;
+    f.healT = (f.healT || 0) - dt;
+    if (f.healT <= 0) {
+      f.healT = 1;
+      for (const e of game.fighters.values()) if (e.alien && e.alive && e !== f && e.kind !== 'chest' && (e.x - f.x) ** 2 + (e.y - f.y) ** 2 < D.healR * D.healR && e.hp < e.maxHp) { e.hp = Math.min(e.maxHp, e.hp + e.maxHp * D.healPerSec); }
+      game.emit('alienHeal', { uid: f.uid, x: f.x, y: f.y, r: D.healR });
+    }
+  },
+  // 布雷虫：在上半场撒水雷，水雷慢慢飘落，碰到就炸
+  miner(game, f, dt) {
+    drift(game, f, 70, 120);
+    f.fireCd -= dt;
+    if (f.fireCd <= 0 && f.y > 60 && f.t < f.life) { f.fireCd = 3.2 + game.random() * 1.5; game.addBullet(f.x, f.y + 14, (game.random() - 0.5) * 40, 70 + game.random() * 30, 11, 1.8, 'red', 'danmaku', f.uid, 0, { hue: 3, mine: true, life: 14, copy: true }); }
+  },
+};
+export function alienSplit(game, f) {
+  if (f.kind !== 'splitter') return;
+  for (let i = 0; i < 3; i++) { const a = spawnAlien(game, 'swarm', f.x + (i - 1) * 22, f.y); if (a) { a.yStop = Math.max(a.yStop, f.y + 40); a.vy = 60; } }
+  game.emit('spark', { x: f.x, y: f.y, team: 'red', big: true });
 }
 
 export function bossTimeText(game) {

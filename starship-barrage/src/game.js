@@ -3,7 +3,7 @@ import {
   W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES, PVP_ENABLED,
 } from './config.js';
 import { skinFor } from './save.js';
-import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul, failStage, stageKind, stageLabel, smallKill, chapterOf } from './pve.js';
+import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul, failStage, stageKind, stageLabel, smallKill, chapterOf, alienSplit } from './pve.js';
 import { syncDodge, fmtDuration, score, giveItem, makeItem } from './fleet.js';
 import { nearestEnemy } from './fleet.js';
 import { pveGiftKind, applyPveGift, stepPveGifts, moraleLike, dailyCheckin, chestKilled, xpMul, pauseSummons, resumeSummons, loadBuffs } from './gifts-pve.js';
@@ -708,7 +708,18 @@ export class Game {
           const a = tg ? Math.atan2(tg.y - tu.y, tg.x - tu.x) : Math.PI / 2;
           for (const k of [-0.12, 0, 0.12]) this.addBullet(tu.x, tu.y + 10, Math.cos(a + k) * 420, Math.sin(a + k) * 420, 4, 1, 'red', 'shot', null, 0, { laser: true });
         }
-        else if (tu.pod) { tu.cd = 5.5 + this.random() * 3; this.spawnPattern(t.id, this.random() < 0.6 ? 'podFan' : 'podSpiral', tu.x, tu.y + 20, null); }
+        else if (tu.pod && tu.podKind === 'tesla') {   // 雷霆要塞电塔：瞄准一艘战舰打一串连发电弧
+          tu.cd = 3.2 + this.random() * 1.4;
+          const ships = [...this.fighters.values()].filter(f => !f.alien && f.team === 'blue' && f.alive);
+          const tg = ships[Math.floor(this.random() * ships.length)];
+          const a = tg ? Math.atan2(tg.y - tu.y, tg.x - tu.x) : Math.PI / 2;
+          for (let k = 0; k < 4; k++) this.addBullet(tu.x, tu.y + 10, Math.cos(a) * (360 + k * 70), Math.sin(a) * (360 + k * 70), 4.5, 1, 'red', 'shot', null, 0, { laser: true, hue: 4 });
+        }
+        else if (tu.pod && tu.podKind === 'claw') {    // 熔岩巨蟹巨钳：大颗熔岩弹扇形
+          tu.cd = 4.5 + this.random() * 1.5;
+          for (let k = 0; k < 9; k++) { const a = Math.PI / 2 + (k - 4) * 0.15; this.addBullet(tu.x, tu.y + 20, Math.cos(a) * 250, Math.sin(a) * 250, 7, 1.3, 'red', 'danmaku', null, 0, { hue: 1 }); }
+        }
+        else if (tu.pod) { tu.cd = (tu.podKind === 'orb' ? 5 : 5.5) + this.random() * 3; this.spawnPattern(t.id, tu.podKind === 'orb' || this.random() >= 0.6 ? 'podSpiral' : 'podFan', tu.x, tu.y + 20, null); }
         else { tu.cd = (a + this.random() * (b - a)) * (low ? 0.75 : 1); this.spawnPattern(t.id, this.random() < 0.5 ? 'turretFan' : 'turretSpiral', tu.x, tu.y + t.def.dir * 20, null); }
       }
     }
@@ -945,6 +956,7 @@ export class Game {
     this.emit('explode', { x: f.x, y: f.y, size: f.alien && f.kind === 'gunner' ? 2 : 1, team: f.team, alien: !!f.alien });
     if (killer && killer.team !== f.team && !killer.alien) { if (this.mode !== 'pve') killer.merit += MERIT.kill; killer.kills++; }
     if (f.alien && f.kind === 'chest') chestKilled(this, f);
+    if (f.alien && f.kind === 'splitter') alienSplit(this, f);
     if (f.alien && this.mode === 'pve' && killer) smallKill(this, f, killer);
     if (f.alien) this.fighters.delete(f.uid);
   }

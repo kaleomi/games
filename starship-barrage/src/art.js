@@ -2,7 +2,7 @@
 // 舰船（战机、讨伐三职业、召唤战舰）在 ships.js
 export { fighterSvg, dpsSvg, mechSvg, healerSvg, battleshipSvg, carrierSvg, droneShipSvg } from './ships.js';
 export { gearIconSvg, gunPodSvg, boltSvg } from './gear-art.js';
-export { queenSvg, colossusSvg, eyeSvg, bossPodSvg, chestSvg } from './boss-art.js';
+export { queenSvg, colossusSvg, eyeSvg, thunderSvg, magmaSvg, voidSvg, bossPodSvg, chestSvg } from './boss-art.js';
 // 所有舰船统一「机头朝上」绘制，原点在中心；红方在画面上方，绘制时整体翻转。
 
 const TEAM_COLORS = {
@@ -304,6 +304,46 @@ export function alienSvg(kind, px) {
       <circle cx="0" cy="12" r="5.4" fill="#244a12" stroke="${BIO.acid}" stroke-width="1.2"/>
       <circle cx="0" cy="12" r="2.6" fill="#eaffd8"/>
     </svg>`;
+  }
+  // ── 按章解锁的新小怪 ──
+  const box = (vb, body) => `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="${vb}">${head}${body}</svg>`;
+  if (kind === 'shield') {   // 盾虫：甲壳虫，前面一面六边形能量盾
+    return box('-22 -22 44 44', `
+      ${both('M-8,-4 C-16,-8 -18,0 -17,6 M-8,3 C-15,4 -16,11 -14,15', `stroke="${BIO.shell[1]}" stroke-width="1.8" fill="none" stroke-linecap="round"`)}
+      <ellipse cx="0" cy="-2" rx="11" ry="13" fill="url(#c)" stroke="${BIO.dark}" stroke-width="1"/>
+      <path d="M0,-15 L0,10" stroke="${BIO.dark}" stroke-width="1.2"/>
+      <circle cx="-3" cy="5" r="1.7" fill="url(#eye)"/><circle cx="3" cy="5" r="1.7" fill="url(#eye)"/>
+      <path d="M-16,10 L-8,18 L8,18 L16,10 L8,13 L-8,13 Z" fill="#5ff0ff" fill-opacity=".35" stroke="#bff8ff" stroke-width="1.4"/>
+      <path d="M-10,15 L10,15" stroke="#e8fdff" stroke-width=".8" opacity=".8"/>`);
+  }
+  if (kind === 'splitter') {   // 分裂虫：三节鼓包，每节一只眼，橙色裂纹
+    return box('-22 -22 44 44', `
+      ${[[-9, -5, 8], [9, -5, 8], [0, 7, 10]].map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="url(#c)" stroke="${BIO.dark}" stroke-width="1"/><circle cx="${x}" cy="${y + 2}" r="2" fill="url(#eye)"/>`).join('')}
+      <path d="M-3,-9 L0,-2 L3,-9 M-6,4 L0,0 L6,4" stroke="#ff9a3a" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      ${both('M-14,2 C-20,6 -20,12 -16,16', `stroke="${BIO.shell[1]}" stroke-width="1.6" fill="none" stroke-linecap="round"`)}`);
+  }
+  if (kind === 'sniper') {   // 狙击虫：细长身体，长长的炮管眼，红色瞄准镜
+    return box('-20 -20 40 40', `
+      ${both('M-5,-8 L-16,-14 L-12,-4 Z', `fill="${BIO.shell[1]}" stroke="${BIO.dark}" stroke-width=".8"`)}
+      <path d="M0,-16 C5,-14 6,-4 5,4 C4,8 2,10 0,10 C-2,10 -4,8 -5,4 C-6,-4 -5,-14 0,-16 Z" fill="url(#c)" stroke="${BIO.dark}" stroke-width="1"/>
+      <rect x="-2" y="8" width="4" height="11" rx="1.5" fill="#3a1020" stroke="${BIO.dark}" stroke-width=".8"/>
+      <circle cx="0" cy="-3" r="4" fill="#ff3b4e"/><circle cx="0" cy="-3" r="1.8" fill="#fff"/>
+      <circle cx="0" cy="19" r="2.2" fill="#ff3b4e"/>`);
+  }
+  if (kind === 'medic') {   // 治疗虫：圆滚滚的绿色水母，背上发光十字
+    return box('-22 -22 44 44', `
+      <circle cx="0" cy="-2" r="16" fill="#8dff5a" opacity=".22" filter="url(#g)"/>
+      <path d="M-13,-2 C-13,-14 13,-14 13,-2 C13,6 8,9 0,9 C-8,9 -13,6 -13,-2 Z" fill="#3fbf6a" stroke="#0e3a1e" stroke-width="1.1"/>
+      <path d="M-10,-6 Q0,-12 10,-6" stroke="#d8ffe0" stroke-width="1" fill="none" opacity=".7"/>
+      ${[-8, -3, 3, 8].map(x => `<path d="M${x},8 C${x - 2},13 ${x + 2},16 ${x},20" stroke="#3fbf6a" stroke-width="1.6" fill="none" stroke-linecap="round"/>`).join('')}
+      <path d="M-2.4,-9 h4.8 v4 h4 v4.8 h-4 v4 h-4.8 v-4 h-4 v-4.8 h4 Z" fill="#ffffff" stroke="#8dff5a" stroke-width=".8"/>`);
+  }
+  if (kind === 'miner') {   // 布雷虫：腹部挂着一圈水雷的紫色胖虫
+    return box('-22 -22 44 44', `
+      ${both('M-9,-6 C-18,-12 -20,-2 -16,4', `stroke="${BIO.shell[1]}" stroke-width="1.8" fill="none" stroke-linecap="round"`)}
+      <ellipse cx="0" cy="-3" rx="12" ry="11" fill="url(#mag)" stroke="${BIO.dark}" stroke-width="1"/>
+      <circle cx="-3.5" cy="-4" r="1.8" fill="url(#eye)"/><circle cx="3.5" cy="-4" r="1.8" fill="url(#eye)"/>
+      ${[-9, 0, 9].map(x => `<circle cx="${x}" cy="12" r="4.5" fill="#2a1030" stroke="#ffd23a" stroke-width="1.2"/><circle cx="${x}" cy="12" r="1.5" fill="#ffd23a"/>`).join('')}`);
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-16 -16 32 32">${head}
     ${both('M-4,-6 C-14,-14 -16,-2 -12,4 C-9,0 -6,-2 -4,-2 Z', `fill="${BIO.acid}" fill-opacity=".35" stroke="${BIO.acid}" stroke-width=".6"`)}

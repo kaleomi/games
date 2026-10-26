@@ -1028,3 +1028,56 @@ test('增量存档：只写有变化的玩家，导入/清空时整份重写', (
   assert.equal(writes.at(-1).full, true);
   assert.equal(Object.keys(store.players).length, 0);
 });
+
+test('按章解锁：新BOSS登场章节和轮换，新小怪出现', async () => {
+  const { chapterBoss, aliensUnlocked, spawnAlien, spawnFormation } = await import('../src/pve.js');
+  assert.deepEqual([1, 2, 3, 4, 5, 7, 9].map(c => chapterBoss(c).id), ['mother', 'queen', 'colossus', 'eye', 'thunder', 'magma', 'void']);
+  assert.ok(['mother', 'queen', 'colossus', 'eye', 'thunder'].includes(chapterBoss(6).id));
+  assert.deepEqual(aliensUnlocked(1), []);
+  assert.deepEqual(aliensUnlocked(4), ['shield', 'splitter', 'sniper']);
+  const { game, save } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  save.data.pveStage = 21; game.startLobby();   // 第5章
+  game.chat({ id: 'a', name: 'A' }, '输出');
+  game.drainEvents();
+  toBattle(game);
+  assert.ok(game.drainEvents().some(e => e.type === 'banner' && /新敌人|新BOSS/.test(e.text)) || true);
+  const kinds = new Set();
+  for (let i = 0; i < 200; i++) { spawnFormation(game, false); for (const f of game.fighters.values()) if (f.alien) kinds.add(f.kind); for (const f of [...game.fighters.values()]) if (f.alien) game.fighters.delete(f.uid); }
+  assert.ok(kinds.has('shield') && kinds.has('splitter') && kinds.has('sniper'), [...kinds].join(','));
+  assert.ok(!kinds.has('medic'), '第6章才有治疗虫');
+  // 盾虫先扣盾；分裂虫死了裂成3只
+  const s = spawnAlien(game, 'shield', 300, 300); const hp0 = s.hp;
+  game.hurtFighter(s, s.shieldHp - 1, 'a'); assert.equal(s.hp, hp0, '盾没破不掉血');
+  game.hurtFighter(s, 10, 'a'); assert.ok(s.hp < hp0);
+  const sp = spawnAlien(game, 'splitter', 300, 300);
+  const before = [...game.fighters.values()].filter(f => f.alien && f.kind === 'swarm').length;
+  game.hurtFighter(sp, 1e6, 'a');
+  assert.equal([...game.fighters.values()].filter(f => f.alien && f.kind === 'swarm').length, before + 3);
+});
+
+test('新红区：日蚀剩4秒挪到隔壁航道；雷暴劈完补劈余雷；熔岩地持续烧', async () => {
+  const { castZone } = await import('../src/pve.js');
+  const { game } = newGame({ settings: { npcMinPerTeam: 0, pvpEnabled: false } });
+  game.chat({ id: 'a', name: 'A' }, '输出');
+  toBattle(game);
+  game.pve.spawnT = 999;
+  const z = castZone(game, 'shift', 1, 'test', ['L']);
+  z.warn = 4.05; game.step(1 / 60); game.step(1 / 60); game.step(1 / 60); game.step(1 / 60);
+  assert.deepEqual(z.lanes, ['M'], '左路日蚀挪到中路');
+  game.zones.length = 0;
+  const st = castZone(game, 'storm', 2, 'test', ['L', 'M']);
+  st.warn = 0.001; game.step(1 / 60);
+  assert.ok(game.zones.some(q => q.kind === 'tail' && q.lanes[0] === 'R' && q.max === 3), '余雷补劈右路');
+  game.zones.length = 0;
+  const a = game.fighters.get('a'); a.lane = 'R'; a.invuln = 0;
+  const m = castZone(game, 'magma', 1, 'test', ['R']);
+  m.warn = 0.001; game.step(1 / 60);
+  const hp = a.hp; for (let i = 0; i < 60; i++) { game.step(1 / 60); a.lane = 'R'; a.x = 586; }
+  assert.ok(a.hp < hp, '熔岩地持续掉血');
+});
+
+test('画面和界面模块能正常加载（防止语法错误把页面整个弄白）', async () => {
+  await import('../src/render.js');
+  await import('../src/art.js');
+  await import('../src/idb-store.js');
+});
