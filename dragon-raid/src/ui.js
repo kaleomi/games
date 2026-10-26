@@ -1,0 +1,432 @@
+// 屠龙战纪 · 设置面板、开局页、结算页（DOM）
+import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR, PVP_ENABLED } from './config.js';
+import { bossMax, bossFor, stageLabel, stageKind, KIND_NAMES, bossTitle, leaderMax } from './pve.js';
+import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, dpsSvg, carrierSvg, crownSvg, blessingIconSvg } from './art.js';
+import { BLESSINGS, RAID } from './config.js';
+import { describeItem, itemStats, statText } from './fleet.js';
+
+const SETTINGS_KEY = 'dragon-raid-settings-v1';
+
+export function loadSettings() {
+  const d = { v: 2, port: 8765, autoConnect: true, battleMinutes: 15, npcMinPerTeam: 4, tts: false, sfx: true, bgm: true, bgmVol: 50, tiers: [1, 10, 50, 200, 1000], giftTierByName: {}, pveGiftByName: {} };
+  try {
+    const old = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    // 旧设置升级一次：语音播报默认关、补位NPC默认4架
+    if (!(old.v >= 2)) { delete old.tts; delete old.npcMinPerTeam; }
+    return { ...d, ...old, v: 2 };
+  } catch { return d; }
+}
+export function storeSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* 忽略 */ } }
+
+const PVE_GIFT_WORD = { forge: '锻造', heart: '经验', flower: '佣兵', drum: '战鼓', hero: '狮鹫', double: '双倍', treasure: '宝箱' };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+export function rulesHtml(settings, mode = 'pvp') {
+  const t = settings.tiers;
+  const range = i => i < 4 ? `${t[i]}–${t[i + 1] - 1}` : `${t[i]}+`;
+  const pve = mode === 'pve';
+  const how = pve ? `
+      <li>发 <b>法师 / 骑士 / 牧师 / 游侠</b> 转职加入（发「加入」默认补缺的职业），英雄<b>自动战斗</b></li>
+      <li>小技能自动放，发 <b>大招</b> 放大招（冷却${PVE.ultCooldown}秒）；英雄旁的小图标亮了就是好了</li>
+      <li>巨龙放技能时航道会出现<b>危险区倒计时</b>：发 <b>左 / 中 / 右</b>（或 <b>1 / 2 / 3</b>）换航道躲开（总有一条是安全的）</li>
+      <li>每条航道一台<b>屠龙巨弩</b>：发 <b>装填</b> 一起上弦，满了射出鱼叉；巨龙升空时只有巨弩能把它射下来 · 灭世龙息锁定时全员发 <b>举盾</b></li>
+      <li><b>每章5关</b>：1–3关魔物+龙人督军，第4关精英，第5关屠龙；每章开打时发 <b>A/B/C</b> 投票神殿祝福；每关限时${PVE.stageSeconds / 60}分钟，过关<b>掉落装备</b></li>
+      <li>全队阵亡或超时：退回上一章第1关（比如6-5没打过回5-1），已拿的经验和装备不收回${PVP_ENABLED ? ' · 发 <b>换对战</b> 切回红蓝对战' : ''}</li>`
+    : `
+      <li>发 <b>红</b> 或 <b>蓝</b> 加入舰队，头像变成你的战机，<b>AI自动驾驶、躲弹、开火</b></li>
+      <li><b>激光 / 散弹 / 蓄力</b> 换武器 · <b>左 / 中 / 右</b> 换编队 · <b>核心 / 炮台</b> 选目标</li>
+      <li><b>点赞</b>给自己战机充能，满了打出超载炮 · 对面主炮蓄力时发 <b>拦截</b></li>
+      <li>打掉对面旗舰核心获胜；${settings.battleMinutes}分钟到时比剩余血量 · 发 <b>换讨伐</b> 投票切到打BOSS</li>`;
+  return `
+  <div class="rules">
+    <h2>怎么玩</h2>
+    <ul>${how}
+    </ul>
+    ${pve ? classTable() : ''}
+    ${pve ? '' : `    <h2>礼物效果 <small>按单个礼物价值（抖币）</small></h2>
+    <table>
+      ${pve ? `<tr><td>任意</td><td><b>英灵附体</b>：每1抖币${PVE.autoDodgePerValue}秒，自动躲子弹、躲技能，自动放技能和大招；不设上限，可累积，开战时才扣，跟着账号保存；名字上方显示剩余时间（不送礼要自己发「左/中/右」「大招」）</td></tr>` : ''}
+      <tr><td>${range(0)}</td><td>${pve ? `火力+1、护盾+10%血量，持续${GIFT.powerSeconds}秒` : `火力+1、护盾+1，持续${GIFT.powerSeconds}秒`}；每${GIFT.smallComboEvery}个放一组环形弹幕</td></tr>
+      <tr><td>${range(1)}</td><td>弹幕阵型（螺旋 / 扇形）</td></tr>
+      <tr><td>${range(2)}</td><td>激光网格或分裂弹 + 2架护卫僚机${GIFT.droneSeconds}秒</td></tr>
+      <tr><td>${range(3)}</td><td>召唤战舰${GIFT.battleshipSeconds}秒，舰体写着你的名字</td></tr>
+      <tr><td>${range(4)}</td><td>${pve ? `旗舰主炮：轰掉母舰${Math.round(PVE.playerCannonDamage * 100)}%血量，母舰没出现时先蓄满等着` : `旗舰主炮：蓄力${GIFT.cannonCharge}秒，对面发「拦截」最多削弱${Math.round(GIFT.interceptCap * 100)}%`}</td></tr>
+    </table>`}
+    ${pve ? gearTable() : ''}
+    <h2>榜单与成长</h2>
+    <ul>
+      ${pve ? `<li>左下角 <b>战力榜</b>（战力＝等级+装备，带每人6件装备），右下角是 <b>礼物效果</b>；送任意礼物都送英灵附体时间（每1抖币12秒）</li>
+      <li><b>贡献值＝成长分E × 有效行为</b>：在场存活每${PVE.score.aliveEvery}秒+1E、技能+${PVE.score.skill}E、大招+${PVE.score.ult}E、躲开红区+${PVE.score.dodge}E、送礼按抖币×E；E由等级和装备决定，<b>不显示消费金额</b></li>
+      <li>场上最多${PVE.reserve.cap}人，${PVE.reserve.idle / 60}分钟没互动进<b>后援</b>（每关拿一半基础经验+1件白装），发言/点赞/送礼回来；离开后回来补发错过的关</li>
+      <li>打爆BOSS掉装备：本局送礼的优先，再按贡献；前三必掉，其余60%；有保底 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
+      <li><b>经验＝获得的${pve ? '贡献值' : '战功'}</b>（讨伐战斗中实时到账、当场升级），等级跟着抖音账号保存，满${LEVEL.max}级；${pve ? '每级攻击、生命+2%' : '等级越高AI躲弹越灵活'}；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
+      <li>灰色「NPC」是人少时的补位电脑，不是真人，不进榜单</li>
+      <li>礼物效果固定、没有抽奖；理性消费，未成年人请勿打赏</li>
+    </ul>
+  </div>`;
+}
+
+const svgImg = (svg, size) => `<img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" width="${size}" height="${size}" alt="">`;
+
+function classTable() {
+  const art = { dps: dpsSvg(0, 120), tank: mechSvg(0, 120), healer: healerSvg(0, 120), carrier: carrierSvg(0, 120) };
+  const icons = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'], carrier: ['drones', 'swarm'] };
+  const skillText = {
+    dps: ['8枚追踪火球', '自动瞄准烈焰射线2.5秒'],
+    tank: ['盾击震退魔物、打散火球、攒破甲', '无敌4秒冲进怪堆旋风斩'],
+    healer: ['给血量最低的3人回血', '复活阵亡，5秒群体回血'],
+    carrier: ['放4只灵鹰追着怪打', '10只守护灵鹰拦截火球'],
+  };
+  return `<h2>四大职业 <small>发名字转职，存档记住</small></h2>
+    <div class="classes">${Object.entries(CLASSES).map(([id, c]) => `
+      <div class="cls ${id}">
+        <div class="art">${svgImg(art[id], 54)}</div>
+        <div class="info"><b>${c.name}</b><small>血${c.hp} · 攻${c.atk}${c.armor ? ` · 减伤${Math.round(c.armor * 100)}%` : ''}</small>
+          <div class="sk">${svgImg(skillIconSvg(icons[id][0], 56), 22)}<span>「技能」${c.skill}：${skillText[id][0]}</span></div>
+          <div class="sk">${svgImg(skillIconSvg(icons[id][1], 56), 22)}<span>「大招」${c.ult}：${skillText[id][1]}</span></div>
+        </div>
+      </div>`).join('')}
+    </div>`;
+}
+
+function gearTable() {
+  const S = GEAR.stats, T = GEAR.tiers, top = T.length - 1;
+  const cols = Object.entries(GEAR.slots).map(([id, sl]) => `
+      <div class="gslot">${svgImg(gearIconSvg(id, 0, 72), 30)}<span class="arrow">→</span>${svgImg(gearIconSvg(id, top, 72), 40)}
+        <b>${sl.name}</b><small>${S[sl.stat].label}</small></div>`).join('');
+  return `<h2>装备 <small>过关掉落，自动穿更好的 · 发「装备」查看</small></h2>
+    <div class="gtiers">${T.map(t => `<span style="color:${t.color};border-color:${t.color}">${t.name}${t.subs ? `+${t.subs}副` : ''}</span>`).join('')}</div>
+    <div class="gear">${cols}</div>
+    <p class="gnote">同部位同品质重复 → 强化+1（每级+${Math.round(GEAR.plusPer * 100)}%基础属性，没有上限）· 更低品质自动分解成同色碎片，${GEAR.shardsPerCraft}个合成1件高一级（100白→蓝 … 100金→红），补在最弱部位 · 换更好的装备继承强化</p>`;
+}
+
+export class UI {
+  constructor({ game, relay, audio, save, settings, onSettings }) {
+    Object.assign(this, { game, relay, audio, save, settings, onSettings });
+    this.stage = document.getElementById('stage');
+    this.lobby = document.getElementById('lobby');
+    this.resultEl = document.getElementById('result');
+    this.panel = document.getElementById('panel');
+    this.rulesForced = false;
+    this.buildPanel();
+    const gear = document.getElementById('gear');
+    gear.innerHTML = gearSvg();
+    gear.onclick = () => this.togglePanel();
+    window.addEventListener('keydown', e => { if (e.key === 'F2' || (e.key === 's' && e.altKey)) this.togglePanel(); });
+    this.layout();
+    window.addEventListener('resize', () => this.layout());
+  }
+
+  layout() {
+    const scale = Math.min(window.innerWidth / 720, window.innerHeight / 1280);
+    this.stage.style.transform = `translate(-50%,-50%) scale(${scale})`;
+  }
+
+  togglePanel(force) {
+    const open = force ?? this.panel.hidden;
+    this.panel.hidden = !open;
+    if (open) this.refreshPanel();
+  }
+
+  buildPanel() {
+    const s = this.settings;
+    this.panel.innerHTML = `
+      <header><b>屠龙战纪 · 主播设置</b><span><button data-act="save" class="primary">保存设置</button> <button data-act="close">收起</button></span></header>
+      <div class="note autosave">改完会自动保存并马上生效（输入框改完点别处即可）。<span id="save-note"></span></div>
+      <section>
+        <h3>连接熙梦</h3>
+        <div class="row">端口 <input id="cfg-port" type="number" min="1024" max="65535" value="${s.port}">
+          <button data-act="connect">连接</button><button data-act="disconnect">断开</button></div>
+        <div class="row"><label><input id="cfg-auto" type="checkbox" ${s.autoConnect ? 'checked' : ''}> 打开页面自动连接</label></div>
+        <div id="link-status" class="status"></div>
+      </section>
+      <section>
+        <h3>模式</h3>
+        <div class="row wrap"><span id="mode-info"></span></div>
+        <div class="row wrap">${PVP_ENABLED ? '<button data-act="mode-pvp">切到对战（红蓝对攻）</button><button data-act="mode-pve">切到讨伐（打母舰）</button>' : ''}<button data-act="stage-reset">回到第1章第1关</button></div>
+        <div class="note">${PVP_ENABLED ? '观众也能随时发「换讨伐」「换对战」投票切换，在场一半人同意就换（和暴力摩托一样）。' : '屠龙战纪只有闯关屠龙模式。'}</div>
+        <h3>对局</h3>
+        <div class="row" hidden>对战每局上限 <input id="cfg-minutes" type="number" min="3" max="30" value="${s.battleMinutes}"> 分钟</div>
+        <div class="row">人少时补位NPC到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMinPerTeam}"> 个</div>
+        <div class="note">真人不够这个数时，自动补灰色NPC勇士凑数；真人越多NPC越少，填0就不补。NPC不进榜单。</div>
+        <div class="row wrap audio"><label><input id="cfg-bgm" type="checkbox" ${s.bgm ? 'checked' : ''}> 背景音乐</label>
+          <label>音量 <input id="cfg-bgmvol" type="range" min="0" max="100" value="${s.bgmVol}"></label>
+          <label><input id="cfg-sfx" type="checkbox" ${s.sfx ? 'checked' : ''}> 音效</label>
+          <label><input id="cfg-tts" type="checkbox" ${s.tts ? 'checked' : ''}> 语音播报</label></div>
+        <div class="note">浏览器要求先点一下页面才能出声：开播前在游戏画面上点一下鼠标。</div>
+      </section>
+      <section>
+        <h3>礼物对照</h3>
+        <div class="note">默认：${esc(Object.entries(PVE.gifts.byName).filter(([k]) => k !== '爱的爆炸').map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('、'))}；认不出的按单价：1+经验 10+佣兵 15+锻造 52+战鼓 99+狮鹫 199+双倍 1200+宝箱。任何礼物都会按抖币给巨弩装填、送英灵附体时间。</div>
+        <div class="row">追加 / 改礼物（每行「礼物名=效果」，效果填 锻造 / 经验 / 佣兵 / 战鼓 / 狮鹫 / 双倍 / 宝箱）：</div>
+        <textarea id="cfg-pvegifts" rows="3" placeholder="棒棒糖=经验&#10;嘉年华=宝箱">${esc(Object.entries(s.pveGiftByName || {}).map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('\n'))}</textarea>
+        <details class="pvp-tiers" ${PVP_ENABLED ? '' : 'hidden'}><summary>对战模式礼物分档（只在红蓝对战里用）</summary>
+          <div class="row tiers">${[1, 2, 3, 4].map(i => `${i + 1}档起 <input data-tier="${i}" type="number" min="1" value="${s.tiers[i]}">`).join(' ')}</div>
+          <div class="row">按礼物名指定档位（每行「礼物名=档位」，优先于价值）：</div>
+          <textarea id="cfg-names" rows="3" placeholder="小心心=1&#10;墨镜=3">${esc(Object.entries(s.giftTierByName).map(([k, v]) => `${k}=${v}`).join('\n'))}</textarea>
+        </details>
+      </section>
+      <section>
+        <h3>测试（只在没连熙梦时可用）</h3>
+        <div class="row wrap">
+          <button data-act="test-join">加入20个测试观众</button>
+          ${[['小心心', 1], ['鲜花', 10], ['加油鸭', 15], ['爱你哟', 52], ['墨镜', 99], ['礼花筒', 199], ['跑车', 1200]].map(([n, p]) => `<button data-act="test-gift" data-name="${n}" data-price="${p}">${n}</button>`).join('')}
+          <button data-act="test-load">测试装填</button>
+          <button data-act="test-vote">测试投票</button>
+          <button data-act="test-intercept">测试举盾</button>
+          <button data-act="test-like">测试点赞</button>
+          <button data-act="start-now">立即开战</button>
+          <button data-act="end-now">结束本局</button>
+        </div>
+        <div class="note">测试观众名字以「测试」开头，不写入存档。</div>
+      </section>
+      <section>
+        <h3>存档</h3>
+        <div class="row wrap"><button data-act="export">导出存档</button><button data-act="import">导入存档</button><button data-act="clear" class="danger">清空存档</button></div>
+        <div class="row wrap"><button data-act="save-text">复制存档文本</button><button data-act="paste-import">粘贴文本导入</button></div>
+        <div class="note">OBS「浏览器」源里不能下载文件（导出会是0KB），请用「复制存档文本」，粘贴到记事本另存为 .json；还原时用「粘贴文本导入」。</div>
+        <div id="save-text-box" hidden>
+          <div class="row" id="save-text-tip"></div>
+          <textarea id="save-text" rows="6" spellcheck="false"></textarea>
+          <div class="row wrap"><button data-act="save-text-copy" class="primary" id="save-text-copy">复制</button><button data-act="save-text-import" class="primary" id="save-text-import">导入这段文本</button><button data-act="save-text-close">收起</button></div>
+        </div>
+        <div id="save-info" class="note"></div>
+        <input id="import-file" type="file" accept=".json,application/json" hidden>
+      </section>
+      <section><div class="row"><button data-act="rules">显示 / 隐藏规则页</button></div>
+        <div class="note">按 F2 打开或收起本面板。直播时把面板收起再采集画面。</div></section>`;
+    this.panel.addEventListener('click', e => { const b = e.target.closest('button'); if (b) this.action(b.dataset.act, b); });
+    // 设置项改完自动保存生效，不用找保存按钮
+    this.panel.addEventListener('change', e => {
+      const el = e.target;
+      if (!el.matches('#cfg-port, #cfg-auto, #cfg-minutes, #cfg-npc, #cfg-tts, #cfg-sfx, #cfg-bgm, #cfg-bgmvol, input[data-tier], #cfg-names, #cfg-pvegifts')) return;
+      try { this.readSettings(); this.onSettings(); this.note(el.id === 'cfg-npc' ? `已保存：人少时补位NPC到${this.settings.npcMinPerTeam}架` : '已自动保存'); } catch (err) { this.note(err.message); }
+    });
+    document.getElementById('import-file').addEventListener('change', e => this.importFile(e.target.files[0]));
+  }
+
+  readSettings() {
+    const s = this.settings;
+    const num = (id, lo, hi, d) => { const v = Math.floor(Number(document.getElementById(id).value)); return Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : d; };
+    s.port = num('cfg-port', 1024, 65535, 8765);
+    s.autoConnect = document.getElementById('cfg-auto').checked;
+    s.battleMinutes = num('cfg-minutes', 3, 30, 15);
+    s.npcMinPerTeam = num('cfg-npc', 0, 30, 4);
+    s.tts = document.getElementById('cfg-tts').checked;
+    s.sfx = document.getElementById('cfg-sfx').checked;
+    s.bgm = document.getElementById('cfg-bgm').checked;
+    s.bgmVol = num('cfg-bgmvol', 0, 100, 50);
+    const pg = {}, words = { ...Object.fromEntries(Object.entries(PVE_GIFT_WORD).map(([k, v]) => [v, k])), 英雄: 'hero' };
+    for (const line of document.getElementById('cfg-pvegifts').value.split('\n')) {
+      const m = line.trim().match(/^(.{1,30}?)\s*[=＝]\s*(\S+)$/);
+      if (m && words[m[2]]) pg[m[1].trim()] = words[m[2]];
+      else if (line.trim()) throw new Error(`看不懂这一行：${line.trim()}（效果填 锻造/经验/佣兵/战鼓/狮鹫/双倍/宝箱）`);
+    }
+    s.pveGiftByName = pg;
+    const tiers = [1];
+    this.panel.querySelectorAll('input[data-tier]').forEach(el => { tiers[Number(el.dataset.tier)] = Math.max(1, Math.floor(Number(el.value)) || 1); });
+    for (let i = 1; i < 5; i++) if (tiers[i] <= tiers[i - 1]) throw new Error(`${i + 1}档起点必须大于${i}档`);
+    s.tiers = tiers;
+    const map = {};
+    for (const line of document.getElementById('cfg-names').value.split('\n')) {
+      const m = line.trim().match(/^(.{1,30})\s*[=＝]\s*([1-5])$/);
+      if (m) map[m[1].trim()] = Number(m[2]);
+      else if (line.trim()) throw new Error(`看不懂这一行：${line.trim()}`);
+    }
+    s.giftTierByName = map;
+  }
+
+  testAllowed() {
+    if (this.relay.status === 'connected') { this.note('已连接熙梦，直播中不能发测试礼物，先断开再测试'); return false; }
+    return true;
+  }
+
+  note(text) { const el = document.getElementById('save-note'); if (el) { el.textContent = text; clearTimeout(this.noteT); this.noteT = setTimeout(() => { el.textContent = ''; }, 4000); } this.game.emit('toast', { text }); }
+
+  action(act, btn) {
+    const g = this.game;
+    switch (act) {
+      case 'close': this.togglePanel(false); break;
+      case 'connect': try { this.readSettings(); } catch (e) { this.note(e.message); break; } this.onSettings(); this.relay.connect(this.settings.port); break;
+      case 'disconnect': this.relay.disconnect(); break;
+      case 'save': try { this.readSettings(); this.onSettings(); this.note('已保存'); } catch (e) { this.note(e.message); } break;
+      case 'test-join': if (!this.testAllowed()) break; {
+        const base = (this.testSeq = (this.testSeq || 0) + 20) - 20;
+        for (let i = 0; i < 20; i++) g.chat({ id: `test:${base + i}`, name: `测试${base + i}` }, ['法师', '骑士', '牧师', '游侠'][i % 4]);
+      } break;
+      case 'test-gift': if (!this.testAllowed()) break; {
+        const list = [...g.fighters.values()].filter(f => f.test);
+        const who = list.length ? list[Math.floor(Math.random() * list.length)] : { uid: 'test:gift', name: '测试送礼' };
+        const price = Number(btn.dataset.price), name = btn.dataset.name;
+        g.gift({ id: who.uid, name: who.name }, { name, price, count: price === 1 ? 10 : 1 });
+      } break;
+      case 'test-load': if (!this.testAllowed()) break; for (const f of g.fighters.values()) if (f.test) { f.loadT = -9; g.chat({ id: f.uid, name: f.name }, '装填'); } break;
+      case 'test-vote': if (!this.testAllowed()) break; for (const f of g.fighters.values()) if (f.test) g.chat({ id: f.uid, name: f.name }, 'ABC'[Math.floor(Math.random() * 3)]); break;
+      case 'test-intercept': if (!this.testAllowed()) break; for (const f of g.fighters.values()) if (f.test) g.chat({ id: f.uid, name: f.name }, '举盾'); break;
+      case 'test-like': if (!this.testAllowed()) break; for (const f of g.fighters.values()) if (f.test) g.like({ id: f.uid, name: f.name }, 10); break;
+      case 'start-now': if (g.phase === 'lobby') g.phaseT = 0.01; break;
+      case 'mode-pvp': g.setMode('pvp'); break;
+      case 'mode-pve': g.setMode('pve'); break;
+      case 'stage-reset':
+        if (!confirm('回到第1章第1关？')) break;
+        this.save.data.pveStage = 1; this.save.dirty = true; this.save.flush(); g.memStage = 1;
+        if (g.mode === 'pve' && g.phase === 'lobby') g.startLobby();
+        this.note('已回到第1章第1关'); break;
+      case 'end-now': if (g.phase === 'battle') g.phaseT = 0.01; break;
+      case 'export': this.exportFile(); break;
+      case 'import': document.getElementById('import-file').click(); break;
+      case 'save-text': this.showSaveText('export'); break;
+      case 'paste-import': this.showSaveText('import'); break;
+      case 'save-text-copy': this.copySaveText(); break;
+      case 'save-text-import': this.importText(document.getElementById('save-text').value); break;
+      case 'save-text-close': document.getElementById('save-text-box').hidden = true; break;
+      case 'clear':
+        if (!confirm('确定清空全部玩家存档？等级、战功都会归零。建议先导出。')) break;
+        if (prompt('再确认一次：请输入「清空」两个字') !== '清空') break;
+        this.save.clear(); this.note('存档已清空'); this.refreshPanel(); break;
+      case 'rules': this.rulesForced = !this.rulesForced; break;
+      default: break;
+    }
+    this.refreshPanel();
+  }
+
+  // 导出存档：Chrome / Edge 弹出「另存为」窗口选位置和文件名；不支持的浏览器退回普通下载
+  // OBS「浏览器」源（内置 CEF）不支持下载和另存为，写出来是 0KB → 直接改成显示存档文本让主播复制
+  async exportFile() {
+    const json = this.save.exportJson();
+    const name = `屠龙战纪存档-${new Date().toISOString().slice(0, 10)}.json`;
+    if (window.obsstudio) { this.showSaveText('export', '检测到在 OBS 浏览器源里，没法直接保存文件。点「复制」，打开记事本粘贴，另存为 .json 文件：'); return; }
+    if (window.showSaveFilePicker) {
+      try {
+        const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: '屠龙战纪存档', accept: { 'application/json': ['.json'] } }] });
+        const w = await h.createWritable(); await w.write(json); await w.close();
+        const size = (await h.getFile()).size;   // 写完核对大小，0KB 就说明这个浏览器写不进去
+        if (size < json.length / 4) throw new Error('写入的文件是空的');
+        this.note(`存档已保存：${h.name}（${Math.ceil(size / 1024)}KB）`);
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') { this.note('已取消导出'); return; }
+        console.warn('另存为失败', e);
+        this.showSaveText('export', '这个浏览器保存文件失败（可能是 0KB）。点「复制」，打开记事本粘贴，另存为 .json 文件：');
+        return;
+      }
+    }
+    const blob = new Blob([json], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    this.note('存档已下载到浏览器的下载文件夹');
+  }
+
+  // 存档文本：复制出去 / 粘贴进来（OBS 浏览器源里用）
+  showSaveText(mode, tip) {
+    const box = document.getElementById('save-text-box'), ta = document.getElementById('save-text');
+    box.hidden = false;
+    document.getElementById('save-text-copy').hidden = mode !== 'export';
+    document.getElementById('save-text-import').hidden = mode !== 'import';
+    document.getElementById('save-text-tip').textContent = tip || (mode === 'export' ? '下面是全部存档文本。点「复制」，打开记事本粘贴，另存为 .json 文件：' : '把之前复制的存档文本粘贴到下面，点「导入这段文本」（原存档会先自动备份）：');
+    ta.readOnly = mode === 'export';
+    ta.value = mode === 'export' ? this.save.exportJson() : '';
+    ta.focus(); if (mode === 'export') ta.select();
+  }
+  async copySaveText() {
+    const ta = document.getElementById('save-text');
+    let ok = false;
+    try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(ta.value); ok = true; } } catch { /* OBS 里可能不让用剪贴板接口 */ }
+    if (!ok) { ta.readOnly = false; ta.focus(); ta.select(); try { ok = document.execCommand('copy'); } catch { ok = false; } ta.readOnly = true; }
+    this.note(ok ? `已复制存档（${Math.ceil(ta.value.length / 1024)}KB），去记事本粘贴保存` : '自动复制失败：文本已全选，请按 Ctrl+C 复制');
+  }
+  importText(text) {
+    try {
+      if (!String(text || '').trim()) throw new Error('没有粘贴内容');
+      const backup = this.save.exportJson();
+      try { localStorage.setItem('dragon-raid-save-backup', backup); } catch { /* 忽略 */ }
+      const n = this.save.importJson(text);
+      document.getElementById('save-text-box').hidden = true;
+      this.note(`已导入${n}名玩家（原存档已自动备份一份）`);
+    } catch (e) { this.note('导入失败：' + e.message); }
+    this.refreshPanel();
+  }
+
+  async importFile(file) {
+    if (!file) return;
+    try {
+      const backup = this.save.exportJson();
+      try { localStorage.setItem('dragon-raid-save-backup', backup); } catch { /* 忽略 */ }
+      const n = this.save.importJson(await file.text());
+      this.note(`已导入${n}名玩家（原存档已自动备份一份）`);
+    } catch (e) { this.note('导入失败：' + e.message); }
+    document.getElementById('import-file').value = '';
+    this.refreshPanel();
+  }
+
+  refreshPanel() {
+    if (this.panel.hidden) return;
+    const r = this.relay;
+    const text = { offline: '未连接', connecting: '正在连接…', connected: '已连接', reconnecting: '断开，正在重连…', error: '连接出错' }[r.status] || r.status;
+    document.getElementById('link-status').innerHTML = `<span class="dot ${r.status}"></span>${text}${r.room ? ` · 直播间 ${esc(r.room)}` : ''} · 已收消息 ${r.received}${r.error && r.status !== 'connected' ? `<div class="err">${esc(r.error)}</div>` : ''}`;
+    const n = Object.keys(this.save.data.players).length;
+    const mi = document.getElementById('mode-info');
+    if (mi) mi.textContent = `当前：${stageLabel(this.save.data.pveStage || 1)}（最高通关第${this.save.data.pveBest || 0}关）${this.game.blessing ? ` · 本章祝福「${BLESSINGS[this.game.blessing.id].name}」` : ''}${this.game.slayer ? ` · 屠龙勇者 ${this.game.slayer.name}` : ''}`;
+    document.getElementById('save-info').textContent = `存档玩家 ${n} 人 · 累计 ${this.save.data.rounds} 局 · 本周从 ${this.save.data.week} 开始`;
+  }
+
+  // 每帧调用：开局页与结算页
+  update(renderer) {
+    const g = this.game;
+    const showLobby = g.phase === 'lobby' || this.rulesForced;
+    if (showLobby !== !this.lobby.hidden) this.lobby.hidden = !showLobby;
+    if (showLobby) {
+      const key = `${g.mode}|${g.phase}|${Math.ceil(g.phaseT)}|${this.rulesForced}|${this.settings.tiers.join()}|${this.save.data.week}|${g.countTeam('red', true)}|${g.countTeam('blue', true)}|${g.slayer?.uid || ''}`;
+      if (key !== this.lobbyKey) {
+        this.lobbyKey = key;
+        const week = this.save.topWeek(5);
+        const counts = { red: g.countTeam('red', true), blue: g.countTeam('blue', true) };
+        const pve = g.mode === 'pve';
+        this.lobby.classList.toggle('pve', pve);
+        const stage = g.teams.red.stage || this.save.data.pveStage || 1;
+        const join = pve
+          ? `<div class="join"><span class="pve">${stageLabel(stage)} ${KIND_NAMES[stageKind(stage)]}关 · ${bossTitle(stage)} 血量 ${stageKind(stage) === 'wave' ? leaderMax(stage) : bossMax(stage)} · 已集结 ${counts.blue}人${g.reserve?.size ? ` · 后援${g.reserve.size}人` : ''}</span></div>${g.slayer ? `<div class="slayer">${svgImg(crownSvg(66), 26)}当前屠龙勇者：<b>${esc(g.slayer.name)}</b>${g.slayer.boss ? `（击败${esc(g.slayer.boss)}）` : ''}</div>` : ''}`
+          : `<div class="join"><span class="red">${emblemSvg('red', 30)}发「红」加入赤焰舰队 · ${counts.red}人</span><span class="blue">${emblemSvg('blue', 30)}发「蓝」加入苍穹舰队 · ${counts.blue}人</span></div>`;
+        this.lobby.innerHTML = `
+          <div class="title">${logoSvg(150)}<span>屠龙战纪</span><small>观众自己当英雄 · 法师 骑士 牧师 游侠 · 合力屠龙</small></div>
+          ${g.phase === 'lobby' ? `<div class="count">${Math.ceil(g.phaseT)}<small>${pve ? '秒后出征' : '秒后开战'}</small></div>` : ''}
+          ${join}
+          ${pve ? '<div class="pvehint">发「法师」「骑士」「牧师」「游侠」加入 · 玩法、巨弩、祝福、装备、礼物都在右下角轮播</div>' : rulesHtml(this.settings, g.mode)}
+          ${week.length && !pve ? `<div class="week"><h2>本周战功榜</h2>${week.map((p, i) => `<div><i>${i < 3 ? medalSvg(i, 22) : i + 1}</i>${esc(p.name)}<b>${p.weekMerit}</b><em>Lv.${p.level}</em></div>`).join('')}</div>` : ''}`;
+      }
+    }
+    const res = renderer.result;
+    const showRes = g.phase === 'result' && res;
+    if (!!showRes !== !this.resultEl.hidden) this.resultEl.hidden = !showRes;
+    if (showRes && this.resKey !== res.round) {
+      this.resKey = res.round;
+      const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i><span>${esc(m.name)}<small class="lv">Lv.${m.level || 1}</small></span><b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
+      if (res.mode === 'pve') {
+        const shipArt = { dps: dpsSvg, tank: mechSvg, healer: healerSvg, carrier: carrierSvg };
+        const face = m => m.avatar ? `<img class="av" src="${esc(m.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="av ship">${svgImg((shipArt[m.cls] || dpsSvg)(0, 96), 40)}</span>`;
+        // 一张表：名次 · 勇士 · 贡献 · 掉落，一眼看到谁第几、掉了什么
+        const dropsOf = uid => (res.drops || []).filter(d => d.uid === uid);
+        const rowsData = [...(res.mvp.blue || [])];
+        for (const d of res.drops || []) if (!rowsData.some(m => m.uid === d.uid)) rowsData.push({ uid: d.uid, name: d.name, merit: null });
+        const dropCell = list => list.length ? list.map(d => {
+          const st = itemStats(d.item), T = GEAR.tiers[d.item.tier];
+          const how = d.plus ? `强化+${d.plus}` : d.equipped ? '已装备' : `→${GEAR.tiers[Math.min(d.item.tier, 4)].name}碎片`;
+          return `<div class="drop">${svgImg(gearIconSvg(d.item.slot, d.item.tier, 96), 40)}<span class="dn"><b style="color:${T.color}">${T.name}·${esc(d.item.name)}${d.pity ? '<i class="tag">保底</i>' : ''}${d.gifted ? '<i class="tag gift">礼</i>' : ''}</b><small>${statText(st[0])} · <em class="${d.equipped ? 'on' : ''}">${how}</em></small></span></div>`;
+        }).join('') : '<span class="nodrop">—</span>';
+        const table = rowsData.length ? rowsData.map((m, i) => `<tr><td class="rkc">${i < 3 && m.merit != null ? medalSvg(i, 28) : `<span class="rk">${m.merit != null ? i + 1 : ''}</span>`}</td><td class="who"><div class="whoin">${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span></div></td><td class="mer">${m.merit ?? ''}</td><td class="lootc">${dropCell(dropsOf(m.uid))}</td></tr>`).join('') : '<tr><td colspan="4" class="empty">暂无真人勇士</td></tr>';
+        this.resultEl.innerHTML = `
+          <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? (res.kind === 'boss' ? `屠龙成功！` : `${stageLabel(res.stage)} 胜利`) : '战败'}</div>
+          ${res.slayer ? `<div class="slayer big">${svgImg(crownSvg(88), 34)}屠龙勇者：<b>${esc(res.slayer.name)}</b> · 第${res.slayer.slays}次屠龙</div>` : ''}
+          <div class="reason">${res.clear ? `${res.bossName || '赤焰龙王'}被击败${res.small ? ` · 小怪额外掉落${res.small}件` : ''}${res.reserve?.players ? ` · 后援${res.reserve.players}人领奖` : ''} · 下一关 ${stageLabel(res.next)}` : `${res.reason === 'timeout' ? `${PVE.stageSeconds / 60}分钟内没打赢${res.bossName || 'BOSS'}` : '全军覆没'} · 退回 ${stageLabel(res.next)}`}</div>
+          <table class="pvetable"><thead><tr><th></th><th>勇士</th><th>贡献</th><th>掉落${res.clear && !(res.drops || []).length ? '（这关没人掉装备）' : !res.clear ? '（失败没有掉落）' : ''}</th></tr></thead><tbody>${table}</tbody></table>
+          <div class="next">经验已结算 · 下一关马上开始</div>`;
+      } else {
+        this.resultEl.innerHTML = `
+          <div class="win ${res.winner || ''}">${res.winner ? `${TEAMS[res.winner].name} 获胜` : '平局'}</div>
+          <div class="reason">${res.reason === 'destroyed' ? '敌方旗舰核心被摧毁' : '时间到，比较旗舰剩余血量'}</div>
+          <div class="mvps">${col('red')}${col('blue')}</div>
+          <div class="next">经验已结算 · 下一局马上开始</div>`;
+      }
+    }
+  }
+}

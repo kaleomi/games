@@ -1,0 +1,155 @@
+// 屠龙战纪 · 玩家存档：按抖音用户ID保存等级、经验、装备、锻造、屠龙次数。
+// 存在主播这台电脑的浏览器 localStorage 里；可导出/导入 JSON。
+import { GEAR, LEVEL, SKINS, BLESSINGS } from './config.js';
+
+const KEY = 'dragon-raid-save-v1';
+const MAX_PROFILES = 20000;
+
+export function weekKeyOf(ms) {
+  const d = new Date(ms);
+  const day = (d.getDay() + 6) % 7; // 周一=0
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - day);
+  return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
+}
+
+export function skinFor(level) {
+  let s = 0;
+  SKINS.forEach((k, i) => { if (level >= k.lv) s = i; });
+  return s;
+}
+
+export class Save {
+  constructor({ storage = null, now = () => Date.now() } = {}) {
+    this.storage = storage;
+    this.now = now;
+    this.data = { version: 1, players: {}, week: weekKeyOf(now()), rounds: 0, mode: 'pve', pveStage: 1, pveBest: 0, clearNo: 0, blessing: null, slayer: null };
+    this.dirty = false;
+    if (storage) {
+      try {
+        const raw = storage.getItem(KEY);
+        if (raw) this.data = Save.validate(JSON.parse(raw));
+      } catch (e) { console.warn('存档读取失败，使用空存档', e); }
+    }
+    this.rollWeek();
+  }
+
+  static validate(obj) {
+    if (!obj || typeof obj !== 'object' || obj.version !== 1 || typeof obj.players !== 'object' || Array.isArray(obj.players)) throw new Error('存档格式不对');
+    const players = {};
+    for (const [uid, p] of Object.entries(obj.players)) {
+      if (!p || typeof p !== 'object' || typeof uid !== 'string' || uid.length > 256) continue;
+      players[uid] = {
+        uid,
+        name: String(p.name || '勇士').slice(0, 24),
+        avatar: typeof p.avatar === 'string' ? p.avatar.slice(0, 1024) : '',
+        level: clampInt(p.level, 1, LEVEL.max, 1),
+        xp: clampInt(p.xp, 0, 1e9, 0),
+        kills: clampInt(p.kills, 0, 1e9, 0),
+        wins: clampInt(p.wins, 0, 1e9, 0),
+        games: clampInt(p.games, 0, 1e9, 0),
+        merit: clampInt(p.merit, 0, 1e12, 0),
+        weekMerit: clampInt(p.weekMerit, 0, 1e12, 0),
+        seen: clampInt(p.seen, 0, 1e15, 0),
+        cls: ['dps', 'tank', 'healer', 'carrier'].includes(p.cls) ? p.cls : null,
+        shards: Array.isArray(p.shards) ? [0, 1, 2, 3, 4].map(i => clampInt(p.shards[i], 0, 1e9, 0)) : [clampInt(p.shards, 0, 1e9, 0), 0, 0, 0, 0],
+        dodgeLeft: clampInt(p.dodgeLeft, 0, 1e12, 0),
+        pity: { gold: clampInt(p.pity?.gold, 0, 1e6, 0), red: clampInt(p.pity?.red, 0, 1e6, 0) },
+        gear: validGear(p.gear),
+        seenClear: clampInt(p.seenClear, 0, 1e12, 0),
+        buffs: p.buffs && typeof p.buffs === 'object' ? { xp: Number(p.buffs.xp) || 0, hero: Number(p.buffs.hero) || 0, double: Number(p.buffs.double) || 0, super: clampInt(p.buffs.super, 0, 1e7, 0), mercs: Array.isArray(p.buffs.mercs) ? p.buffs.mercs.slice(0, 10).map(Number).filter(Number.isFinite) : [], floors: Array.isArray(p.buffs.floors) ? p.buffs.floors.slice(0, 6).map(x => ({ tier: clampInt(x?.tier, 0, 5, 0), until: Number(x?.until) || 0 })) : [] } : null,
+        forge: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forge?.[c], 0, 5, 0)])),
+        forgePity: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forgePity?.[c], 0, 1e6, 0)])),
+        slays: clampInt(p.slays, 0, 1e9, 0),
+        checkinDay: typeof p.checkinDay === 'string' ? p.checkinDay.slice(0, 10) : '',
+        gv: 3,
+      };
+      // 旧存档迁移：红+1 原来是+10%，现在每级+2% → 等级×5 保持强度；中间版本的「余料」按白碎片折算（10余料=1白碎片）
+      const P = players[uid], gv = clampInt(p.gv, 0, 9, 1);
+      if (gv < 2) for (const it of Object.values(P.gear)) if (it.tier === GEAR.tiers.length - 1) it.plus *= 5;
+      if (gv === 2) P.shards[0] += Math.floor(clampInt(p.mat, 0, 1e12, 0) / 10);
+    }
+    return {
+      version: 1, players, week: typeof obj.week === 'string' ? obj.week : '', rounds: clampInt(obj.rounds, 0, 1e9, 0),
+      mode: obj.mode === 'pvp' ? 'pvp' : 'pve', pveStage: clampInt(obj.pveStage, 1, 999, 1), pveBest: clampInt(obj.pveBest, 0, 999, 0),
+      clearNo: clampInt(obj.clearNo, 0, 1e12, 0),
+      blessing: obj.blessing && BLESSINGS[obj.blessing.id] ? { id: obj.blessing.id, chapter: clampInt(obj.blessing.chapter, 1, 999, 1) } : null,
+      slayer: obj.slayer && typeof obj.slayer.uid === 'string' ? { uid: obj.slayer.uid.slice(0, 256), name: String(obj.slayer.name || '').slice(0, 24), boss: String(obj.slayer.boss || '').slice(0, 24), at: clampInt(obj.slayer.at, 0, 1e15, 0) } : null,
+    };
+  }
+
+  rollWeek() {
+    const wk = weekKeyOf(this.now());
+    if (this.data.week !== wk) {
+      for (const p of Object.values(this.data.players)) p.weekMerit = 0;
+      this.data.week = wk;
+      this.dirty = true;
+    }
+  }
+
+  get(uid, name, avatar) {
+    let p = this.data.players[uid];
+    if (!p) {
+      p = this.data.players[uid] = { uid, name: '勇士', avatar: '', level: 1, xp: 0, kills: 0, wins: 0, games: 0, merit: 0, weekMerit: 0, seen: 0, cls: null, shards: [0, 0, 0, 0, 0], gear: {}, forge: {}, dodgeLeft: 0, slays: 0, gv: 3, seenClear: this.data.clearNo || 0 };
+      this.prune();
+    }
+    if (name) p.name = String(name).slice(0, 24);
+    if (avatar) p.avatar = avatar;
+    p.seen = this.now();
+    this.dirty = true;
+    return p;
+  }
+
+  peek(uid) { return this.data.players[uid] || null; }
+
+  addXp(p, xp) {
+    p.xp += Math.max(0, Math.floor(xp));
+    let ups = 0;
+    while (p.level < LEVEL.max && p.xp >= LEVEL.need(p.level)) { p.xp -= LEVEL.need(p.level); p.level++; ups++; }
+    if (p.level >= LEVEL.max) p.xp = Math.min(p.xp, LEVEL.need(p.level));
+    this.dirty = true;
+    return ups;
+  }
+
+  topWeek(n = 10) {
+    return Object.values(this.data.players).filter(p => p.weekMerit > 0).sort((a, b) => b.weekMerit - a.weekMerit).slice(0, n);
+  }
+
+  prune() {
+    const all = Object.values(this.data.players);
+    if (all.length <= MAX_PROFILES) return;
+    all.sort((a, b) => a.seen - b.seen);
+    for (const p of all.slice(0, all.length - MAX_PROFILES)) delete this.data.players[p.uid];
+  }
+
+  flush() {
+    if (!this.dirty || !this.storage) return false;
+    try { this.storage.setItem(KEY, JSON.stringify(this.data)); this.dirty = false; return true; }
+    catch (e) { console.warn('存档写入失败', e); return false; }
+  }
+
+  exportJson() { return JSON.stringify(this.data); }
+
+  importJson(text) {
+    const next = Save.validate(JSON.parse(text));
+    this.data = next; this.rollWeek(); this.dirty = true; this.flush();
+    return Object.keys(next.players).length;
+  }
+
+  clear() { this.data = { version: 1, players: {}, week: weekKeyOf(this.now()), rounds: 0, mode: 'pve', pveStage: 1, pveBest: 0, clearNo: 0, blessing: null, slayer: null }; this.dirty = true; this.flush(); }
+}
+
+// 装备存档校验（旧版只有主炮/装甲/引擎/核心且没有副属性，照样能读）
+function validGear(g) {
+  const out = {};
+  if (!g || typeof g !== 'object') return out;
+  for (const slot of Object.keys(GEAR.slots)) {
+    const it = g[slot];
+    if (!it || typeof it !== 'object') continue;
+    const tier = clampInt(it.tier, 0, GEAR.tiers.length - 1, 0), roll = Number(it.roll);
+    const subs = Array.isArray(it.subs) ? it.subs.filter(x => x && GEAR.stats[x.stat] && Number.isFinite(Number(x.v))).slice(0, 5).map(x => ({ stat: x.stat, v: Math.max(0, Math.min(2, Number(x.v))) })) : [];
+    out[slot] = { slot, plus: clampInt(it.plus, 0, 999, 0), tier, roll: Number.isFinite(roll) ? Math.max(0.5, Math.min(1.5, roll)) : 1, name: GEAR.slots[slot].names[tier], subs };
+  }
+  return out;
+}
+
+function clampInt(v, lo, hi, d) { const n = Math.floor(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; }

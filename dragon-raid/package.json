@@ -1,0 +1,7 @@
+{
+  "name": "dragon-raid",
+  "private": true,
+  "type": "module",
+  "description": "屠龙战纪：抖音直播弹幕互动魔幻屠龙（纯静态，无需构建）",
+  "scripts": { "test": "node --test tests/*.test.js" }
+}

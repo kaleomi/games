@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>屠龙战纪</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="stage">
+    <canvas id="view" width="720" height="1280"></canvas>
+    <div id="lobby" class="overlay" hidden></div>
+    <div id="result" class="overlay" hidden></div>
+  </div>
+  <button id="gear" title="主播设置（F2）" aria-label="主播设置"></button>
+  <aside id="panel" hidden></aside>
+  <div id="blocked" hidden>
+    <div>已经有一个「屠龙战纪」页面在运行。<br>为避免同一份礼物结算两次，请关闭这个页面。</div>
+  </div>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
