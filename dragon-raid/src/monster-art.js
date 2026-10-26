@@ -128,7 +128,6 @@ function diver(px) {
 function gunner(px) {
   const O = '#12061a';
   const cloak = 'M13,4 C16,0 18,-9 20.5,-20 L17,-17 L14.6,-23.2 L11.4,-20.4 L8,-25.6 L4.4,-21.2 L0.6,-24.2 L-2.6,-19.8 L-6.4,-25.6 L-9.4,-20.6 L-13,-23.6 L-15.8,-18 L-20.5,-21 C-18,-9 -16,0 -13,4 Q0,9 13,4 Z';
-  const tail = '';
   const slvL = 'M-16.4,-0.4 C-18.4,4.6 -16.6,10 -14,13.2 L-8.4,11.4 C-9.2,7.4 -9.2,3.4 -9.8,0 Z';
   const slvR = 'M16.4,-0.4 C18,4.8 14.8,10.6 11.2,14 L6.8,10.8 C9,7.4 9.8,3.6 9.8,0 Z';
   const hood = 'M0,-3.8 C6.6,-3.8 9.8,1 9.4,6.2 C9,10.6 5.4,12.6 3.8,13.2 L-3.8,13.2 C-5.4,12.6 -9,10.6 -9.4,6.2 C-9.8,1 -6.6,-3.8 0,-3.8 Z';
@@ -281,8 +280,10 @@ function elite(px) {
   ${P('M0,2.6 L0,20.4', 'stroke="url(#gd)" stroke-width="2.2" fill="none"')}
   ${P('M-11.4,13 L-8.4,19 L-4.6,15.8 L0,21.4 L4.6,15.8 L8.4,19 L11.4,13', 'stroke="url(#gd)" stroke-width="1.1" fill="none" stroke-linejoin="round"')}
   ${lit(`<path d="${cape} ${holes}" fill-rule="evenodd"/>` + mir(pauld) + P(gorget) + mir(horn) + P(head) + P(helm) + P(banner) + P(blade), 'lt')}
-  ${pair('M-7.6,19.6 L-3.2,22.4 L-6.6,22.6 Z', 'fill="#ff8a1a" filter="url(#g)"')}
-  ${pair('M-7.6,19.6 L-3.2,22.4 L-6.6,22.6 Z', 'fill="url(#ey)"')}
+  ${pair('M-8.6,18.6 L-2.4,21.6 L-3,23.6 L-7.6,23.8 Z', 'fill="#1a0406"')}
+  ${pair('M-7.6,19.6 L-3.2,22.4 L-6.6,22.8 Z', 'fill="#ffb21a" filter="url(#g2)"')}
+  ${pair('M-7.6,19.6 L-3.2,22.4 L-6.6,22.8 Z', 'fill="url(#ey)"')}
+  ${pair('M-6.4,20.8 L-4.6,21.9', 'stroke="#fff" stroke-width=".7" stroke-linecap="round"')}
   ${ell(-2.2, 29, .8, .6, 'fill="#ff8a1a"')}${ell(2.2, 29, .8, .6, 'fill="#ff8a1a"')}
   ${P(gauntL, 'fill="url(#ir)"')}${P('M-29,12.4 L-22.2,12.4 M-29.4,15 L-22.4,15', `stroke="${O}" stroke-width=".7" fill="none"`)}
   ${P(fistR, 'fill="url(#ir)"')}${P('M21.2,12.4 L28.6,12.4 M21,15 L28.4,15', `stroke="${O}" stroke-width=".7" fill="none"`)}
