@@ -117,16 +117,23 @@ export const PVE = {
   coreDy: 10,
   stageSeconds: 120,          // 每关限时（从出击算起，含虫群），超时算失败
   waveSeconds: stage => Math.min(30, 20 + stage),
-  // 怪物数量随关卡增加：每队虫子数、出怪间隔、同时双队概率、炮虫数量、场上怪物上限
+  // 怪物数量随章节增加（参数是章节）：每队虫子数、出怪间隔、同时双队概率、炮虫数量、场上怪物上限
+  // 虫群阶段（BOSS/头目出来前）是"虫海"，怪多；BOSS/头目战时护卫按三成来，不会把火力全挡掉
   waves: {
-    size: stage => 3 + Math.floor((stage - 1) * 0.7),          // 每队基础只数（再加人数加成），第1关3只、第5关5只、第10关9只
-    sizeCap: 16,
-    every: stage => Math.max(1.4, 3.4 - stage * 0.12),          // 虫群阶段出怪间隔（秒）
-    bossEvery: stage => Math.max(4, 11 - stage * 0.5),          // 母舰战护卫间隔（秒）
-    double: stage => Math.min(0.6, Math.max(0, (stage - 2) * 0.1)),  // 第3关起，有概率同时来两队
-    gunners: stage => Math.min(3, 1 + Math.floor(stage / 4)),
-    maxAlive: stage => Math.min(90, 36 + stage * 5),
+    size: ch => 3 + Math.floor((ch - 1) * 1.2),               // 每队基础只数，再加人数加成（每2架战舰+1）：10架时第1章8只、第5章12只、第10章18只
+    sizeCap: 26,
+    perPlayers: 2,
+    escort: 0.3,                                              // BOSS/头目战时护卫每队只数 = 虫群队×30%（特殊小怪减半）
+    every: ch => Math.max(1.1, 2.6 - ch * 0.1),               // 虫群阶段出怪间隔（秒）
+    bossEvery: ch => Math.max(4, 11 - ch * 0.5),              // BOSS/头目战护卫间隔（秒）
+    double: ch => Math.min(0.7, (ch - 1) * 0.1),              // 虫群阶段有概率同时来两队（第2章10%，每章+10%，最多70%）
+    gunners: ch => Math.min(4, 1 + Math.floor(ch / 4)),
+    maxAlive: ch => Math.min(130, 50 + ch * 7),
   },
+  // 小怪血量 = 基础血量 × 倍率：第1–3章每章+15%（新手章节不卡人），第4章起每章×1.35（跟上装备成长）
+  //   第1章×1、第3章×1.3、第5章×2.4、第7章×4.3、第9章×7.9、第10章×10.6
+  alienHpMul: ch => (ch <= 3 ? 1 + 0.15 * (ch - 1) : 1.3 * Math.pow(1.35, ch - 3)),
+  swarmFireCd: [4.5, 3],      // 小虫开火间隔 4.5~7.5 秒（虫多了，单只打得慢一点）
   bossEnter: 3,
   respawn: 10,                // 战机阵亡后多少秒回来
   playerCannonDamage: 0.1,    // 我方舰队主炮对母舰的伤害比例
@@ -199,16 +206,16 @@ export const PVE = {
   gunnerSkillEvery: 14,
   bossSkillEvery: [16, 13, 11],              // 三个狂暴阶段
   alien: {
-    swarm:  { hp: 60,  r: 10, merit: 4 },
-    diver:  { hp: 70,  r: 10, merit: 6 },
-    gunner: { hp: 300, r: 18, merit: 20 },
+    swarm:  { hp: 90,  r: 10, merit: 4 },
+    diver:  { hp: 100, r: 10, merit: 6 },
+    gunner: { hp: 420, r: 18, merit: 20 },
     chest:  { hp: 1000, r: 46, merit: 0 },     // 宝箱魔王（跑车召唤），血量按当前关BOSS算
     elite:  { hp: 1000, r: 34, merit: 0 },
-    shield:   { hp: 90,  r: 12, merit: 0, shield: 120 },
-    splitter: { hp: 150, r: 13, merit: 0 },
-    sniper:   { hp: 160, r: 12, merit: 0 },
-    medic:    { hp: 220, r: 14, merit: 0, healR: 150, healPerSec: 0.08 },
-    miner:    { hp: 200, r: 14, merit: 0 },     // 精英头目（1–3关），血量按当前关BOSS×35%算
+    shield:   { hp: 130, r: 12, merit: 0, shield: 180 },
+    splitter: { hp: 220, r: 13, merit: 0 },
+    sniper:   { hp: 230, r: 12, merit: 0 },
+    medic:    { hp: 320, r: 14, merit: 0, healR: 150, healPerSec: 0.08 },
+    miner:    { hp: 290, r: 14, merit: 0 },     // 精英头目（1–3关），血量按当前关BOSS×35%算
   },
   // 贡献值 = 成长分E × 有效行为（不再按伤害/治疗/承伤算，职业之间天然公平）
   //   E 由等级和身上装备决定（临时BUFF不影响）：E = 1 + 0.02×(等级-1) + 0.02×装备总评分，每次行为按当时的E算，后来升级不追溯

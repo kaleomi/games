@@ -354,7 +354,7 @@ export function spawnFormation(game, light, forceKind = null, ox = null, oy = nu
   let alive = 0; for (const f of game.fighters.values()) if (f.alien && f.alive) alive++;
   const room = PVE.waves.maxAlive(p.lv) - alive;
   if (room <= 0) return;
-  const n = Math.min(room, Math.max(2, Math.min(PVE.waves.sizeCap, PVE.waves.size(p.lv) + Math.floor(fleet / 6)) >> (light ? 1 : 0)));
+  const n = Math.min(room, Math.max(2, Math.round(Math.min(PVE.waves.sizeCap, PVE.waves.size(p.lv) + Math.floor(fleet / PVE.waves.perPlayers)) * (light ? PVE.waves.escort : 1))));
   const r = forceKind ? 1 : game.random();
   const gunnerP = Math.min(0.32, 0.14 + p.lv * 0.02);
   if (forceKind) {   // 虫后召唤 / 卵囊孵化：从指定位置散开
@@ -370,9 +370,10 @@ export function spawnFormation(game, light, forceKind = null, ox = null, oy = nu
   const unlocked = aliensUnlocked(p.lv || 1);
   if (unlocked.length && game.random() < Math.min(0.4, 0.14 + unlocked.length * 0.06)) {
     const k = unlocked[Math.floor(game.random() * unlocked.length)];
-    const cnt = { shield: 3, splitter: Math.max(2, n >> 1), sniper: 1 + (game.random() < 0.4 ? 1 : 0), medic: 1, miner: 2 }[k] || 2;
-    for (let i = 0; i < Math.min(room, cnt); i++) spawnAlien(game, k, 120 + game.random() * 480, -30 - i * 40);
-    if (k === 'medic') for (let i = 0; i < Math.min(room - 1, 4); i++) spawnAlien(game, 'swarm', 200 + game.random() * 320, -60 - i * 20);   // 治疗虫带一小队小虫
+    const cnt = { shield: 4 + (n >> 3), splitter: Math.max(2, n >> 1), sniper: 1 + (game.random() < 0.5 ? 1 : 0), medic: 1, miner: 3 }[k] || 2;
+    const cntL = light ? Math.ceil(cnt / 2) : cnt;   // BOSS/头目战时护卫减半
+    for (let i = 0; i < Math.min(room, cntL); i++) spawnAlien(game, k, 120 + game.random() * 480, -30 - i * 40);
+    if (k === 'medic') for (let i = 0; i < Math.min(room - 1, Math.max(light ? 2 : 4, n >> 1)); i++) spawnAlien(game, 'swarm', 200 + game.random() * 320, -60 - i * 20);   // 治疗虫带一小队小虫
     return;
   }
   const kind = r < gunnerP + 0.3 ? 'diver' : 'swarm';
@@ -390,7 +391,8 @@ export function spawnAlien(game, kind, x, y) {
   if (game.fighters.size >= 520) return null;
   const def = PVE.alien[kind];
   const lv = chapterOf(game.pve?.stage || 1);
-  const hp = Math.round(def.hp * (1 + 0.15 * (lv - 1)));
+  const grow = PVE.alienHpMul(lv);
+  const hp = Math.round(def.hp * grow);
   const NEW_STOP = { shield: 260, splitter: 280, sniper: 120, medic: 230, miner: 170 };
   const [z0, z1] = PVE.alienZone;
   const f = {
@@ -401,7 +403,7 @@ export function spawnAlien(game, kind, x, y) {
     yStop: NEW_STOP[kind] ? NEW_STOP[kind] + game.random() * 90 : kind === 'gunner' ? 190 + game.random() * 130 : kind === 'diver' ? 220 + game.random() * 120 : z0 + 120 + game.random() * (z1 - z0 - 140),
     life: kind === 'gunner' || NEW_STOP[kind] ? 32 : 14 + game.random() * 6, tx: 360, ty: 900,
   };
-  if (def.shield) f.shieldHp = f.shieldMax = Math.round(def.shield * (1 + 0.15 * (lv - 1)));
+  if (def.shield) f.shieldHp = f.shieldMax = Math.round(def.shield * grow);
   if (NEW_STOP[kind]) f.hitR = def.r;
   game.fighters.set(f.uid, f);
   return f;
@@ -440,7 +442,7 @@ export function stepAlien(game, f, dt) {
     else { f.vy = Math.sin(f.t * 1.3 + f.seed) * 20; f.vx = Math.sin(f.t * 1.1 + f.seed) * 120; }
     f.fireCd -= dt;
     if (f.fireCd <= 0 && f.y > 20 && f.t < f.life) {
-      f.fireCd = 3 + game.random() * 2;
+      f.fireCd = PVE.swarmFireCd[0] + game.random() * PVE.swarmFireCd[1];
       const tgt = pickTarget(game);
       if (tgt) { const a = Math.atan2(tgt.y - f.y, tgt.x - f.x); game.addBullet(f.x, f.y + 8, Math.cos(a) * 220, Math.sin(a) * 220, 5.5, 1, 'red', 'danmaku', f.uid, 0, { hue: 0 }); }
     }
