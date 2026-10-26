@@ -609,18 +609,20 @@ export function shockArcSvg(pxW, pxH) {
 }
 
 // 机甲大招「无敌冲锋斩」：双刃旋风（整体旋转绘制）
-export function whirlSvg(px) {
+// pal：大招品质配色 { c 主色, l 亮色, d 暗色 }，不给就是原来的冰蓝刀光
+export function whirlSvg(px, pal = null) {
+  const c = pal ? pal.c : '#7fe3ff', l = pal ? pal.l : '#bff1ff', d = pal ? pal.d : '#3aa8ff';
   const blade = a => `<g transform="rotate(${a})">
-      <path d="M16,-3.2 L58,-1.4 L66,0 L58,1.4 L16,3.2 Z" fill="url(#bl)" stroke="#e8fbff" stroke-width=".8"/>
+      <path d="M16,-3.2 L58,-1.4 L66,0 L58,1.4 L16,3.2 Z" fill="url(#bl)" stroke="${l}" stroke-width=".8"/>
       <path d="M18,0 L62,0" stroke="#fff" stroke-width="1.2"/>
       <rect x="11" y="-5.5" width="5" height="11" rx="1.5" fill="#ffd86b" stroke="#7a5200" stroke-width=".6"/>
     </g>`;
   const slash = (a, r, w, o) => `<path transform="rotate(${a})" d="M${r},0 A${r},${r} 0 0 1 ${(r * Math.cos(1.9)).toFixed(1)},${(r * Math.sin(1.9)).toFixed(1)}" fill="none" stroke="url(#sl)" stroke-width="${w}" stroke-linecap="round" opacity="${o}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-72 -72 144 144">
     <defs>
-      <linearGradient id="bl" x1="16" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3aa8ff"/><stop offset=".6" stop-color="#bff1ff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
-      <linearGradient id="sl" x1="-60" y1="0" x2="60" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#7fe3ff" stop-opacity="0"/><stop offset=".5" stop-color="#bff1ff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
-      <radialGradient id="core"><stop offset="0" stop-color="#ffffff" stop-opacity=".0"/><stop offset=".6" stop-color="#7fe3ff" stop-opacity=".08"/><stop offset=".9" stop-color="#bff1ff" stop-opacity=".35"/><stop offset="1" stop-color="#7fe3ff" stop-opacity="0"/></radialGradient>
+      <linearGradient id="bl" x1="16" y1="0" x2="66" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${d}"/><stop offset=".6" stop-color="${l}"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+      <linearGradient id="sl" x1="-60" y1="0" x2="60" y2="0" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="${c}" stop-opacity="0"/><stop offset=".5" stop-color="${l}"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+      <radialGradient id="core"><stop offset="0" stop-color="#ffffff" stop-opacity=".0"/><stop offset=".6" stop-color="${c}" stop-opacity=".08"/><stop offset=".9" stop-color="${l}" stop-opacity=".35"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>
       <filter id="g" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.5"/></filter>
     </defs>
     <circle r="68" fill="url(#core)"/>
@@ -631,13 +633,14 @@ export function whirlSvg(px) {
 }
 
 // 无敌金光护体
-export function invulnAuraSvg(px) {
+export function invulnAuraSvg(px, pal = null) {
+  const c = pal ? pal.c : '#ffd86b', l = pal ? pal.l : '#ffe8a0', d = pal ? pal.d : '#ffb43a';
   const hex = r => Array.from({ length: 6 }, (_, i) => { const a = Math.PI / 3 * i - Math.PI / 2; return `${(Math.cos(a) * r).toFixed(1)},${(Math.sin(a) * r).toFixed(1)}`; }).join(' ');
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-40 -40 80 80">
-    <defs><radialGradient id="a"><stop offset="0" stop-color="#fff3b0" stop-opacity=".0"/><stop offset=".55" stop-color="#ffd86b" stop-opacity=".18"/><stop offset=".85" stop-color="#ffcc4d" stop-opacity=".55"/><stop offset="1" stop-color="#ffb43a" stop-opacity="0"/></radialGradient>
+    <defs><radialGradient id="a"><stop offset="0" stop-color="${l}" stop-opacity=".0"/><stop offset=".55" stop-color="${c}" stop-opacity=".18"/><stop offset=".85" stop-color="${c}" stop-opacity=".55"/><stop offset="1" stop-color="${d}" stop-opacity="0"/></radialGradient>
     <filter id="b"><feGaussianBlur stdDeviation="1.6"/></filter></defs>
     <circle r="38" fill="url(#a)"/>
-    <polygon points="${hex(31)}" fill="none" stroke="#ffe8a0" stroke-width="2.6" filter="url(#b)"/>
+    <polygon points="${hex(31)}" fill="none" stroke="${l}" stroke-width="2.6" filter="url(#b)"/>
     <polygon points="${hex(31)}" fill="none" stroke="#fff6d6" stroke-width="1"/>
     ${Array.from({ length: 6 }, (_, i) => `<path transform="rotate(${i * 60})" d="M0,-36 L1.8,-30 L0,-27 L-1.8,-30 Z" fill="#fff6d6"/>`).join('')}
   </svg>`;

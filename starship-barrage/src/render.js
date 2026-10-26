@@ -19,6 +19,16 @@ const PALETTE = {
   blue: { shot: '#5cc8ff', laser: '#a8ecff', danmaku: ['#7d6bff', '#39f0d4', '#4fa3ff', '#b77dff', '#9cfff0'], ui: '#3aa8ff' },
 };
 const SKIN_ACCENT = ['#ffffff', '#e8f4ff', '#6dffc8', '#ffcc4d', 'rainbow', '#b066ff'];
+// 大招配色跟着这艘战舰的锻造品质走：普通银白、精良蓝、史诗紫、传说橙、神话金、至尊红（外圈彩虹流光）
+// c 主色 / l 亮色（光束芯、刀光高光）/ d 暗色（光晕外缘）；品质越高特效越粗、光环越多
+const ULT_PAL = [
+  { c: '#cfdced', l: '#ffffff', d: '#7f97b5' },
+  { c: '#4fa3ff', l: '#d4eaff', d: '#1d5fd6' },
+  { c: '#b066ff', l: '#ecdcff', d: '#6b2bd6' },
+  { c: '#ff8a2a', l: '#ffe2b0', d: '#d24a00' },
+  { c: '#ffd23a', l: '#fff6c8', d: '#c98a00' },
+  { c: '#ff3b4e', l: '#ffd6db', d: '#b3001c' },
+].map((p, i) => ({ ...p, tier: i, rgb: hexRgb(p.c), lrgb: hexRgb(p.l), drgb: hexRgb(p.d) }));
 
 export class Renderer {
   constructor(canvas, game) {
@@ -138,6 +148,13 @@ export class Renderer {
     return this.art.get(`boss|${id}`, (w, h) => make(w, h), BOSS_VIEW.w, BOSS_VIEW.h, 2);
   }
   sprite(key, make, w, h = w, res = 3) { return this.art.get(key, make, w, h, res); }
+  // 这艘战舰的大招配色；至尊额外给一个随时间流转的彩虹色 rb（按15°分档，发光贴图能复用缓存）
+  ultPal(f) {
+    const p = ULT_PAL[f ? forgeTier(f) : 0];
+    if (p.tier < 5) return p;
+    const h = (Math.floor(this.game.clock * 8) % 24) * 15;
+    return { ...p, rb: `hsl(${h},100%,62%)`, rbA: a => `hsla(${h},100%,62%,${a})` };
+  }
   skillIcon(id, size = 30) { return this.sprite(`sk|${id}|${size}`, px => skillIconSvg(id, px), size, size, 3); }
   gearIcon(slot, tier, size = 30) { return this.sprite(`gi|${slot}|${tier}|${size}`, px => gearIconSvg(slot, tier, px), size, size, 3); }
   blit(x, c, cx, cy) { x.drawImage(c, cx - c.w / 2, cy - c.h / 2, c.w, c.h); }
@@ -180,26 +197,32 @@ export class Renderer {
         case 'skill': this.pops.push({ uid: e.uid, id: e.skill, t: 0 });
           if (e.skill === 'missile') for (const k of [-1, 1]) this.muzzles.push({ uid: e.uid, dx: k * 22, dy: 4, t: 0, color: '#ffb43a' });
           break;
-        case 'drones': for (let i = 0; i < 2; i++) this.muzzles.push({ uid: e.uid, dx: (i ? 6 : -6), dy: -36, t: 0, color: '#c58bff' }); if (e.kind === 'guard') this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.8, r0: 30, r1: 180, color: '197,139,255' }); break;
+        case 'drones': for (let i = 0; i < 2; i++) this.muzzles.push({ uid: e.uid, dx: (i ? 6 : -6), dy: -36, t: 0, color: '#c58bff' }); if (e.kind === 'guard') this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.8, r0: 30, r1: 180, color: this.ultPal(g.fighters.get(e.uid)).rgb }); break;
         case 'ult': {
           const id = { healer: 'healUlt', tank: 'whirl', dps: 'beam', carrier: 'swarm' }[e.cls];
+          const P = this.ultPal(g.fighters.get(e.uid));
+          const tn = P.tier ? `${PVE.forge.tiers[P.tier].name}·` : '';
           this.pops.push({ uid: e.uid, id, t: 0, big: true });
-          this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `释放「${CLASSES[e.cls].ult}」${e.revived ? `，复活${e.revived}人` : ''}`, tier: 3, icon: id });
+          this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `释放「${tn}${CLASSES[e.cls].ult}」${e.revived ? `，复活${e.revived}人` : ''}`, tier: 3, icon: id });
           if (e.cls === 'healer') {
-            this.flashes.push({ t: 0.35, color: '#5dff9e' });
-            this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 1.2, r0: 40, r1: 900, color: '160,255,190', w: 10 });
-            for (const a of g.fighters.values()) if (!a.alien && a.team === 'blue') this.pillars.push({ uid: a.uid, t: 0, delay: Math.abs(a.x - e.x) / 1600, dur: PVE.healUlt.seconds + 0.4 });
+            this.flashes.push({ t: 0.35, color: P.c });
+            this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 1.2, r0: 40, r1: 900, color: P.lrgb, w: 10 });
+            for (const a of g.fighters.values()) if (!a.alien && a.team === 'blue') this.pillars.push({ uid: a.uid, caster: e.uid, t: 0, delay: Math.abs(a.x - e.x) / 1600, dur: PVE.healUlt.seconds + 0.4 });
           }
           if (e.cls === 'dps') this.shake = Math.max(this.shake, 4);
-          if (e.cls === 'carrier') this.flashes.push({ t: 0.25, color: '#c58bff' });
-          if (e.cls === 'tank') { this.flashes.push({ t: 0.3, color: '#ffd86b' }); this.shake = Math.max(this.shake, 8); this.ring(e.x, e.y, '#ffe8a0', 40); }
+          if (e.cls === 'carrier') this.flashes.push({ t: 0.25, color: P.c });
+          if (e.cls === 'tank') { this.flashes.push({ t: 0.3, color: P.c }); this.shake = Math.max(this.shake, 8); this.ring(e.x, e.y, P.l, 40); }
+          // 传说及以上：释放瞬间多一圈品质色冲击环；神话/至尊再加一圈
+          if (P.tier >= 3) this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.7, r0: 30, r1: 160 + P.tier * 30, color: P.rgb, w: 4 + P.tier });
+          if (P.tier >= 4) this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: -0.15, dur: 0.8, r0: 20, r1: 120 + P.tier * 30, color: P.lrgb, w: 3 });
           break;
         }
         case 'zone': break;
         case 'healPulse': {
-          this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.9, r0: 30, r1: 260, color: '160,255,190', w: 6 });
-          for (const a of g.fighters.values()) if (!a.alien && a.team === 'blue' && a.alive) { this.ripples.push({ uid: a.uid, x: a.x, y: a.y, t: -Math.abs(a.x - e.x) / 1200, dur: 0.45, r0: 8, r1: 34, color: '93,255,158', w: 3 }); }
-          this.floaters.push({ x: e.x, y: e.y - 44, text: `圣光 +${e.amount}`, color: '#9dffc4', t: 0, nop: true, crit: true });
+          const P = this.ultPal(g.fighters.get(e.uid));
+          this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.9, r0: 30, r1: 260, color: P.lrgb, w: 6 });
+          for (const a of g.fighters.values()) if (!a.alien && a.team === 'blue' && a.alive) { this.ripples.push({ uid: a.uid, x: a.x, y: a.y, t: -Math.abs(a.x - e.x) / 1200, dur: 0.45, r0: 8, r1: 34, color: P.rgb, w: 3 }); }
+          this.floaters.push({ x: e.x, y: e.y - 44, text: `圣光 +${e.amount}`, color: P.l, t: 0, nop: true, crit: true });
           break;
         }
         case 'hitfx': { const c = hexRgb(GEAR.tiers[e.wt].color); this.ripples.push({ x: e.x, y: e.y, t: 0, dur: 0.28, r0: 3, r1: 12 + e.wt * 3, color: c, w: 2 + e.wt * 0.4 }); if (e.wt >= 4) this.burst(e.x, e.y, 0.35, null); break; }
@@ -646,21 +669,27 @@ export class Renderer {
         x.restore(); x.globalAlpha = 1;
       }
       if (f.rushT > 0) {
-        const au = this.sprite('aura', px => invulnAuraSvg(px), 84);
+        const P = this.ultPal(f), au = this.sprite(`aura|${P.tier}`, px => invulnAuraSvg(px, P), 84);
         if (au) { x.save(); x.translate(f.x, f.y); x.rotate(-g.clock * 1.5); const k = 1 + 0.06 * Math.sin(g.clock * 14); x.scale(k, k); this.blit(x, au, 0, 0); x.restore(); }
       }
       return;
     }
     if (f.rushT > 0) {
-      const R = PVE.tank.whirlR, ws = this.sprite('whirl', px => whirlSvg(px), 2 * R * 72 / 68, 2 * R * 72 / 68, 1.5);
+      const P = this.ultPal(f);
+      const R = PVE.tank.whirlR, ws = this.sprite(`whirl|${P.tier}`, px => whirlSvg(px, P), 2 * R * 72 / 68, 2 * R * 72 / 68, 1.5);
       if (ws) {
         const fadeIn = Math.min(1, (PVE.tank.rushTime - f.rushT) / 0.25), fadeOut = Math.min(1, f.rushT / 0.3);
         x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.9 * fadeIn * fadeOut;
         x.translate(f.x, f.y); x.rotate((f.spin || 0) * 1.6); this.blit(x, ws, 0, 0);
         x.globalAlpha *= 0.45; x.rotate(0.9); x.scale(0.82, 0.82); this.blit(x, ws, 0, 0);
         x.restore(); x.globalAlpha = 1;
+        if (P.tier >= 4) {   // 神话/至尊：外圈再转一道品质色光环
+          x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.55 * fadeIn * fadeOut;
+          x.strokeStyle = P.rb || P.c; x.lineWidth = 3; x.setLineDash([26, 14]); x.lineDashOffset = -g.clock * 160;
+          x.beginPath(); x.arc(f.x, f.y, R + 8, 0, Math.PI * 2); x.stroke(); x.restore(); x.globalAlpha = 1;
+        }
       }
-      this.label(x, `无敌 ${f.rushT.toFixed(1)}s`, f.x, f.y - 70, 14, '#ffe28a', true);
+      this.label(x, `无敌 ${f.rushT.toFixed(1)}s`, f.x, f.y - 70, 14, P.l, true);
     }
   }
 
@@ -820,38 +849,53 @@ export class Renderer {
   }
 
   drawBeamCharge(x, f) {
-    const g = this.game, k = 1 - f.beamCharge / 0.5;
+    const g = this.game, k = 1 - f.beamCharge / 0.5, P = this.ultPal(f);
     const nx = f.x + Math.sin(f.beamAngle || 0) * 30, ny = f.y - 20 - Math.cos(f.beamAngle || 0) * 30;
     x.save(); x.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 14; i++) {
-      const a = i * 2.4 + g.clock * 3, r = 70 * (1 - ((k + i / 14) % 1));
-      const gl = this.glowSprite('#ffb43a', 3);
+    const nP = 14 + P.tier * 3;
+    for (let i = 0; i < nP; i++) {
+      const a = i * 2.4 + g.clock * 3, r = (70 + P.tier * 6) * (1 - ((k + i / nP) % 1));
+      const gl = this.glowSprite(P.rb && i % 2 ? P.rb : P.c, 3);
       x.globalAlpha = 0.9; x.drawImage(gl, nx + Math.cos(a) * r - gl.half, ny + Math.sin(a) * r - gl.half);
     }
-    const orb = this.glowSprite('#ffd27a', 8 + 22 * k);
+    const orb = this.glowSprite(P.l, 8 + 22 * k);
     x.globalAlpha = 0.6 + 0.4 * k; x.drawImage(orb, nx - orb.half, ny - orb.half);
-    x.strokeStyle = `rgba(255,210,122,${0.7 * k})`; x.lineWidth = 2; x.beginPath(); x.arc(nx, ny, 40 * (1 - k) + 8, 0, Math.PI * 2); x.stroke();
+    x.strokeStyle = `rgba(${P.lrgb},${0.7 * k})`; x.lineWidth = 2; x.beginPath(); x.arc(nx, ny, 40 * (1 - k) + 8, 0, Math.PI * 2); x.stroke();
     x.restore(); x.globalAlpha = 1;
   }
 
   drawBeam(x, f) {
     if (f.beamCharge > 0) return;
-    const g = this.game, k = Math.min(1, f.beamT / 0.4), a = f.beamAngle || 0;
-    const L = 1500;
+    const g = this.game, k = Math.min(1, f.beamT / 0.4), a = f.beamAngle || 0, P = this.ultPal(f);
+    const L = 1500, sw = 1 + P.tier * 0.07;   // 品质越高光束越粗（只是画面，伤害范围不变）
     x.save(); x.globalCompositeOperation = 'lighter';
     x.translate(f.x, f.y - 20); x.rotate(a);
     const wob = 1 + Math.sin(g.clock * 40) * 0.08;
-    const halo = x.createLinearGradient(-60, 0, 60, 0);
-    halo.addColorStop(0, 'rgba(255,140,40,0)'); halo.addColorStop(0.5, `rgba(255,150,50,${0.28 * k})`); halo.addColorStop(1, 'rgba(255,140,40,0)');
-    x.fillStyle = halo; x.fillRect(-60, -L, 120, L);
-    const core = x.createLinearGradient(-26 * wob, 0, 26 * wob, 0);
-    core.addColorStop(0, 'rgba(0,0,0,0)'); core.addColorStop(0.28, '#ff8a2a'); core.addColorStop(0.5, '#ffffff'); core.addColorStop(0.72, '#ff8a2a'); core.addColorStop(1, 'rgba(0,0,0,0)');
-    x.globalAlpha = 0.85 * k + Math.random() * 0.15; x.fillStyle = core; x.fillRect(-26 * wob, -L, 52 * wob, L);
-    // 沿光束往上跑的能量环
-    x.globalAlpha = 0.7 * k; x.strokeStyle = '#ffe2b0'; x.lineWidth = 2;
-    for (let i = 0; i < 6; i++) { const yy = -((g.clock * 900 + i * 220) % 1320) - 30; x.beginPath(); x.ellipse(0, yy, 30, 7, 0, 0, Math.PI * 2); x.stroke(); }
+    if (P.rb) {   // 至尊：最外圈彩虹流光
+      const rb = x.createLinearGradient(-90, 0, 90, 0);
+      rb.addColorStop(0, P.rbA(0)); rb.addColorStop(0.5, P.rbA(0.22 * k)); rb.addColorStop(1, P.rbA(0));
+      x.fillStyle = rb; x.fillRect(-90, -L, 180, L);
+    }
+    const hw = 60 * sw, halo = x.createLinearGradient(-hw, 0, hw, 0);
+    halo.addColorStop(0, `rgba(${P.drgb},0)`); halo.addColorStop(0.5, `rgba(${P.rgb},${0.28 * k})`); halo.addColorStop(1, `rgba(${P.drgb},0)`);
+    x.fillStyle = halo; x.fillRect(-hw, -L, hw * 2, L);
+    const cw = 26 * wob * sw, core = x.createLinearGradient(-cw, 0, cw, 0);
+    core.addColorStop(0, 'rgba(0,0,0,0)'); core.addColorStop(0.28, P.c); core.addColorStop(0.5, '#ffffff'); core.addColorStop(0.72, P.c); core.addColorStop(1, 'rgba(0,0,0,0)');
+    x.globalAlpha = 0.85 * k + Math.random() * 0.15; x.fillStyle = core; x.fillRect(-cw, -L, cw * 2, L);
+    // 沿光束往上跑的能量环（品质越高越多）
+    x.globalAlpha = 0.7 * k; x.lineWidth = 2;
+    const nR = 6 + P.tier;
+    for (let i = 0; i < nR; i++) { const yy = -((g.clock * 900 + i * 1320 / nR) % 1320) - 30; x.strokeStyle = P.rb && i % 2 ? P.rb : P.l; x.beginPath(); x.ellipse(0, yy, 30 * sw, 7, 0, 0, Math.PI * 2); x.stroke(); }
+    // 神话/至尊：光束两侧往上飘的星屑
+    if (P.tier >= 4) {
+      for (let i = 0; i < 10; i++) {
+        const yy = -((g.clock * 600 + i * 137) % 1300) - 20, xx = Math.sin(i * 2.7 + g.clock * 3) * 44 * sw;
+        const sp = this.glowSprite(P.rb && i % 2 ? P.rb : P.l, 4);
+        x.globalAlpha = 0.8 * k; x.drawImage(sp, xx - sp.half, yy - sp.half);
+      }
+    }
     // 炮口光球
-    const gl = this.glowSprite('#ffd27a', 26);
+    const gl = this.glowSprite(P.l, 26 + P.tier * 2);
     x.globalAlpha = 1; x.drawImage(gl, -gl.half, -gl.half - 4);
     x.restore(); x.globalAlpha = 1;
     // 命中点火花
@@ -880,14 +924,16 @@ export class Renderer {
       const f = g.fighters.get(p.uid); if (!f) continue;
       const k = t / dur, a = p.dur ? Math.min(1, t / 0.3, (dur - t) / 0.5) * (0.75 + 0.25 * Math.sin(g.clock * 6 + p.delay * 20)) : Math.sin(k * Math.PI);
       const top = f.y - 380;
+      const P = p.caster ? this.ultPal(g.fighters.get(p.caster)) : null;   // 大招圣光用施法者的品质色；升级光柱保持绿色
+      const cr = P ? P.rgb : '120,255,170', cl = P ? P.lrgb : '170,255,200', cg = P ? (P.rb || P.l) : '#9dffc4';
       const grd = x.createLinearGradient(f.x - 20, 0, f.x + 20, 0);
-      grd.addColorStop(0, 'rgba(120,255,170,0)'); grd.addColorStop(0.5, `rgba(170,255,200,${0.32 * a})`); grd.addColorStop(1, 'rgba(120,255,170,0)');
+      grd.addColorStop(0, `rgba(${cr},0)`); grd.addColorStop(0.5, `rgba(${cl},${0.32 * a})`); grd.addColorStop(1, `rgba(${cr},0)`);
       const fade = x.createLinearGradient(0, top, 0, f.y);
       x.globalAlpha = 1; x.fillStyle = grd; x.fillRect(f.x - 20, top, 40, f.y - top + 10);
       fade.addColorStop(0, 'rgba(255,255,255,0)'); fade.addColorStop(1, `rgba(255,255,255,${0.45 * a})`);
       x.fillStyle = fade; x.fillRect(f.x - 2.5, top, 5, f.y - top);
-      const gl = this.glowSprite('#9dffc4', 22); x.globalAlpha = a * 0.8; x.drawImage(gl, f.x - gl.half, f.y - gl.half);
-      if (Math.random() < 0.06) this.floaters.push({ x: f.x + (Math.random() - 0.5) * 30, y: f.y + 10, text: '', color: '#9dffc4', t: 0 });
+      const gl = this.glowSprite(cg, 22); x.globalAlpha = a * 0.8; x.drawImage(gl, f.x - gl.half, f.y - gl.half);
+      if (Math.random() < 0.06) this.floaters.push({ x: f.x + (Math.random() - 0.5) * 30, y: f.y + 10, text: '', color: cg, t: 0 });
     }
     for (let i = this.muzzles.length - 1; i >= 0; i--) {
       const m = this.muzzles[i]; m.t += dt;
@@ -909,12 +955,14 @@ export class Renderer {
         this.label(x, `英雄战机 ${Math.ceil(d.t)}s`, d.x, d.y + 34, 11, '#ffe28a', true);
         continue;
       }
-      const art = this.sprite(`drone|${d.kind}`, px => droneShipSvg(d.kind, px), d.kind === 'guard' ? 30 : 24);
+      const P = d.kind === 'guard' ? this.ultPal(g.fighters.get(d.owner)) : null;   // 护卫蜂群是大招放的：用品质色
+      const art = P ? this.sprite(`drone|guard|${P.tier}`, px => droneShipSvg('guard', px, P.c), 30) : this.sprite(`drone|${d.kind}`, px => droneShipSvg(d.kind, px), 24);
       const a = Math.atan2(d.vx, -d.vy);
       const fade = Math.min(1, d.t / 0.5);
       x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.5 * fade;
-      const tr = this.glowSprite('#c58bff', 5); x.drawImage(tr, d.x - Math.sin(a) * 12 - tr.half, d.y + Math.cos(a) * 12 - tr.half);
-      if (d.flash > 0) { const fl = this.glowSprite('#e8d0ff', 26); x.globalAlpha = d.flash / 0.18; x.drawImage(fl, d.x - fl.half, d.y - fl.half); }
+      const tr = this.glowSprite(P ? (P.rb || P.c) : '#c58bff', P ? 5 + P.tier * 0.6 : 5); x.drawImage(tr, d.x - Math.sin(a) * 12 - tr.half, d.y + Math.cos(a) * 12 - tr.half);
+      if (P) { const un = this.glowSprite(P.c, 11); x.globalAlpha = 0.45 * fade; x.drawImage(un, d.x - un.half, d.y - un.half); }
+      if (d.flash > 0) { const fl = this.glowSprite(P ? P.l : '#e8d0ff', 26); x.globalAlpha = d.flash / 0.18; x.drawImage(fl, d.x - fl.half, d.y - fl.half); }
       x.restore();
       x.globalAlpha = fade;
       if (art) { x.save(); x.translate(d.x, d.y); x.rotate(a); this.blit(x, art, 0, 0); x.restore(); }

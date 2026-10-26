@@ -334,8 +334,9 @@ export function carrierSvg(skin, px) {
 }
 
 // 航母无人机（attack 紫色尖翼；guard 带护盾环）
-export function droneShipSvg(kind, px) {
-  const p = palette('blue', 0, false), C = CLS.carrier;
+// accent：护卫蜂群（航母大招）按锻造品质换色，不给就是航母紫
+export function droneShipSvg(kind, px, accent = null) {
+  const p = palette('blue', 0, false), C = accent || CLS.carrier;
   const body = `<path d="M0,-11 L8.5,6 L3,4 L0,9 L-3,4 L-8.5,6 Z" fill="url(#arm)" stroke="${p.trim}" stroke-width="1"/><path d="M0,-11 L8.5,6 L3,4 L0,9 L-3,4 L-8.5,6 Z" fill="url(#sh)"/>
     ${glowLine('M-6.5,4 L0,-7 L6.5,4', C, .9)}<circle cy="-1" r="2.2" fill="${C}"/><circle cy="-1" r="1" fill="#fff"/>
     <ellipse cx="0" cy="11" rx="2.6" ry="4" fill="url(#eng)"/>`;
