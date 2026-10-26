@@ -487,8 +487,6 @@ export function invulnAuraSvg(px) {
 
 // ═════════════════════════ 牧师护盾泡（58，半透明，符文纹，中心透明） ═════════════════════════
 export function shieldBubbleSvg(px, color = '#ffe8a0') {
-  const tri = r => [0, 120, 240].map(a => P(r, a));
-  const hexa = [tri(19.6), tri(19.6).map(([x, y]) => [-x, -y])].map(t => `M${pts(t)} Z`).join(' ');
   return svg(px, px, '-30 -30 60 60', `<defs>
       <radialGradient id="g" cx="0" cy="0" r="27" gradientUnits="userSpaceOnUse"><stop offset=".5" stop-color="${color}" stop-opacity="0"/><stop offset=".78" stop-color="${color}" stop-opacity=".12"/><stop offset=".94" stop-color="${color}" stop-opacity=".45"/><stop offset="1" stop-color="#ffffff" stop-opacity=".75"/></radialGradient>
       <radialGradient id="h" cx="-9" cy="-12" r="14" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".35"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
@@ -497,7 +495,7 @@ export function shieldBubbleSvg(px, color = '#ffe8a0') {
     <circle r="26.6" fill="none" stroke="${color}" stroke-width="3" opacity=".55" filter="url(#b)"/>
     <circle r="26" fill="url(#g)"/>
     <circle r="26" fill="url(#h)"/>
-    <path d="${hexa}" fill="none" stroke="${color}" stroke-width=".7" stroke-opacity=".22" stroke-linejoin="round"/>
+    <circle r="15.4" fill="none" stroke="${color}" stroke-width=".6" stroke-opacity=".18" stroke-dasharray="3 2.4"/>
     <circle r="19.6" fill="none" stroke="${color}" stroke-width=".6" stroke-opacity=".25"/>
     <circle r="23.6" fill="none" stroke="${color}" stroke-width=".7" stroke-opacity=".55" stroke-dasharray="1.2 2"/>
     ${runeRing(21.8, 16, 1.25, .7, color, .6, 0, 2)}
