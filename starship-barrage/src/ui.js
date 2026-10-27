@@ -7,7 +7,7 @@ import { describeItem, itemStats, statText } from './fleet.js';
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
 
 export function loadSettings() {
-  const d = { v: 2, port: 8765, autoConnect: true, battleMinutes: 15, npcMinPerTeam: 4, tts: false, sfx: true, bgm: true, bgmVol: 50, tiers: [1, 10, 50, 200, 1000], giftTierByName: {}, pveGiftByName: {}, giftSet: 'douyin' };
+  const d = { v: 2, port: 8765, autoConnect: true, battleMinutes: 15, npcMinPerTeam: 4, tts: false, sfx: true, bgm: true, bgmVol: 50, tiers: [1, 10, 50, 200, 1000], giftTierByName: {}, pveGiftByName: {}, giftSet: 'douyin', showGiftBox: true, showGiftInfo: true };
   try {
     const old = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
     // 旧设置升级一次：语音播报默认关、补位NPC默认4架
@@ -156,6 +156,8 @@ export class UI {
       </section>
       <section>
         <h3>讨伐礼物对照</h3>
+        <div class="row wrap"><label><input id="cfg-giftbox" type="checkbox" ${s.showGiftBox !== false ? 'checked' : ''}> 显示左侧礼物效果框</label>
+          <label><input id="cfg-giftinfo" type="checkbox" ${s.showGiftInfo !== false ? 'checked' : ''}> 右下角轮播礼物说明</label></div>
         <div class="row">礼物名称 <select id="cfg-giftset"><option value="douyin" ${s.giftSet !== 'play' ? 'selected' : ''}>抖音礼物（熙梦接入）</option><option value="play" ${s.giftSet === 'play' ? 'selected' : ''}>直播玩法礼物（开放平台）</option></select></div>
         <div class="note">只改画面上显示的礼物名，两套礼物都能认。抖音礼物：${esc(Object.entries(GIFT_SETS.douyin).map(([k, [n]]) => `${n}=${PVE_GIFT_WORD[k]}`).join('、'))}；直播玩法礼物：${esc(Object.entries(GIFT_SETS.play).map(([k, [n]]) => `${n}=${PVE_GIFT_WORD[k]}`).join('、'))}；认不出的按单价：1+经验 10+佣兵 15+锻造 52+战鼓 99+英雄 199+双倍 1200+宝箱。</div>
         <div class="row">追加 / 改礼物（每行「礼物名=效果」，效果填 锻造 / 经验 / 佣兵 / 战鼓 / 英雄 / 双倍 / 宝箱）：</div>
@@ -197,7 +199,7 @@ export class UI {
     // 设置项改完自动保存生效，不用找保存按钮
     this.panel.addEventListener('change', e => {
       const el = e.target;
-      if (!el.matches('#cfg-port, #cfg-auto, #cfg-minutes, #cfg-npc, #cfg-tts, #cfg-sfx, #cfg-bgm, #cfg-bgmvol, input[data-tier], #cfg-names, #cfg-pvegifts')) return;
+      if (!el.matches('#cfg-port, #cfg-auto, #cfg-minutes, #cfg-npc, #cfg-tts, #cfg-sfx, #cfg-bgm, #cfg-bgmvol, input[data-tier], #cfg-names, #cfg-pvegifts, #cfg-giftset, #cfg-giftbox, #cfg-giftinfo')) return;
       try { this.readSettings(); this.onSettings(); this.note(el.id === 'cfg-npc' ? `已保存：人少时补位NPC到${this.settings.npcMinPerTeam}架` : '已自动保存'); } catch (err) { this.note(err.message); }
     });
     document.getElementById('import-file').addEventListener('change', e => this.importFile(e.target.files[0]));
@@ -211,6 +213,8 @@ export class UI {
     s.battleMinutes = num('cfg-minutes', 3, 30, 15);
     s.npcMinPerTeam = num('cfg-npc', 0, 30, 4);
     s.tts = document.getElementById('cfg-tts').checked;
+    s.showGiftBox = document.getElementById('cfg-giftbox').checked;
+    s.showGiftInfo = document.getElementById('cfg-giftinfo').checked;
     s.sfx = document.getElementById('cfg-sfx').checked;
     s.bgm = document.getElementById('cfg-bgm').checked;
     s.bgmVol = num('cfg-bgmvol', 0, 100, 50);

@@ -21,6 +21,7 @@ save.hotSource = () => [...game.fighters.keys(), ...game.reserve.keys()];   // �
 save.onError = e => { if (Date.now() - saveErrAt > 30000) { saveErrAt = Date.now(); game?.emit('toast', { text: `存档写入失败（空间可能满了）：${e?.message || e}，请在设置里导出存档留底` }); } };
 var game = new Game({ save, settings: {
   battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName, giftSet: giftSetNow(),
+  showGiftBox: settings.showGiftBox !== false, showGiftInfo: settings.showGiftInfo !== false,
 } });
 const audio = new Audio();
 audio.tts = settings.tts; audio.sfx = settings.sfx; audio.setBgm(settings.bgm, settings.bgmVol / 100);
@@ -37,7 +38,7 @@ const relay = new Relay({
 });
 
 function applySettings() {
-  Object.assign(game.settings, { battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName, giftSet: giftSetNow() });
+  Object.assign(game.settings, { battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName, giftSet: giftSetNow(), showGiftBox: settings.showGiftBox !== false, showGiftInfo: settings.showGiftInfo !== false });
   audio.tts = settings.tts; audio.sfx = settings.sfx; audio.setBgm(settings.bgm, settings.bgmVol / 100);
   if (!settings.tts && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   game.syncNpcs();

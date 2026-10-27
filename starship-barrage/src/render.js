@@ -1318,7 +1318,7 @@ export class Renderer {
       this.infoPanel(x);
     }
     // 本局战功榜
-    if (pve) { this.board(x, 'blue', 520, 300); this.giftBox(x, 14, 300); }
+    if (pve) { this.board(x, 'blue', 520, 300); if (g.settings.showGiftBox !== false) this.giftBox(x, 14, 300); }   // 左侧礼物框：主播设置里可关
     else { this.board(x, 'red', 520, 196); this.board(x, 'blue', 520, 1000); }
     // 模式投票
     const v = g.voteView();
@@ -1400,7 +1400,8 @@ export class Renderer {
   infoPanel(x) {
     const g = this.game;
     const L = 364, T = BOTTOM_Y, Wd = 348, Hh = H - 8 - T;
-    const pages = ['怎么玩', '评论指令', '礼物效果①', '礼物效果②', '礼物效果③', '敌人图鉴', '四种战舰', '装备', '榜单与成长'];   // 左侧礼物框是简表，这里轮播详细效果
+    const pages = ['怎么玩', '评论指令', '礼物效果①', '礼物效果②', '礼物效果③', '敌人图鉴', '四种战舰', '装备', '榜单与成长']   // 左侧礼物框是简表，这里轮播详细效果
+      .filter(p => g.settings.showGiftInfo !== false || !p.startsWith('礼物效果'));   // 主播设置里关掉礼物说明就不轮播这三页
     const DUR = 7, page = Math.floor(g.clock / DUR) % pages.length, ph = g.clock % DUR;
     this.panelBox(x, L, T, Wd, Hh);
     // 翻页：新页面从右边滑进来
