@@ -2,6 +2,12 @@
   "name": "starship-barrage",
   "private": true,
   "type": "module",
-  "description": "星舰远征（原名星舰弹幕战）：抖音直播互动竖版射击（纯静态，无需构建）",
-  "scripts": { "test": "node --test tests/*.test.js" }
+  "description": "星舰远征（原名星舰弹幕战）：抖音直播互动竖版射击（网页版成品在 dist/，node tools/build.mjs 生成）",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node --test tests/*.test.js"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12"
+  }
 }
