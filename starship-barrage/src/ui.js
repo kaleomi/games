@@ -1,5 +1,5 @@
 // 设置面板、开局规则页、结算页（DOM）
-import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR, PVP_ENABLED } from './config.js';
+import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR, PVP_ENABLED, GIFT_SETS } from './config.js';
 import { bossMax, bossFor, stageLabel, stageKind, KIND_NAMES, bossTitle, leaderMax } from './pve.js';
 import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, dpsSvg, carrierSvg } from './art.js';
 import { describeItem, itemStats, statText } from './fleet.js';
@@ -7,7 +7,7 @@ import { describeItem, itemStats, statText } from './fleet.js';
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
 
 export function loadSettings() {
-  const d = { v: 2, port: 8765, autoConnect: true, battleMinutes: 15, npcMinPerTeam: 4, tts: false, sfx: true, bgm: true, bgmVol: 50, tiers: [1, 10, 50, 200, 1000], giftTierByName: {}, pveGiftByName: {} };
+  const d = { v: 2, port: 8765, autoConnect: true, battleMinutes: 15, npcMinPerTeam: 4, tts: false, sfx: true, bgm: true, bgmVol: 50, tiers: [1, 10, 50, 200, 1000], giftTierByName: {}, pveGiftByName: {}, giftSet: 'douyin' };
   try {
     const old = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
     // 旧设置升级一次：语音播报默认关、补位NPC默认4架
@@ -26,7 +26,7 @@ export function rulesHtml(settings, mode = 'pvp') {
   const pve = mode === 'pve';
   const how = pve ? `
       <li>发 <b>输出 / 机甲 / 医疗 / 航母</b> 选战舰加入（发「加入」默认补缺的职业），战舰<b>自动开火</b></li>
-      <li>发 <b>技能</b> 放小技能，发 <b>大招</b> 放大招（冷却${PVE.ultCooldown}秒）；战机旁的小图标亮了就是好了</li>
+      <li>发 <b>技能</b> 放小技能，发 <b>大招</b> 放大招（每${PVE.ultCooldown}秒一次）；战机旁的小图标亮了就是好了</li>
       <li>异形放技能时航道会出现<b>红色区域，10秒倒计时</b>：发 <b>左 / 中 / 右</b>（或 <b>1 / 2 / 3</b>）换航道躲开（总有一条是安全的）</li>
       <li><b>点赞</b>充能，满了打出超载炮 · 母舰「湮灭炮」锁定时全员发 <b>拦截</b> 削弱</li>
       <li><b>每章5关</b>：1–3关虫群+精英头目（打死头目过关），第4关精英，第5关首领；每关限时${PVE.stageSeconds / 60}分钟，过关<b>掉落装备</b>、自动进下一关</li>
@@ -45,8 +45,8 @@ export function rulesHtml(settings, mode = 'pvp') {
     ${pve ? '' : `    <h2>礼物效果 <small>按单个礼物价值（抖币）</small></h2>
     <table>
       ${pve ? `<tr><td>任意</td><td><b>机神附体</b>：每1抖币${PVE.autoDodgePerValue}秒，自动躲子弹、躲技能，自动放技能和大招；不设上限，可累积，开战时才扣，跟着账号保存；名字上方显示剩余时间（不送礼要自己发「左/中/右」「大招」）</td></tr>` : ''}
-      <tr><td>${range(0)}</td><td>${pve ? `火力+1、护盾+10%血量，持续${GIFT.powerSeconds}秒` : `火力+1、护盾+1，持续${GIFT.powerSeconds}秒`}；每${GIFT.smallComboEvery}个放一组环形弹幕</td></tr>
-      <tr><td>${range(1)}</td><td>弹幕阵型（螺旋 / 扇形）</td></tr>
+      <tr><td>${range(0)}</td><td>${pve ? `火力+1、护盾+10%血量，持续${GIFT.powerSeconds}秒` : `火力+1、护盾+1，持续${GIFT.powerSeconds}秒`}；每${GIFT.smallComboEvery}个放一组环形光弹</td></tr>
+      <tr><td>${range(1)}</td><td>光弹阵型（螺旋 / 扇形）</td></tr>
       <tr><td>${range(2)}</td><td>激光网格或分裂弹 + 2架护卫僚机${GIFT.droneSeconds}秒</td></tr>
       <tr><td>${range(3)}</td><td>召唤战舰${GIFT.battleshipSeconds}秒，舰体写着你的名字</td></tr>
       <tr><td>${range(4)}</td><td>${pve ? `旗舰主炮：轰掉母舰${Math.round(PVE.playerCannonDamage * 100)}%血量，母舰没出现时先蓄满等着` : `旗舰主炮：蓄力${GIFT.cannonCharge}秒，对面发「拦截」最多削弱${Math.round(GIFT.interceptCap * 100)}%`}</td></tr>
@@ -60,7 +60,7 @@ export function rulesHtml(settings, mode = 'pvp') {
       <li>打爆BOSS掉装备：本局送礼的优先，再按贡献；前三必掉，其余60%；有保底 · 发 <b>装备</b> 查看自己的装备</li>` : `<li>战功只按战果计算（击落、伤害、炮台、拦截、胜利），<b>不显示消费金额</b></li>`}
       <li><b>经验＝获得的${pve ? '贡献值' : '战功'}</b>（讨伐战斗中实时到账、当场升级），等级跟着抖音账号保存，满${LEVEL.max}级；${pve ? '每级攻击、生命+2%' : '等级越高AI躲弹越灵活'}；升级解锁涂装：${SKINS.map(s => `Lv${s.lv}${s.name}`).join('、')}</li>
       <li>灰色「NPC」战机是人少时的补位电脑，不是真人，不进榜单</li>
-      <li>礼物效果固定、没有抽奖；理性消费，未成年人请勿打赏</li>
+      <li>礼物效果固定；理性消费，未成年人请勿打赏</li>
     </ul>
   </div>`;
 }
@@ -130,7 +130,7 @@ export class UI {
   buildPanel() {
     const s = this.settings;
     this.panel.innerHTML = `
-      <header><b>星舰弹幕战 · 主播设置</b><span><button data-act="save" class="primary">保存设置</button> <button data-act="close">收起</button></span></header>
+      <header><b>星舰远征 · 主播设置</b><span><button data-act="save" class="primary">保存设置</button> <button data-act="close">收起</button></span></header>
       <div class="note autosave">改完会自动保存并马上生效（输入框改完点别处即可）。<span id="save-note"></span></div>
       <section>
         <h3>连接熙梦</h3>
@@ -143,7 +143,7 @@ export class UI {
         <h3>模式</h3>
         <div class="row wrap"><span id="mode-info"></span></div>
         <div class="row wrap">${PVP_ENABLED ? '<button data-act="mode-pvp">切到对战（红蓝对攻）</button><button data-act="mode-pve">切到讨伐（打母舰）</button>' : ''}<button data-act="stage-reset">讨伐回到第1关</button></div>
-        <div class="note">${PVP_ENABLED ? '观众也能随时发「换讨伐」「换对战」投票切换，在场一半人同意就换（和暴力摩托一样）。' : '红蓝对战模式暂时关闭，只开讨伐（开关在 src/config.js 的 PVP_ENABLED）。'}</div>
+        <div class="note">${PVP_ENABLED ? '观众也能随时发「换讨伐」「换对战」投票切换，在场一半人同意就换（和暴力摩托一样）。' : '红蓝对战模式暂时关闭，只开讨伐。'}</div>
         <h3>对局</h3>
         <div class="row">对战每局上限 <input id="cfg-minutes" type="number" min="3" max="30" value="${s.battleMinutes}"> 分钟</div>
         <div class="row">人少时补位NPC到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMinPerTeam}"> 架</div>
@@ -152,11 +152,12 @@ export class UI {
           <label>音量 <input id="cfg-bgmvol" type="range" min="0" max="100" value="${s.bgmVol}"></label>
           <label><input id="cfg-sfx" type="checkbox" ${s.sfx ? 'checked' : ''}> 音效</label>
           <label><input id="cfg-tts" type="checkbox" ${s.tts ? 'checked' : ''}> 语音播报</label></div>
-        <div class="note">浏览器要求先点一下页面才能出声：开播前在游戏画面上点一下鼠标。</div>
+        <div class="note">浏览器要求先点一下页面才能出声：开播前在画面上点一下鼠标。</div>
       </section>
       <section>
         <h3>讨伐礼物对照</h3>
-        <div class="note">默认：${esc(Object.entries(PVE.gifts.byName).filter(([k]) => k !== '爱的爆炸').map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('、'))}；认不出的按单价：1+经验 10+佣兵 15+锻造 52+战鼓 99+英雄 199+双倍 1200+宝箱。</div>
+        <div class="row">礼物名称 <select id="cfg-giftset"><option value="douyin" ${s.giftSet !== 'play' ? 'selected' : ''}>抖音礼物（熙梦接入）</option><option value="play" ${s.giftSet === 'play' ? 'selected' : ''}>直播玩法礼物（开放平台）</option></select></div>
+        <div class="note">只改画面上显示的礼物名，两套礼物都能认。抖音礼物：${esc(Object.entries(GIFT_SETS.douyin).map(([k, [n]]) => `${n}=${PVE_GIFT_WORD[k]}`).join('、'))}；直播玩法礼物：${esc(Object.entries(GIFT_SETS.play).map(([k, [n]]) => `${n}=${PVE_GIFT_WORD[k]}`).join('、'))}；认不出的按单价：1+经验 10+佣兵 15+锻造 52+战鼓 99+英雄 199+双倍 1200+宝箱。</div>
         <div class="row">追加 / 改礼物（每行「礼物名=效果」，效果填 锻造 / 经验 / 佣兵 / 战鼓 / 英雄 / 双倍 / 宝箱）：</div>
         <textarea id="cfg-pvegifts" rows="3" placeholder="棒棒糖=经验&#10;嘉年华=宝箱">${esc(Object.entries(s.pveGiftByName || {}).map(([k, v]) => `${k}=${PVE_GIFT_WORD[v]}`).join('\n'))}</textarea>
         <details class="pvp-tiers" ${PVP_ENABLED ? '' : 'hidden'}><summary>对战模式礼物分档（只在红蓝对战里用）</summary>
@@ -220,6 +221,7 @@ export class UI {
       else if (line.trim()) throw new Error(`看不懂这一行：${line.trim()}（效果填 锻造/经验/佣兵/战鼓/英雄/双倍/宝箱）`);
     }
     s.pveGiftByName = pg;
+    s.giftSet = document.getElementById('cfg-giftset').value === 'play' ? 'play' : 'douyin';
     const tiers = [1];
     this.panel.querySelectorAll('input[data-tier]').forEach(el => { tiers[Number(el.dataset.tier)] = Math.max(1, Math.floor(Number(el.value)) || 1); });
     for (let i = 1; i < 5; i++) if (tiers[i] <= tiers[i - 1]) throw new Error(`${i + 1}档起点必须大于${i}档`);
@@ -277,7 +279,7 @@ export class UI {
       case 'save-text-import': this.importText(document.getElementById('save-text').value); break;
       case 'save-text-close': document.getElementById('save-text-box').hidden = true; break;
       case 'clear':
-        if (!confirm('确定清空全部玩家存档？等级、战功都会归零。建议先导出。')) break;
+        if (!confirm('确定清空全部观众存档？等级、战功都会归零。建议先导出。')) break;
         if (prompt('再确认一次：请输入「清空」两个字') !== '清空') break;
         this.save.clear(); this.note('存档已清空'); this.refreshPanel(); break;
       case 'rules': this.rulesForced = !this.rulesForced; break;
@@ -290,11 +292,11 @@ export class UI {
   // OBS「浏览器」源（内置 CEF）不支持下载和另存为，写出来是 0KB → 直接改成显示存档文本让主播复制
   async exportFile() {
     const json = this.save.exportJson();
-    const name = `星舰弹幕战存档-${new Date().toISOString().slice(0, 10)}.json`;
+    const name = `星舰远征存档-${new Date().toISOString().slice(0, 10)}.json`;
     if (window.obsstudio) { this.showSaveText('export', '检测到在 OBS 浏览器源里，没法直接保存文件。点「复制」，打开记事本粘贴，另存为 .json 文件：'); return; }
     if (window.showSaveFilePicker) {
       try {
-        const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: '星舰弹幕战存档', accept: { 'application/json': ['.json'] } }] });
+        const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: '星舰远征存档', accept: { 'application/json': ['.json'] } }] });
         const w = await h.createWritable(); await w.write(json); await w.close();
         const size = (await h.getFile()).size;   // 写完核对大小，0KB 就说明这个浏览器写不进去
         if (size < json.length / 4) throw new Error('写入的文件是空的');
@@ -338,7 +340,7 @@ export class UI {
       try { this.save.storage.setItem('starship-barrage-save-backup', backup); } catch { /* 忽略 */ }
       const n = this.save.importJson(text);
       document.getElementById('save-text-box').hidden = true;
-      this.note(`已导入${n}名玩家（原存档已自动备份一份）`);
+      this.note(`已导入${n}名观众（原存档已自动备份一份）`);
     } catch (e) { this.note('导入失败：' + e.message); }
     this.refreshPanel();
   }
@@ -349,7 +351,7 @@ export class UI {
       const backup = this.save.exportJson();
       try { this.save.storage.setItem('starship-barrage-save-backup', backup); } catch { /* 忽略 */ }
       const n = this.save.importJson(await file.text());
-      this.note(`已导入${n}名玩家（原存档已自动备份一份）`);
+      this.note(`已导入${n}名观众（原存档已自动备份一份）`);
     } catch (e) { this.note('导入失败：' + e.message); }
     document.getElementById('import-file').value = '';
     this.refreshPanel();
@@ -367,7 +369,7 @@ export class UI {
     const mb = si ? (si.bytes / 1024 / 1024).toFixed(2) : '?';
     const where = si?.kind === 'indexedDB' ? '本地数据库' : '浏览器 localStorage（容量约5MB）';
     const status = !si ? '' : si.error ? ` · ⚠ 写入失败：${si.error}` : si.savedAt ? ` · 上次保存 ${new Date(si.savedAt).toLocaleTimeString()}` : '';
-    document.getElementById('save-info').textContent = `存档玩家 ${n} 人 · 约 ${mb}MB · 存在${where}${status} · 累计 ${this.save.data.rounds} 局 · 本周从 ${this.save.data.week} 开始`;
+    document.getElementById('save-info').textContent = `存档观众 ${n} 人 · 约 ${mb}MB · 存在${where}${status} · 累计 ${this.save.data.rounds} 局 · 本周从 ${this.save.data.week} 开始`;
   }
 
   // 每帧调用：开局页与结算页
@@ -388,7 +390,7 @@ export class UI {
           ? `<div class="join"><span class="pve">${emblemSvg('blue', 30)}讨伐 ${stageLabel(stage)} ${KIND_NAMES[stageKind(stage)]}关 · ${bossTitle(stage)} 血量 ${stageKind(stage) === 'wave' ? leaderMax(stage) : bossMax(stage)} · 已集结 ${counts.blue}人${g.reserve?.size ? ` · 后援${g.reserve.size}人` : ''}</span></div>`
           : `<div class="join"><span class="red">${emblemSvg('red', 30)}发「红」加入赤焰舰队 · ${counts.red}人</span><span class="blue">${emblemSvg('blue', 30)}发「蓝」加入苍穹舰队 · ${counts.blue}人</span></div>`;
         this.lobby.innerHTML = `
-          <div class="title">${logoSvg(150)}<span>星舰弹幕战</span><small>${pve ? '讨伐模式 · 全员一支舰队，对抗异形BOSS' : '对战模式 · 红蓝舰队对攻'} · 观众自己当飞行员</small></div>
+          <div class="title">${logoSvg(150)}<span>星舰远征</span><small>${pve ? '讨伐模式 · 全员一支舰队，对抗异形BOSS' : '对战模式 · 红蓝舰队对攻'} · 观众自己当飞行员</small></div>
           ${g.phase === 'lobby' ? `<div class="count">${Math.ceil(g.phaseT)}<small>${pve ? '秒后出击' : '秒后开战'}</small></div>` : ''}
           ${join}
           ${pve ? '<div class="pvehint">玩法、战舰、装备、礼物效果都在右下角轮播 · 左下角是战力榜</div>' : rulesHtml(this.settings, g.mode)}

@@ -7,6 +7,9 @@ import { UI, loadSettings, storeSettings } from './ui.js';
 import { openStore } from './idb-store.js';
 
 const settings = loadSettings();
+// 网址加 ?gifts=play：临时用直播玩法礼物名显示（不改保存的设置）
+const giftSetOverride = new URLSearchParams(location.search).get('gifts');
+const giftSetNow = () => (giftSetOverride === 'play' || giftSetOverride === 'douyin' ? giftSetOverride : settings.giftSet);
 // 存档：本地数据库（IndexedDB），启动时先读进来；写入失败会在画面上提示
 let saveErrAt = 0;
 const store = await openStore({
@@ -17,7 +20,7 @@ save.store = store;
 save.hotSource = () => [...game.fighters.keys(), ...game.reserve.keys()];   // 在场和后援的玩家每次保存都写
 save.onError = e => { if (Date.now() - saveErrAt > 30000) { saveErrAt = Date.now(); game?.emit('toast', { text: `存档写入失败（空间可能满了）：${e?.message || e}，请在设置里导出存档留底` }); } };
 var game = new Game({ save, settings: {
-  battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName,
+  battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName, giftSet: giftSetNow(),
 } });
 const audio = new Audio();
 audio.tts = settings.tts; audio.sfx = settings.sfx; audio.setBgm(settings.bgm, settings.bgmVol / 100);
@@ -27,14 +30,14 @@ const relay = new Relay({
   chat: (user, text) => game.chat(user, text),
   like: (user, n) => game.like(user, n),
   gift: (user, gift) => game.gift(user, gift),
-  unknownGift: (name, gift) => game.emit('toast', { text: `${name} 的${gift}没带用户ID，无法识别阵营；请先发弹幕加入` }),
+  unknownGift: (name, gift) => game.emit('toast', { text: `${name} 的${gift}没带用户ID，无法识别阵营；请先发一条评论加入` }),
   status: () => ui?.refreshPanel(),
   room: () => ui?.refreshPanel(),
   liveEnd: () => game.emit('toast', { text: '直播已结束' }),
 });
 
 function applySettings() {
-  Object.assign(game.settings, { battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName });
+  Object.assign(game.settings, { battleMinutes: settings.battleMinutes, npcMinPerTeam: settings.npcMinPerTeam, tiers: settings.tiers, giftTierByName: settings.giftTierByName, pveGiftByName: settings.pveGiftByName, giftSet: giftSetNow() });
   audio.tts = settings.tts; audio.sfx = settings.sfx; audio.setBgm(settings.bgm, settings.bgmVol / 100);
   if (!settings.tts && 'speechSynthesis' in window) window.speechSynthesis.cancel();
   game.syncNpcs();
@@ -87,7 +90,7 @@ function frame(now) {
     renderer.draw(dt);
     ui.update(renderer);
   } catch (err) {
-    if (errCount++ < 20) console.error('画面这一帧出错（已跳过，游戏继续）', err);
+    if (errCount++ < 20) console.error('画面这一帧出错（已跳过，继续运行）', err);
     try { const c = renderer.ctx; for (let i = 0; i < 16; i++) c.restore(); c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; } catch { /* 忽略 */ }
   }
 }

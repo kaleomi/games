@@ -1,12 +1,13 @@
-// 星舰弹幕战 · 画面
+// 星舰远征 · 画面
 import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
 import { bossTimeText, rayHits, stageKind, chapterOf, stepOf, KIND_NAMES, leaderMax } from './pve.js';
 import { queenSvg, colossusSvg, eyeSvg, thunderSvg, magmaSvg, voidSvg, bossPodSvg, chestSvg } from './art.js';
 import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
-import { PVE, CLASSES, GEAR, PVP_ENABLED } from './config.js';
+import { PVE, CLASSES, GEAR, PVP_ENABLED, giftName, giftPrice } from './config.js';
 import { forgeTier } from './fleet.js';
+import { GIFT_KINDS } from './gifts-pve.js';
 import { laneCenter, hasAutoDodge, fmtDuration, itemStats, statText, shipStats, combatPower, itemName, shardsOf, growthE, pityOf, lootFloorOf, POD, barrelOffsets, nearestEnemy } from './fleet.js';
 import { MODE_NAMES } from './config.js';
 
@@ -228,7 +229,7 @@ export class Renderer {
         case 'hitfx': { const c = hexRgb(GEAR.tiers[e.wt].color); this.ripples.push({ x: e.x, y: e.y, t: 0, dur: 0.28, r0: 3, r1: 12 + e.wt * 3, color: c, w: 2 + e.wt * 0.4 }); if (e.wt >= 4) this.burst(e.x, e.y, 0.35, null); break; }
         case 'crit': if (this.floaters.filter(q => q.crit).length < 14) this.floaters.push({ x: e.x + (Math.random() - 0.5) * 16, y: e.y - 14, text: `暴击 ${e.dmg}`, color: '#ffd23a', t: 0, nop: true, crit: true }); break;
         case 'impact': this.shocks.push({ uid: e.uid, x: e.x, y: e.y, reach: e.reach, t: 0, angle: e.angle || 0 }); this.shake = Math.max(this.shake, 6); this.burst(e.x, e.y - 30, 1.2, 'blue'); break;
-        case 'cd': { const f = g.fighters.get(e.uid); if (f) this.floaters.push({ x: f.x, y: f.y - 30, text: e.kind === 'auto' ? `小技能自动放 · ${e.left}s` : `大招冷却${e.left}s`, color: '#aab4cc', t: 0, nop: true }); break; }
+        case 'cd': { const f = g.fighters.get(e.uid); if (f) this.floaters.push({ x: f.x, y: f.y - 30, text: e.kind === 'auto' ? `小技能自动放 · ${e.left}s` : `大招还要${e.left}s`, color: '#aab4cc', t: 0, nop: true }); break; }
         case 'slash': this.slashes.push({ uid: e.uid, x: e.x, y: e.y, ang: e.ang, wt: e.wt, t: 0, flip: (this.slashFlip = !this.slashFlip) }); this.shake = Math.max(this.shake, 2.5); break;
         case 'strike': this.shake = Math.max(this.shake, e.kind === 'cannon' ? 20 : 10); for (const l of e.lanes) this.laneFlashes.push({ lane: l, t: 0.6, kind: e.kind }); break;
         case 'loot': {
@@ -245,7 +246,7 @@ export class Renderer {
         case 'forge': if (this.forges.length < 12) this.forges.push({ ...e, t: 0 }); break;
         case 'catchup': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: `欢迎回来！成长汇总：错过${e.stages}关，补发经验${e.xp}${e.levels ? `（升${e.levels}级）` : ''}、装备${e.items}件`, tier: 3 }); break;
         case 'reserve': break;
-        case 'pity': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: e.gift ? `跑车保底！获得至尊红装「${e.item.name}」` : `触发保底！必出${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: 5, gear: e.item }); break;
+        case 'pity': this.pushBanner({ team: 'blue', uid: e.uid, name: e.name, text: e.gift ? `${giftName('treasure', g.settings.giftSet)}保底！获得至尊红装「${e.item.name}」` : `触发保底！必出${GEAR.tiers[e.item.tier].name}装备「${e.item.name}」`, tier: 5, gear: e.item }); break;
         default: break;
       }
     }
@@ -271,8 +272,9 @@ export class Renderer {
   giftToast(e) {
     const key = e.uid + '|' + e.gift;
     const old = this.toasts.find(t => t.key === key && t.t < 3);
-    if (old) { old.count += e.count; old.t = 0; old.text = `${e.name} 送出 ${e.gift}×${old.count} · 火力强化`; return; }
-    this.toast(`${e.name} 送出 ${e.gift}×${e.count} · 火力强化`, e.team);
+    const what = e.kind ? (GIFT_KINDS[e.kind]?.title || '') : '火力强化';   // 讨伐：写礼物效果名；对战：火力强化
+    if (old) { old.count += e.count; old.t = 0; old.text = `${e.name} 送出 ${e.gift}×${old.count} · ${what}`; return; }
+    this.toast(`${e.name} 送出 ${e.gift}×${e.count} · ${what}`, e.team);
     const t = this.toasts[this.toasts.length - 1]; t.key = key; t.count = e.count;
   }
 
@@ -1398,7 +1400,7 @@ export class Renderer {
   infoPanel(x) {
     const g = this.game;
     const L = 364, T = BOTTOM_Y, Wd = 348, Hh = H - 8 - T;
-    const pages = ['怎么玩', '弹幕指令', '礼物效果①', '礼物效果②', '礼物效果③', '敌人图鉴', '四种战舰', '装备', '榜单与成长'];   // 左侧礼物框是简表，这里轮播详细效果
+    const pages = ['怎么玩', '评论指令', '礼物效果①', '礼物效果②', '礼物效果③', '敌人图鉴', '四种战舰', '装备', '榜单与成长'];   // 左侧礼物框是简表，这里轮播详细效果
     const DUR = 7, page = Math.floor(g.clock / DUR) % pages.length, ph = g.clock % DUR;
     this.panelBox(x, L, T, Wd, Hh);
     // 翻页：新页面从右边滑进来
@@ -1422,13 +1424,13 @@ export class Renderer {
     const name = pages[page];
     if (name === '怎么玩') bullets([
       '发「输出」「机甲」「医疗」「航母」选战舰，自动索敌开火',
-      '小技能每10秒自动放；发「大招」放大招（冷却45秒）',
+      '小技能每10秒自动放；发「大招」放大招（每45秒一次）',
       '红色区域10秒后命中，发「左」「中」「右」或「1」「2」「3」躲开',
       '每章5关：1–3关打精英头目，4精英，5首领；失败退回上一章',
-      '湮灭炮锁定时全员发「拦截」· 点赞充能打超载炮',
+      '湮灭炮锁定时全员发「拦截」· 点赞满500全队伤害+10%',
     ], 14, 4);
-    else if (name === '弹幕指令') {
-      const cmds = [['输出 / 机甲 / 医疗 / 航母', '选战舰、换战舰'], ['大招', '放大招（冷却45秒）'], ['签到', '每天领一次每日战利品'], ['左中右 / 1 2 3', '换航道躲红区'], ['拦截', '削弱母舰湮灭炮'], ['装备', '看自己的装备'], ['我的', '看等级、贡献、属性']].concat(PVP_ENABLED ? [['换对战', '投票切到红蓝对战']] : []);
+    else if (name === '评论指令') {
+      const cmds = [['输出 / 机甲 / 医疗 / 航母', '选战舰、换战舰'], ['大招', '放大招（每45秒一次）'], ['签到', '每天领一次每日战利品'], ['左中右 / 1 2 3', '换航道躲红区'], ['拦截', '削弱母舰湮灭炮'], ['装备', '看自己的装备'], ['我的', '看等级、贡献、属性']].concat(PVP_ENABLED ? [['换对战', '投票切到红蓝对战']] : []);
       cmds.forEach(([a, b], i) => {
         const y = y0 + i * 25;
         if (i % 2) { x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(L + 6, y - 12, Wd - 12, 24); }
@@ -1467,15 +1469,15 @@ export class Renderer {
       '第9章 噬星者：日蚀剩4秒挪到隔壁航道，要再躲一次',
     ], 13, 3);
     } else if (name.startsWith('礼物效果')) {
-      const G = PVE.gifts;
+      const G = PVE.gifts, gs = g.settings.giftSet, N = k => giftName(k, gs), $ = k => `${giftPrice(k, gs)}抖币`;
       const all = [
-        ['加油鸭', '15抖币', '#ffd23a', `战舰锻造1次（送几个锻几次取最好）：普通/精良/史诗/传说/神话/至尊，全属性×1~3，每种战舰各自品质；${PVE.forge.pity}次必出至尊`],
-        ['小心心', '1抖币', '#ff9ec4', `自己经验+${G.heart.xp * 100}%，每个${G.heart.sec}秒、时间叠加不设上限；立即放一次小技能`],
-        ['鲜花', '10抖币', '#ffb3c8', `召唤佣兵机甲${G.flower.sec}秒（一次最多${G.flower.maxPerGift}台），立即放大招；跨关保留`],
-        ['爱你哟·战鼓', '52抖币', '#ff8a2a', `全队攻击+${G.drum.atk * 100}% ${G.drum.sec}秒；全屏弹幕雨${G.drum.rainSec}秒/个（每发=自己攻击×${G.drum.rainAtk}）；自己掉落保底传说装${G.drum.floorSec}秒`],
-        ['墨镜·英雄战机', '99抖币', '#7fe3ff', `自己普攻+${G.hero.atk * 100}%、英雄战机跟随${G.hero.sec / 60}分钟（跨关保留）；自己掉落保底史诗装`],
-        ['礼花筒·双倍掉落', '199抖币', '#ffd23a', `自己装备掉落×2 ${G.double.sec / 60}分钟；保底神话装${G.double.floorSec / 60}分钟（可叠加）`],
-        ['跑车·宝箱魔王', '1200抖币', '#ff6b7a', `召唤宝箱魔王（当前BOSS血量的${G.treasure.hpFrac * 100}%），打死后在场全员开箱，打过它的人拿${G.treasure.xpMul}倍BOSS经验；送礼人保底1件红装`],
+        [N('forge'), $('forge'), '#ffd23a', `战舰锻造1次（送几个锻几次取最好）：普通/精良/史诗/传说/神话/至尊，全属性×1~3，每种战舰各自品质；${PVE.forge.pity}次必出至尊`],
+        [N('heart'), $('heart'), '#ff9ec4', `自己经验+${G.heart.xp * 100}%，每个${G.heart.sec}秒、时间叠加不设上限；立即放一次小技能`],
+        [N('flower'), $('flower'), '#ffb3c8', `召唤佣兵机甲${G.flower.sec}秒（一次最多${G.flower.maxPerGift}台），立即放大招；跨关保留`],
+        [`${N('drum')}·战鼓`, $('drum'), '#ff8a2a', `全队攻击+${G.drum.atk * 100}% ${G.drum.sec}秒；全屏流星雨${G.drum.rainSec}秒/个（每发=自己攻击×${G.drum.rainAtk}）；自己掉落保底传说装${G.drum.floorSec}秒`],
+        [`${N('hero')}·英雄战机`, $('hero'), '#7fe3ff', `自己普攻+${G.hero.atk * 100}%、英雄战机跟随${G.hero.sec / 60}分钟（跨关保留）；自己掉落保底史诗装`],
+        [`${N('double')}·双倍掉落`, $('double'), '#ffd23a', `自己装备掉落×2 ${G.double.sec / 60}分钟；保底神话装${G.double.floorSec / 60}分钟（可叠加）`],
+        [`${N('treasure')}·宝箱魔王`, $('treasure'), '#ff6b7a', `召唤宝箱魔王（当前BOSS血量的${G.treasure.hpFrac * 100}%），打死后在场全员开箱，打过它的人拿${G.treasure.xpMul}倍BOSS经验；送礼人保底1件红装`],
         ['任意礼物·机神附体', '每1抖币12秒', '#c58bff', '自动躲子弹、自动躲红区技能、自动放技能和大招；可累积，跟账号保存'],
         ['点赞·士气', '免费', '#ff9ec4', `全场点赞满${PVE.morale.need}，全队伤害+${PVE.morale.dmg * 100}% ${PVE.morale.sec}秒`],
       ];
@@ -1567,7 +1569,7 @@ export class Renderer {
     const c = t.cannon;
     x.font = `12px ${FONT}`; x.fillStyle = c.state === 'idle' ? '#7f8aa6' : '#ffe28a';
     const gun = t.boss ? '湮灭炮' : '主炮';
-    x.fillText(c.state === 'cool' ? `${gun}冷却${Math.ceil(c.t)}s` : c.state === 'charging' ? `${gun}蓄力` : c.state === 'firing' ? `${gun}发射` : `${gun}待命`, W - 14, y + 39);
+    x.fillText(c.state === 'cool' ? `${gun}充能${Math.ceil(c.t)}s` : c.state === 'charging' ? `${gun}蓄力` : c.state === 'firing' ? `${gun}发射` : `${gun}待命`, W - 14, y + 39);
   }
 
   fleetBar(x, y) {
@@ -1588,7 +1590,7 @@ export class Renderer {
     x.textAlign = 'right'; x.font = `700 20px ${NUM}`; x.fillStyle = '#ffffff'; x.fillText(`${Math.round(pct * 100)}%`, W - 14, y + 22);
     const c = g.teams.blue.cannon;
     x.font = `12px ${FONT}`; x.fillStyle = c.state === 'idle' ? '#7f8aa6' : '#ffe28a';
-    x.fillText(c.state === 'cool' ? `主炮冷却${Math.ceil(c.t)}s` : c.state === 'charging' ? '主炮蓄力' : c.state === 'firing' ? '主炮发射' : '主炮待命', W - 14, y + 39);
+    x.fillText(c.state === 'cool' ? `主炮充能${Math.ceil(c.t)}s` : c.state === 'charging' ? '主炮蓄力' : c.state === 'firing' ? '主炮发射' : '主炮待命', W - 14, y + 39);
   }
 
   personalBuffs(g, f) {
@@ -1608,14 +1610,15 @@ export class Renderer {
 
   // 讨伐：礼物效果框，一直显示在左边（和右边贡献榜对称）
   giftBox(x, px, py) {
+    const N = k => giftName(k, this.game.settings.giftSet);
     const rows = [
-      ['加油鸭', '战舰锻造一次（品质）', '#ffd23a'],
-      ['小心心', '经验+50% 30秒/个 可叠', '#ff9ec4'],
-      ['鲜花', '佣兵机甲 · 放大招', '#ffb3c8'],
-      ['爱你哟', '战鼓 全队攻击+30%', '#ff8a2a'],
-      ['墨镜', '英雄战机 普攻+30%', '#7fe3ff'],
-      ['礼花筒', '自己双倍掉落10分', '#ffd23a'],
-      ['跑车', '宝箱魔王 · 保底红装', '#ff6b7a'],
+      [N('forge'), '战舰锻造一次（品质）', '#ffd23a'],
+      [N('heart'), '经验+50% 30秒/个 可叠', '#ff9ec4'],
+      [N('flower'), '佣兵机甲 · 放大招', '#ffb3c8'],
+      [N('drum'), '战鼓 全队攻击+30%', '#ff8a2a'],
+      [N('hero'), '英雄战机 普攻+30%', '#7fe3ff'],
+      [N('double'), '自己双倍掉落10分', '#ffd23a'],
+      [N('treasure'), '宝箱魔王 · 保底红装', '#ff6b7a'],
       ['任意礼物', '机神附体 1币12秒', '#c58bff'],
       ['点赞', '满500 全队伤害+10%', '#ff9ec4'],
     ];
@@ -1716,7 +1719,7 @@ export class Renderer {
       x.fillStyle = '#c8d2ee'; x.font = `14px ${FONT}`;
       const dodge = hasAutoDodge(this.game, f) ? `机神附体 ${fmtDuration(f.dodgeLeft)}` : '手动躲弹';
       x.fillText(`Lv.${lv}  ${c.name}  ${dodge}`, 180, 758);
-      x.fillText(`本局贡献 ${Math.floor(f.merit)}  技能${f.skillCd > 0 ? `冷却${Math.ceil(f.skillCd)}s` : '就绪'}  大招${f.ultCd > 0 ? `冷却${Math.ceil(f.ultCd)}s` : '就绪'}`, 180, 784);
+      x.fillText(`本局贡献 ${Math.floor(f.merit)}  技能${f.skillCd > 0 ? `还要${Math.ceil(f.skillCd)}s` : '就绪'}  大招${f.ultCd > 0 ? `还要${Math.ceil(f.ultCd)}s` : '就绪'}`, 180, 784);
       x.font = `13px ${FONT}`; x.fillStyle = '#ffe28a';
       x.fillText(`生命${Math.round(f.maxHp)}  攻击${(st.atk || 0).toFixed(1)}  防御${P(st.armor)}  攻速+${P(st.aspd)}  暴击${P(st.crit)}  爆伤${P(st.critDmg)}`, 146, 846);
       Object.keys(GEAR.slots).forEach((sl, i) => {

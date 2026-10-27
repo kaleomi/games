@@ -1,18 +1,20 @@
-// 星舰弹幕战 · 讨伐模式礼物、点赞士气、签到
-// 礼物不直接给随机装备：只加 BUFF、召唤帮手，或者给「正常玩法掉落」加保底品质 / 翻倍。
-import { PVE, GEAR, CLASSES } from './config.js';
+// 星舰远征 · 讨伐模式礼物、点赞士气、签到
+// 礼物不直接给随机装备：只加增益、召唤帮手，或者给「正常玩法掉落」加保底品质 / 翻倍。
+import { PVE, GEAR, CLASSES, giftName } from './config.js';
 import { castUlt, rollItem, giveItem, makeItem, refreshStats, laneCenter, LANES, forgeTier, rollForge } from './fleet.js';
 import { bossMax, spawnAlien, chapterOf } from './pve.js';
 
+// 礼物名跟着设置里的「礼物名称」走（抖音礼物 / 直播玩法礼物），见 config.js 的 GIFT_SETS
 export const GIFT_KINDS = {
-  forge:    { name: '加油鸭',   title: '战舰锻造' },
-  heart:    { name: '小心心',   title: '经验加速' },
-  flower:   { name: '鲜花',     title: '佣兵机甲' },
-  drum:     { name: '爱你哟',   title: '战鼓' },
-  hero:     { name: '墨镜',     title: '英雄战机' },
-  double:   { name: '礼花筒',   title: '双倍掉落' },
-  treasure: { name: '跑车',     title: '宝藏魔王' },
+  forge:    { title: '战舰锻造' },
+  heart:    { title: '经验加速' },
+  flower:   { title: '佣兵机甲' },
+  drum:     { title: '战鼓' },
+  hero:     { title: '英雄战机' },
+  double:   { title: '双倍掉落' },
+  treasure: { title: '宝藏魔王' },
 };
+export const giftLabel = (game, kind) => giftName(kind, game?.settings?.giftSet);
 
 // 先按礼物名认，认不出就按单个礼物价值
 export function pveGiftKind(gift, custom = null) {

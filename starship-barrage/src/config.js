@@ -1,4 +1,4 @@
-// 星舰弹幕战 · 全部可调数值集中在这里
+// 星舰远征（原名星舰弹幕战）· 全部可调数值集中在这里
 export const W = 720, H = 1280;
 
 export const TEAMS = {
@@ -46,7 +46,7 @@ export const WEAPONS = {
 // 礼物分档：按单个礼物价值（抖币）划分；数值可在设置面板改
 export const GIFT_TIERS = [
   { tier: 1, min: 1,    name: '火力强化' },
-  { tier: 2, min: 10,   name: '弹幕阵型' },
+  { tier: 2, min: 10,   name: '光弹阵型' },
   { tier: 3, min: 50,   name: '激光网格/分裂弹 + 护卫僚机' },
   { tier: 4, min: 200,  name: '召唤战舰' },
   { tier: 5, min: 1000, name: '旗舰主炮' },
@@ -101,6 +101,16 @@ export const NPC = { minPerTeam: 4 };
 export const LIMITS = { bullets: 3200, particles: 1600, fighters: 400 };
 
 // 讨伐模式（PvE）：全员一支舰队（没有要塞），先清虫群，再打异形母舰；打爆进下一关，全队阵亡或超时退回一关
+// 讨伐礼物名称两套，效果一样、价格档对齐：
+//   douyin＝抖音普通礼物（现在用熙梦接入时）；play＝抖音开放平台「直播玩法」专用礼物（上架开放平台后用）
+//   设置面板「礼物名称」切换；网址加 ?gifts=play 也能临时切
+export const GIFT_SETS = {
+  douyin: { heart: ['小心心', 1], flower: ['鲜花', 10], forge: ['加油鸭', 15], drum: ['爱你哟', 52], hero: ['墨镜', 99], double: ['礼花筒', 199], treasure: ['跑车', 1200] },
+  play:   { heart: ['仙女棒', 1], flower: ['能力药丸', 10], forge: ['魔法镜', 19], drum: ['甜甜圈', 52], hero: ['能量电池', 99], double: ['爱的爆炸', 199], treasure: ['超能喷射', 1200] },
+};
+export const giftName = (kind, set) => (GIFT_SETS[set] || GIFT_SETS.douyin)[kind][0];
+export const giftPrice = (kind, set) => (GIFT_SETS[set] || GIFT_SETS.douyin)[kind][1];
+
 export const PVE = {
   zone: [600, 975],           // 我方战机活动区（下方留给战力榜和玩法面板）
   rows: { tank: 618, dps: 745, carrier: 845, healer: 935 },   // 机甲在前排，输出居中，航母和医疗在后排
@@ -182,11 +192,11 @@ export const PVE = {
   ],
   // 讨伐礼物：先按礼物名认，认不出按单个礼物价值（抖币）
   gifts: {
-    byName: { '加油鸭': 'forge', '小心心': 'heart', '鲜花': 'flower', '爱你哟': 'drum', '墨镜': 'hero', '礼花筒': 'double', '爱的爆炸': 'double', '跑车': 'treasure' },
+    byName: Object.fromEntries(Object.values(GIFT_SETS).flatMap(set => Object.entries(set).map(([kind, [name]]) => [name, kind]))),   // 两套礼物名都认（仙女棒的各色款也算）
     byValue: [[1200, 'treasure'], [199, 'double'], [99, 'hero'], [52, 'drum'], [15, 'forge'], [10, 'flower'], [1, 'heart']],
     heart: { xp: 0.5, sec: 30 },                                     // 每个小心心：自己经验+50% 30秒（叠加时间，不设上限），立即放小技能
     flower: { sec: 120, maxPerGift: 3 },                             // 佣兵机甲120秒，立即放大招
-    drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 5, rainPerSec: 70, rainAtk: 2 },   // 弹幕雨：每个战鼓5秒（叠加），每发=送礼人攻击×2，打BOSS不打折   // 全队攻击+30%；自己掉落保底橙装；全屏弹幕雨
+    drum: { atk: 0.3, sec: 60, floor: 3, floorSec: 60, rainSec: 5, rainPerSec: 70, rainAtk: 2 },   // 流星雨：每个战鼓5秒（叠加），每发=送礼人攻击×2，打BOSS不打折；全队攻击+30%；自己掉落保底橙装
     hero: { atk: 0.3, sec: 300, floor: 2, floorSec: 300, superSec: 300 },            // 自己普攻+30%、超级战机5分钟；保底紫装5分钟
     double: { sec: 600, floor: 4, floorSec: 600 },                   // 只有自己掉落×2 10分钟；自己保底金装10分钟
     treasure: { hpFrac: 0.4, xpMul: 10, maxAlive: 2 },              // 宝箱魔王血量=当前关BOSS×40%；参与者10倍BOSS经验；送礼人每个跑车保底1件红装

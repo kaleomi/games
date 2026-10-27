@@ -1081,3 +1081,15 @@ test('画面和界面模块能正常加载（防止语法错误把页面整个�
   await import('../src/art.js');
   await import('../src/idb-store.js');
 });
+
+test('讨伐礼物：抖音礼物和直播玩法礼物两套名字都认，价格档对齐', async () => {
+  const { pveGiftKind } = await import('../src/gifts-pve.js');
+  const { GIFT_SETS, giftName } = await import('../src/config.js');
+  const want = { '小心心': 'heart', '鲜花': 'flower', '加油鸭': 'forge', '爱你哟': 'drum', '墨镜': 'hero', '礼花筒': 'double', '跑车': 'treasure',
+    '仙女棒': 'heart', '黄色仙女棒': 'heart', '能力药丸': 'flower', '魔法镜': 'forge', '甜甜圈': 'drum', '能量电池': 'hero', '爱的爆炸': 'double', '超能喷射': 'treasure' };
+  for (const [name, kind] of Object.entries(want)) assert.equal(pveGiftKind({ name, price: 1 }), kind, name);
+  // 两套同一效果的价格按单价兜底也落在同一档
+  for (const set of Object.values(GIFT_SETS)) for (const [kind, [, price]] of Object.entries(set)) assert.equal(pveGiftKind({ name: '没见过的礼物', price }), kind, `${kind} ${price}`);
+  assert.equal(giftName('forge', 'play'), '魔法镜');
+  assert.equal(giftName('forge'), '加油鸭');
+});

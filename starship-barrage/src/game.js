@@ -1,4 +1,4 @@
-// 星舰弹幕战 · 战斗模拟（不依赖页面，可在 Node 里测试）
+// 星舰远征 · 战斗模拟（不依赖页面，可在 Node 里测试）
 import {
   W, H, TEAMS, ROUND, FLAGSHIP, FIGHTER, WEAPONS, GIFT_TIERS, GIFT, MERIT, LEVEL, NPC, LIMITS, PVE, MODE_NAMES, PVP_ENABLED,
 } from './config.js';
@@ -508,7 +508,7 @@ export class Game {
       syncDodge(this, f);
       this.emit('toast', { uid: f.uid, text: `${f.name} ${had ? '机神附体延长到' : '机神附体！'} ${fmtDuration(f.dodgeLeft)}（自动躲弹躲技能、自动放技能和大招）` });
     }
-    this.emit('gift', { uid: f.uid, name: f.name, team: f.team, gift: gift.name || '礼物', count: amount, tier });
+    this.emit('gift', { uid: f.uid, name: f.name, team: f.team, gift: gift.name || '礼物', count: amount, tier, kind: this.mode === 'pve' ? pveGiftKind(gift, this.settings.pveGiftByName) : null });
     if (this.phase !== 'battle') {
       this.pendingGifts.push({ user: { id: f.uid, name: f.name }, gift, amount, tier });
       if (this.mode === 'pve') { this.emit('toast', { uid: f.uid, text: `${f.name} 的${gift.name || '礼物'}已记下，开战后生效` }); return tier; }
@@ -545,7 +545,7 @@ export class Game {
     this.boost(f, 1);
     if (tier === 2) {
       for (let i = 0; i < amount; i++) this.queuePattern(team, { kind: i % 2 ? 'fan' : 'spiral', owner: f.uid });
-      if (amount >= 1) this.emit('banner', { team: f.team, uid: f.uid, name: f.name, text: `释放弹幕阵型${amount > 1 ? '×' + amount : ''}`, tier });
+      if (amount >= 1) this.emit('banner', { team: f.team, uid: f.uid, name: f.name, text: `释放光弹阵型${amount > 1 ? '×' + amount : ''}`, tier });
     } else if (tier === 3) {
       for (let i = 0; i < amount; i++) this.queuePattern(team, { kind: i % 2 ? 'split' : 'grid', owner: f.uid });
       f.drones = 2; f.dronesUntil = this.clock + GIFT.droneSeconds;

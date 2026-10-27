@@ -1,4 +1,4 @@
-// 星舰弹幕战 · 矢量美术（SVG 绘制，加载后栅格化缓存到离屏画布）
+// 星舰远征 · 矢量美术（SVG 绘制，加载后栅格化缓存到离屏画布）
 // 舰船（战机、讨伐三职业、召唤战舰）在 ships.js
 export { fighterSvg, dpsSvg, mechSvg, healerSvg, battleshipSvg, carrierSvg, droneShipSvg } from './ships.js';
 export { gearIconSvg, gunPodSvg, boltSvg } from './gear-art.js';
