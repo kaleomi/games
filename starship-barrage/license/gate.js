@@ -106,6 +106,8 @@ button{width:100%;height:50px;margin-top:14px;border:0;border-radius:10px;backgr
 button[disabled]{opacity:.55;cursor:wait}
 .msg{min-height:24px;margin-top:12px;font-size:15px;line-height:1.5}
 .msg.bad{color:#b42323}.msg.good{color:#0d7a5c}
+.terms{margin:2px 0 0;font-size:13px;line-height:1.6;color:var(--muted)}
+.terms a{color:var(--ink-2)}
 .machine{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
 .machine b{display:block;margin:4px 0 2px;font:700 19px/1.3 "Bahnschrift","DIN Alternate",Consolas,monospace;letter-spacing:.06em;color:var(--ink);user-select:all}
 .foot{margin-top:16px;font-size:14px;color:var(--muted);line-height:1.7}
@@ -115,7 +117,7 @@ button[disabled]{opacity:.55;cursor:wait}
 <body class="checking"><main><div class="card">
 <h1>${esc(gameName)}</h1>
 <p class="sub" id="sub">正在确认这台电脑的卡密…</p>
-<form id="f" autocomplete="off"><label for="code">卡密</label><input id="code" placeholder="例如 LX30-XXXX-XXXX-XXXX" spellcheck="false" autofocus><button id="go" type="submit">激活并进入</button><div class="msg" id="msg" role="status"></div></form>
+<form id="f" autocomplete="off"><label for="code">卡密</label><input id="code" placeholder="例如 LX30-XXXX-XXXX-XXXX" spellcheck="false" autofocus><button id="go" type="submit">激活并进入</button><div class="msg" id="msg" role="status"></div><p class="terms">激活即表示同意<a href="${esc(api)}/terms.html" target="_blank" rel="noopener">使用条款</a>：卡密仅授权本人在一台电脑上使用，禁止复制、转售游戏文件，违规停用且不退款。</p></form>
 <div class="machine">这台电脑的机器码<b id="dev"></b>一张卡密只能绑定一台电脑的一个浏览器。换电脑、换浏览器或清理了浏览器数据，请把卡密和新的机器码发给客服换绑。</div>
 </div>
 <p class="foot" id="foot">购买卡密、查询到期时间：<a href="${esc(api)}" target="_blank" rel="noopener">${esc(api.replace(/^https?:\/\//, ''))}</a><span id="contact"></span></p>

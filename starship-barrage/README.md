@@ -246,13 +246,25 @@
 
 ## 部署（Cloudflare Pages）
 
-纯静态，不用构建：Pages 项目连接 `kaleomi/games`，**根目录填 `starship-barrage`**，构建命令留空，输出目录 `/`。
+Pages 项目连接 `kaleomi/games`，**根目录填 `starship-barrage`**，构建命令留空，**输出目录填 `dist`**。
+
+`dist/` 是压缩后的网页版成品（游戏脚本打包成一个 `app.js`，样式和卡密续签脚本也压缩过），已经提交在仓库里，部署时不用构建。
+`functions/`（卡密门禁）仍在 `starship-barrage/` 下，Pages 会自动带上。
+
+改了 `src/`、`index.html`、`style.css`、`license-keeper.js` 之后要重新生成 `dist/` 再提交：
+
+```
+npm i                 # 第一次：装 esbuild
+npm run build         # 生成 dist/
+```
+
+忘了重新生成的话 `npm test` 会报「dist/ 与源码一致」失败。
 
 ## 开发
 
 ```
-node --test tests/*.test.js     # 28项逻辑测试（指令、分档、连击计数、去重、主炮拦截、存档、模式投票、讨伐职业/手动技能与冷却/红区/屏障/掉落/限时/过关/退关、整局模拟）
-python3 -m http.server 8811     # 本地预览 http://127.0.0.1:8811
+npm test                        # 28项逻辑测试（指令、分档、连击计数、去重、主炮拦截、存档、模式投票、讨伐职业/手动技能与冷却/红区/屏障/掉落/限时/过关/退关、整局模拟）
+python3 -m http.server 8811     # 本地预览源码版 http://127.0.0.1:8811（不经过卡密门禁；预览成品用 dist/ 目录）
 ```
 
 | 文件 | 内容 |
