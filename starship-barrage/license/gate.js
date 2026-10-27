@@ -4,7 +4,9 @@
 const LICENSE_API = 'https://game-live.xialuoxi.com';
 const PUBLIC_KEY = { kty: 'EC', crv: 'P-256', x: 'bRTX8g-lbO9wEI8ba7RdsmdUec4OGqE2biLuEiNYp8I', y: '-FQFZJXuLro-tQj-rZElL4v-_AIndkexhtcSetVpEiQ' };
 export const GRACE_MS = 3 * 3600000;    // 卡密到期后本场还能用 3 小时
-export const FRESH_MS = 36 * 3600000;   // 许可签发 36 小时内有效：页面开着会自动续签；停用、换绑最晚这么久后生效
+export const FRESH_MS = 36 * 3600000;   // 许可签发 36 小时内有效：页面开着会自动续签。打开网页时会另外问授权站，停用、换绑、到期立刻生效
+export const LIVE_MS = 20 * 60000;       // 页面每 15 分钟续签一次：最后一次续签离到期不到 20 分钟，说明到期时游戏正开着
+export const CHECK_TIMEOUT_MS = 3000;   // 打开网页时问授权站，最多等 3 秒
 const COOKIE = 'gl_lic';
 
 function b64urlBytes(text) {
@@ -44,7 +46,46 @@ export function tokenUsable(payload, game, t) {
 
 const noStore = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
 
-// options: { game, gameName, next: () => Promise<Response>, api?, publicKey?, now? }
+// 浏览器打开 / 刷新网页（不是脚本、图片等子请求）
+function isNavigation(request, url) {
+  if (request.method !== 'GET') return false;
+  const mode = request.headers.get('Sec-Fetch-Mode');
+  if (mode) return mode === 'navigate';
+  return url.pathname === '/' || url.pathname.endsWith('/') || url.pathname.endsWith('.html') || (request.headers.get('Accept') || '').includes('text/html');
+}
+
+// 打开网页时在 Cloudflare 上直接问授权站这台电脑现在的状态（停用、到期、换绑立刻生效）。
+// 返回 { ok, reason, expiresAt, token }；授权站连不上返回 null。
+async function checkOnline(api, game, device, fetchImpl) {
+  try {
+    const res = await fetchImpl(api + '/api/device/check', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ game, device }), signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+    });
+    if (!res.ok) return null;
+    const j = await res.json();
+    return j && typeof j.ok === 'boolean' ? j : null;
+  } catch { return null; }
+}
+
+function sessionCookie(token, payload, t, url) {
+  const maxAge = Math.max(60, Math.floor(Math.min(payload.exp + GRACE_MS - t, payload.iat + FRESH_MS - t) / 1000));
+  const secure = url.protocol === 'https:' ? '; Secure' : '';
+  return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+function clearCookie(url) {
+  return `${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${url.protocol === 'https:' ? '; Secure' : ''}`;
+}
+async function servePage(next, setCookie) {
+  const response = await next();
+  const copy = new Response(response.body, response);
+  // 网页本身不缓存，避免卡密到期后还能从缓存打开
+  if ((response.headers.get('Content-Type') || '').includes('text/html')) copy.headers.set('Cache-Control', 'no-store');
+  if (setCookie) copy.headers.append('Set-Cookie', setCookie);
+  return copy;
+}
+
+// options: { game, gameName, next: () => Promise<Response>, api?, publicKey?, now?, fetch? }
 export async function licenseGate(request, options) {
   const { game, gameName, next } = options;
   const api = options.api || LICENSE_API;
@@ -59,24 +100,26 @@ export async function licenseGate(request, options) {
     try { token = String((await request.json()).token || ''); } catch { /* 空 */ }
     const payload = await verifyToken(token, publicKey);
     if (!tokenUsable(payload, game, t)) return Response.json({ ok: false, error: '许可无效' }, { status: 400, headers: noStore });
-    const maxAge = Math.max(60, Math.floor(Math.min(payload.exp + GRACE_MS - t, payload.iat + FRESH_MS - t) / 1000));
-    const secure = url.protocol === 'https:' ? '; Secure' : '';
-    return Response.json({ ok: true, expiresAt: payload.exp }, {
-      headers: { ...noStore, 'Set-Cookie': `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}` },
-    });
+    return Response.json({ ok: true, expiresAt: payload.exp }, { headers: { ...noStore, 'Set-Cookie': sessionCookie(token, payload, t, url) } });
   }
 
   const payload = await verifyToken(cookieValue(request, COOKIE), publicKey);
-  if (tokenUsable(payload, game, t)) {
-    const response = await next();
-    // 网页本身不缓存，避免卡密到期后还能从缓存打开
-    if ((response.headers.get('Content-Type') || '').includes('text/html')) {
-      const copy = new Response(response.body, response);
-      copy.headers.set('Cache-Control', 'no-store');
-      return copy;
+  const usable = tokenUsable(payload, game, t);
+
+  // 打开 / 刷新网页：先问授权站，确认这台电脑现在还有效才给网页
+  if (usable && isNavigation(request, url)) {
+    const state = await checkOnline(api, game, payload.d, options.fetch || fetch);
+    if (!state) return servePage(next);   // 授权站暂时连不上：按本地许可放行，不影响正在直播的主播
+    if (state.ok) {
+      const fresh = await verifyToken(state.token, publicKey);
+      return servePage(next, tokenUsable(fresh, game, t) && fresh.d === payload.d ? sessionCookie(state.token, fresh, t, url) : '');
     }
-    return response;
+    // 直播中到期：到期时游戏正开着（最后一次续签离到期很近），本场 3 小时内刷新页面照样能进
+    const liveAtExpiry = state.reason === 'expired' && state.expiresAt + GRACE_MS > t && payload.iat >= state.expiresAt - LIVE_MS;
+    if (liveAtExpiry) return servePage(next);
+    return new Response(gatePage({ game, gameName, api }), { status: 200, headers: { ...noStore, 'Content-Type': 'text/html; charset=utf-8', 'Set-Cookie': clearCookie(url) } });
   }
+  if (usable) return servePage(next);
 
   const wantsPage = request.method === 'GET' && (url.pathname === '/' || url.pathname.endsWith('/') || url.pathname.endsWith('.html')
     || !/\.[a-z0-9]{1,8}$/i.test(url.pathname) || (request.headers.get('Accept') || '').includes('text/html'));
