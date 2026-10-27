@@ -117,7 +117,7 @@ button[disabled]{opacity:.55;cursor:wait}
 <body class="checking"><main><div class="card">
 <h1>${esc(gameName)}</h1>
 <p class="sub" id="sub">正在确认这台电脑的卡密…</p>
-<form id="f" autocomplete="off"><label for="code">卡密</label><input id="code" placeholder="例如 LX30-XXXX-XXXX-XXXX" spellcheck="false" autofocus><button id="go" type="submit">激活并进入</button><div class="msg" id="msg" role="status"></div><p class="terms">激活即表示同意<a href="${esc(api)}/terms.html" target="_blank" rel="noopener">使用条款</a>：卡密仅授权本人在一台电脑上使用。一经售出，概不退款；违规使用将停止使用，不退款。</p></form>
+<form id="f" autocomplete="off"><label for="code">卡密</label><input id="code" placeholder="例如 LX30-XXXX-XXXX-XXXX" spellcheck="false" autofocus><button id="go" type="submit">激活并进入</button><div class="msg" id="msg" role="status"></div><p class="terms">激活即表示同意<a href="${esc(api)}/terms.html" target="_blank" rel="noopener">使用条款</a>：卡密仅授权本人在一台电脑上使用。一经售出，概不退款；违规使用将封禁处理。</p></form>
 <div class="machine">这台电脑的机器码<b id="dev"></b>一张卡密只能绑定一台电脑的一个浏览器。换电脑、换浏览器或清理了浏览器数据，请把卡密和新的机器码发给客服换绑。</div>
 </div>
 <p class="foot" id="foot">购买卡密、查询到期时间：<a href="${esc(api)}" target="_blank" rel="noopener">${esc(api.replace(/^https?:\/\//, ''))}</a><span id="contact"></span></p>
