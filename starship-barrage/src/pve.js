@@ -395,7 +395,7 @@ export function spawnAlien(game, kind, x, y) {
   const def = PVE.alien[kind];
   const lv = chapterOf(game.pve?.stage || 1);
   const grow = PVE.alienHpMul(lv);
-  const hp = Math.round(def.hp * grow * routeAlienHp(game));   // 航线「硬壳虫群」+60%
+  const hp = Math.round(def.hp * grow * routeAlienHp(game));   // 航线「硬壳虫群」+200%
   const NEW_STOP = { shield: 260, splitter: 280, sniper: 120, medic: 230, miner: 170 };
   const [z0, z1] = PVE.alienZone;
   const f = {

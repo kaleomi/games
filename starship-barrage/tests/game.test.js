@@ -1140,7 +1140,7 @@ test('航线效果：装甲强化加血上限、狂暴虫群敌弹加伤、重�
   const b0 = game.addBullet(100, 100, 0, 100, 5, 1, 'red', 'danmaku', null, 0, { copy: true });
   game.route.neg = 'none';
   const b1 = game.addBullet(100, 100, 0, 100, 5, 1, 'red', 'danmaku', null, 0, { copy: true });
-  assert.ok(Math.abs(b0.dmg / b1.dmg - 1.3) < 1e-6, '敌弹+30%');
+  assert.ok(Math.abs(b0.dmg / b1.dmg - 2) < 1e-6, '敌弹+100%');
   // 虫海
   for (const a of [...game.fighters.values()]) if (a.alien) game.fighters.delete(a.uid);
   game.random = () => 0.99;

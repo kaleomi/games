@@ -81,9 +81,9 @@ export function clearRoute(game) { game.route = null; game.vote = null; for (con
 
 export const routeXpMul = game => (posOn(game, 'xp') ? 1.5 : 1);
 export const routeLootExtra = game => (posOn(game, 'loot') ? 0.5 : 0);
-export const routeEnemyDmg = game => (negOn(game, 'fury') ? 1.3 : 1);
+export const routeEnemyDmg = game => (negOn(game, 'fury') ? 2 : 1);
 export const routeBossHp = game => (negOn(game, 'boss') ? 1.4 : 1);
-export const routeAlienHp = game => (negOn(game, 'tough') ? 1.6 : 1);
+export const routeAlienHp = game => (negOn(game, 'tough') ? 3 : 1);
 export const routeSwarm = game => (negOn(game, 'swarm') ? 2 : 1);
 
 // ───────── 阵型羁绊 ─────────
