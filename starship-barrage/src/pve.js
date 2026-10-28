@@ -1,6 +1,7 @@
 // 讨伐模式（PvE）：虫群 → 异形母舰。没有我方要塞，战舰血量就是全队的命。
 import { W, H, PVE, GEAR } from './config.js';
 import { LANES, LANE_NAMES, laneCenter, hurt, stepDrones, score, giveItem, makeItem } from './fleet.js';
+import { eventsOnStageStart, routeBossHp, routeAlienHp, routeSwarm } from './events-pve.js';
 
 export function currentStage(game) { return Math.max(1, game.save?.data?.pveStage || game.memStage || 1); }
 // 章节：每章5关（1–3关虫群+精英头目，第4关精英，第5关BOSS）
@@ -47,7 +48,7 @@ export function setupBoss(game, t) {
   const stage = currentStage(game);
   const B = bossFor(stage);
   t.boss = true; t.stage = stage; t.stageKind = stageKind(stage); t.bossId = B.id; t.bossName = bossTitle(stage); t.podName = B.podName;
-  t.core = t.coreMax = bossMax(stage);
+  t.core = t.coreMax = Math.round(bossMax(stage) * routeBossHp(game));   // 航线「重甲首领」+40%
   t.shield = t.shieldMax = 0;
   t.x = 360; t.y = -170; t.present = false; t.coreDy = PVE.coreDy; t.hitW = PVE.bossHitW;
   const podHp = Math.round(PVE.podHp * (1 + 0.12 * (chapterOf(stage) - 1)));
@@ -70,6 +71,7 @@ export function startPve(game) {
   const ch = chapterOf(stage), un = unlocksAt(ch);
   if (stepOf(stage) === 1 && un.aliens.length) game.emit('banner', { team: 'red', text: `第${ch}章新敌人：${un.aliens.map(a => `${a.name}（${a.tip}）`).join('；')}`, tier: 4 });
   if (kind === 'boss' && un.bosses.length) game.emit('banner', { team: 'red', text: `新BOSS登场：${un.bosses[0].name}！`, tier: 5 });
+  eventsOnStageStart(game);   // 航线投票（这一章还没选的话）、清掉上一关的力场和口令
 }
 
 export function stepPve(game, dt) {
@@ -85,7 +87,7 @@ export function stepPve(game, dt) {
     if (p.t <= 0 && p.kind === 'wave') {   // 1–3关：精英头目带队，打死头目过关
       p.sub = 'leader'; p.spawnT = 6;
       const a = spawnAlien(game, 'elite', 360, -60);
-      if (a) { a.hp = a.maxHp = leaderMax(p.stage); a.yStop = 210; a.life = 1e9; a.hitR = PVE.alien.elite.r; p.leader = a.uid; }
+      if (a) { a.hp = a.maxHp = Math.round(leaderMax(p.stage) * routeBossHp(game)); a.yStop = 210; a.life = 1e9; a.hitR = PVE.alien.elite.r; p.leader = a.uid; }
       game.emit('banner', { team: 'red', text: `${stageLabel(p.stage)} · 精英头目现身！打死它过关`, tier: 4 });
       game.emit('announce', { text: '精英头目现身', voice: true });
     } else if (p.t <= 0) {
@@ -105,14 +107,14 @@ export function stepPve(game, dt) {
   } else if (p.sub === 'boss') {
     p.t = p.left; p.spawnT -= dt;
     boss.x = 360 + Math.sin(game.time * 0.35) * 70;
-    if (p.spawnT <= 0) { p.spawnT = PVE.waves.bossEvery(p.lv); spawnFormation(game, true); if (game.random() < PVE.waves.double(p.lv) * 0.6) spawnFormation(game, true); }
+    if (p.spawnT <= 0 && !(boss.stunT > 0)) { p.spawnT = PVE.waves.bossEvery(p.lv); spawnFormation(game, true); if (game.random() < PVE.waves.double(p.lv) * 0.6) spawnFormation(game, true); }
     const pct = boss.core / boss.coreMax;
     const rage = pct > 0.66 ? 1 : pct > 0.33 ? 2 : 3;
     if (rage > boss.rage) {
       boss.rage = rage;
       game.emit('banner', { team: 'red', text: RAGE_TEXT[boss.bossId][rage - 2], tier: 3 });
     }
-    BOSS_AI[boss.bossId](game, boss, dt, rage);
+    if (!(boss.stunT > 0)) BOSS_AI[boss.bossId](game, boss, dt, rage);   // 弱点被打破：瘫痪期间不放技能、不开炮
   }
   stepRays(game, dt);
   if (game.gravity) { game.gravity.t -= dt; if (game.gravity.t <= 0) game.gravity = null; }
@@ -352,9 +354,10 @@ export function spawnFormation(game, light, forceKind = null, ox = null, oy = nu
   const p = game.pve;
   const fleet = game.countTeam('blue');
   let alive = 0; for (const f of game.fighters.values()) if (f.alien && f.alive) alive++;
-  const room = PVE.waves.maxAlive(p.lv) - alive;
+  const swarm = routeSwarm(game);   // 航线「虫海航道」：每队小怪翻倍、同屏上限×1.5
+  const room = Math.round(PVE.waves.maxAlive(p.lv) * (swarm > 1 ? 1.5 : 1)) - alive;
   if (room <= 0) return;
-  const n = Math.min(room, Math.max(2, Math.round(Math.min(PVE.waves.sizeCap, PVE.waves.size(p.lv) + Math.floor(fleet / PVE.waves.perPlayers)) * (light ? PVE.waves.escort : 1))));
+  const n = Math.min(room, Math.max(2, Math.round(Math.min(PVE.waves.sizeCap, PVE.waves.size(p.lv) + Math.floor(fleet / PVE.waves.perPlayers)) * (light ? PVE.waves.escort : 1) * swarm)));
   const r = forceKind ? 1 : game.random();
   const gunnerP = Math.min(0.32, 0.14 + p.lv * 0.02);
   if (forceKind) {   // 虫后召唤 / 卵囊孵化：从指定位置散开
@@ -392,7 +395,7 @@ export function spawnAlien(game, kind, x, y) {
   const def = PVE.alien[kind];
   const lv = chapterOf(game.pve?.stage || 1);
   const grow = PVE.alienHpMul(lv);
-  const hp = Math.round(def.hp * grow);
+  const hp = Math.round(def.hp * grow * routeAlienHp(game));   // 航线「硬壳虫群」+60%
   const NEW_STOP = { shield: 260, splitter: 280, sniper: 120, medic: 230, miner: 170 };
   const [z0, z1] = PVE.alienZone;
   const f = {

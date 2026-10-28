@@ -113,7 +113,7 @@ export const giftPrice = (kind, set) => (GIFT_SETS[set] || GIFT_SETS.douyin)[kin
 
 export const PVE = {
   zone: [600, 975],           // 我方战机活动区（下方留给战力榜和玩法面板）
-  rows: { tank: 618, dps: 745, carrier: 845, healer: 935 },   // 机甲在前排，输出居中，航母和医疗在后排
+  rows: { tank: 618, dps: 745, engineer: 800, carrier: 855, healer: 935 },   // 机甲在前排，输出居中，工程、航母和医疗在后排
   lanes: { L: [24, 244], M: [250, 470], R: [476, 696] },
   wander: { x: 80, y: 40, speed: 30 },   // 战机在自己航道内慢慢随机游走（像素、像素/秒）
   alienZone: [140, 520],
@@ -252,15 +252,68 @@ export const PVE = {
   healUlt: { seconds: 5, perSec: 0.1 },   // 生命圣光：复活阵亡队友，之后5秒每秒给全体回10%最大血量
   // 机甲普攻：冲上去近战砍（300内有怪就冲，砍完退回本航道）
   melee: { range: 300, speed: 950, slashR: 74, atkMul: 3.2, cd: 1.1 },
-  tank: { impactAtk: 8, impactReach: 320, rushTime: 4, rushSpeed: 1100, whirlR: 125, whirlAtk: 4, whirlTick: 0.2 },             // 点赞充满放的超载炮：8倍攻击，穿透
+  tank: { impactAtk: 8, impactReach: 320, rushTime: 4, rushSpeed: 1100, whirlR: 125, whirlAtk: 4, whirlTick: 0.2 },
+  // 工程舰：小技能在身前布1座自动炮台（14秒，每人最多3座）；大招「电磁力场」6秒：身边190范围敌弹减速到30%、场内友军受伤-35%，再补2座炮台，自己的炮台射速翻倍
+  engineer: { turretLife: 14, maxTurrets: 3, turretCd: 0.3, turretAtk: 1.1, turretRange: 760, fieldTime: 6, fieldR: 190, fieldSlow: 0.3, fieldCut: 0.35, fieldTurrets: 2 },
+  // ───── 新玩法 ─────
+  // 航线投票：每章开打时投票20秒（发 A / B / C），每条航线一个正面一个负面效果，持续整章；失败退回要重新投
+  route: {
+    voteSec: 20,
+    pos: [
+      { id: 'atk',   name: '火力全开', desc: '全队攻击+30%' },
+      { id: 'ult',   name: '能源充沛', desc: '大招充能时间减半' },
+      { id: 'hp',    name: '装甲强化', desc: '全队生命+30%' },
+      { id: 'loot',  name: '满载而归', desc: '过关装备掉落+50%' },
+      { id: 'xp',    name: '经验加成', desc: '经验+50%' },
+      { id: 'regen', name: '纳米修复', desc: '全队每秒回复2%生命' },
+      { id: 'skill', name: '战术超频', desc: '小技能间隔-30%' },
+      { id: 'crit',  name: '精准锁定', desc: '全队暴击率+20%' },
+    ],
+    neg: [
+      { id: 'rain',   name: '陨石火雨', desc: '每7秒全屏落下一波火雨', tip: '航母蜂群能拦' },
+      { id: 'toxic',  name: '辐射星云', desc: '全队每秒损失1.2%生命', tip: '医疗舰回血克制' },
+      { id: 'swarm',  name: '虫海航道', desc: '小怪数量翻倍', tip: '机甲旋风斩、光束清怪' },
+      { id: 'boss',   name: '重甲首领', desc: '首领和精英血量+40%', tip: '集中火力' },
+      { id: 'fury',   name: '狂暴虫群', desc: '敌方子弹伤害+30%', tip: '机甲挡在前面' },
+      { id: 'storm',  name: '电磁风暴', desc: '每16秒随机一路落雷', tip: '看红区及时换航道' },
+      { id: 'tough',  name: '硬壳虫群', desc: '小怪血量+60%', tip: '工程炮台帮忙清' },
+    ],
+    rain: { every: 7, count: 16, speed: [260, 340] },
+    toxicPerSec: 0.012, regenPerSec: 0.02, stormEvery: 16,
+  },
+  // 阵型羁绊：同一航道里有这些战舰组合就生效（NPC、佣兵也算）
+  bonds: [
+    { id: 'iron',    need: ['tank', 'healer'],      name: '铁壁', desc: '受到伤害-15%' },
+    { id: 'fire',    need: ['dps', 'carrier'],      name: '火力网', desc: '攻速+15%' },
+    { id: 'assault', need: ['tank', 'dps'],         name: '突击', desc: '暴击率+8%' },
+    { id: 'supply',  need: ['healer', 'carrier'],   name: '后勤', desc: '小技能间隔-15%' },
+    { id: 'fort',    need: ['engineer', 'tank'],    name: '堡垒', desc: '攻击+10%' },
+    { id: 'repair',  need: ['engineer', 'healer'],  name: '维修', desc: '每秒回复1%生命' },
+    { id: 'all',     kinds: 4,                      name: '全能', desc: '同航道4种战舰：攻击+10%' },
+  ],
+  // 首领弱点：血量降到60%、25%各露一次弱点15秒，只有指定战舰能打破（这种战舰每多1艘弱点血量多一份）
+  //   打破：首领瘫痪5秒、受到伤害×1.5；没打破：首领回血5%
+  weak: { at: [0.6, 0.25], sec: 15, hpPer: 0.03, maxCount: 4, dmgMul: 1.5, stun: 5, stunDmg: 1.5, failHeal: 0.05 },
+  // 全场口令：战斗中每70~110秒出一次，25秒内够人数发这句话就触发；参与的人+3E贡献
+  callout: {
+    first: 40, every: [70, 110], sec: 25, ratio: 0.3, maxNeed: 12,
+    list: [
+      { id: 'shield', words: '护盾充能', desc: '全队获得30%生命护盾' },
+      { id: 'salvo',  words: '全炮齐射', desc: '全屏轰炸：小怪掉40%血，首领掉3%血' },
+      { id: 'power',  words: '能源过载', desc: '全队大招、小技能立即就绪' },
+      { id: 'warp',   words: '跃迁闪避', desc: '清空敌方子弹，全队无敌3秒' },
+      { id: 'lock',   words: '锁定目标', desc: '全队攻击+40% 15秒' },
+    ],
+  },             // 点赞充满放的超载炮：8倍攻击，穿透
 };
 
-// 讨伐模式的三种战舰
+// 讨伐模式的五种战舰
 export const CLASSES = {
   dps:    { name: '输出舰', short: '输出', hp: 100, atk: 10, armor: 0,    heal: 0, fireCd: 0.25, skillCd: 10,   skill: '集束导弹', ult: '歼灭光束', skillWords: ['导弹'], ultWords: ['光束'], desc: '高伤害，导弹追踪，大招沿航道发射光束' },
   tank:   { name: '重装机甲', short: '机甲', hp: 260, atk: 5, armor: 0.35, heal: 0, fireCd: 0.5,  skillCd: 10,   skill: '冲击', ult: '无敌冲锋斩', skillWords: ['冲击'], ultWords: ['冲锋', '旋风斩', '冲锋斩'], desc: '站前排挡子弹；冲击波击退虫群、打散子弹；大招无敌冲进怪堆旋风斩' },
   carrier: { name: '蜂巢航母', short: '航母', hp: 150, atk: 6, armor: 0.15, heal: 0, fireCd: 0.5, skillCd: 10, skill: '无人机', ult: '蜂群风暴', skillWords: ['无人机', '放飞机'], ultWords: ['蜂群', '风暴'], desc: '放无人机追着怪打；大招放出护卫蜂群拦截子弹' },
   healer: { name: '医疗舰', short: '医疗', hp: 90,  atk: 4, armor: 0.1,  heal: 1, fireCd: 0.5,  skillCd: 10,   skill: '治疗链',   ult: '生命圣光', skillWords: ['治疗链', '回血', '加血'], ultWords: ['圣光'], desc: '自动给血量最低的3艘回血；大招全体回血并复活' },
+  engineer: { name: '工程舰', short: '工程', hp: 140, atk: 6, armor: 0.15, heal: 0, fireCd: 0.45, skillCd: 10, skill: '自动炮台', ult: '电磁力场', skillWords: ['布炮台', '自动炮台'], ultWords: ['力场', '电磁'], desc: '在身前布自动炮台帮忙打怪；大招电磁力场让敌弹减速、场内减伤' },
 };
 
 // 装备：打爆母舰随机掉落，自动穿戴更好的。6个部位各有主属性；品质越高随机副属性越多（精良1条 … 至尊5条）

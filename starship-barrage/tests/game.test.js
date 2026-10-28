@@ -256,6 +256,7 @@ test('讨伐礼物：小心心/鲜花/爱你哟/墨镜/爱的爆炸/跑车 + 点
   assert.equal(lootFloorOf(game, b), 4);
   game.humans().forEach(f => { f.merit = 100; });
   const { rollDrops } = await import('../src/fleet.js');
+  game.pve.kind = 'boss';   // 虫群关掉率×30%会随机跳过，这里只测双倍
   const drops = rollDrops(game, 3);
   assert.equal(drops.filter(d => d.uid === 'b').length, 2, '双倍掉落');
   assert.ok(drops.filter(d => d.uid === 'a').length <= 1, '没送礼花筒的人不双倍');
@@ -1103,4 +1104,133 @@ test('等级不设上限：经验够就一直升，超过100级照样升', () =>
   // 存档读回来也不会被压回100级
   const back = Save.validate(JSON.parse(JSON.stringify(save.data)));
   assert.equal(back.players.lvcap.level, p.level);
+});
+
+// ───────── 新玩法：航线投票 / 工程舰 / 阵型羁绊 / 首领弱点 / 全场口令 ─────────
+function pveGame(stage = 1, cls = ['输出', '机甲', '医疗', '航母', '工程']) {
+  const { game, save } = newGame({ settings: { npcMinPerTeam: 0 } });
+  save.data.pveStage = stage;
+  game.setMode('pve'); game.startLobby();
+  cls.forEach((c, i) => game.chat({ id: 'p' + i, name: 'P' + i }, c));
+  toBattle(game);
+  return game;
+}
+
+test('航线投票：每章开打投票，A/B/C（全角小写也认）可改票，票多的生效，一正一负', () => {
+  const game = pveGame(1);
+  const v = game.vote;
+  assert.ok(v && v.options.length === 3, '开打就有投票');
+  assert.equal(new Set(v.options.map(o => o.pos)).size, 3); assert.equal(new Set(v.options.map(o => o.neg)).size, 3);
+  game.chat({ id: 'p0' }, 'A'); game.chat({ id: 'p1' }, 'b'); game.chat({ id: 'p2' }, 'Ｂ'); game.chat({ id: 'p3' }, '选B'); game.chat({ id: 'p0' }, 'B');
+  assert.deepEqual(v.tally, [0, 4, 0], 'p0 改票到 B');
+  for (let i = 0; i < 60 * 21 && game.vote; i++) game.step(1 / 60);
+  assert.equal(game.vote, null);
+  assert.equal(game.route.pick, 1);
+  assert.equal(game.route.pos, v.options[1].pos); assert.equal(game.route.neg, v.options[1].neg);
+});
+
+test('航线效果：装甲强化加血上限、狂暴虫群敌弹加伤、重甲首领加血、虫海小怪翻倍；失败退回航线作废', async () => {
+  const { spawnFormation } = await import('../src/pve.js');
+  const game = pveGame(1);
+  const f = game.fighters.get('p1'), hp0 = f.maxHp;
+  game.vote = null; game.route = { ch: 1, pos: 'hp', neg: 'fury', pick: 0 };
+  const { applyRouteShip } = await import('../src/events-pve.js');
+  for (const s of game.fighters.values()) if (!s.alien) applyRouteShip(game, s);
+  assert.ok(Math.abs(f.maxHp - hp0 * 1.3) <= 1, '生命+30%');
+  const b0 = game.addBullet(100, 100, 0, 100, 5, 1, 'red', 'danmaku', null, 0, { copy: true });
+  game.route.neg = 'none';
+  const b1 = game.addBullet(100, 100, 0, 100, 5, 1, 'red', 'danmaku', null, 0, { copy: true });
+  assert.ok(Math.abs(b0.dmg / b1.dmg - 1.3) < 1e-6, '敌弹+30%');
+  // 虫海
+  for (const a of [...game.fighters.values()]) if (a.alien) game.fighters.delete(a.uid);
+  game.random = () => 0.99;
+  game.route.neg = 'none'; spawnFormation(game, false); let n1 = [...game.fighters.values()].filter(a => a.alien).length;
+  for (const a of [...game.fighters.values()]) if (a.alien) game.fighters.delete(a.uid);
+  game.route.neg = 'swarm'; spawnFormation(game, false); const n2 = [...game.fighters.values()].filter(a => a.alien).length;
+  assert.ok(n2 >= n1 * 2 - 1, `虫海翻倍 ${n1} → ${n2}`);
+  // 重甲首领：下一关首领血量+40%
+  game.route.neg = 'boss';
+  game.save.data.pveStage = 5; game.startLobby();
+  const { bossMax } = await import('../src/pve.js');
+  assert.equal(game.teams.red.coreMax, Math.round(bossMax(5) * 1.4));
+  // 失败：航线作废
+  game.phaseT = 0.001; game.step(1 / 60);
+  game.endBattle('red', 'wipe');
+  assert.equal(game.route, null);
+});
+
+test('工程舰：发「工程」上场，小技能布炮台会开火，大招电磁力场让敌弹减速、场内减伤', async () => {
+  const game = pveGame(1, ['工程']);
+  const e = game.fighters.get('p0');
+  assert.equal(e.cls, 'engineer');
+  e.skillCd = 0; game.step(1 / 60);
+  const tur = game.pveDrones.filter(d => d.kind === 'turret' && d.owner === 'p0');
+  assert.equal(tur.length, 1, '布了1座炮台');
+  for (let i = 0; i < 60 * 3; i++) game.step(1 / 60);
+  assert.ok(game.bullets.some(b => b.turret) || [...game.fighters.values()].some(a => a.alien), '炮台在开火');
+  // 大招：力场 + 补2座炮台
+  e.ultCd = 0; game.chat({ id: 'p0' }, '大招'); game.step(1 / 60);
+  assert.equal(game.fields.length, 1);
+  assert.ok(game.pveDrones.filter(d => d.kind === 'turret' && d.owner === 'p0').length >= 3);
+  const b = game.addBullet(e.x, e.y - 60, 0, 300, 5, 1, 'red', 'danmaku', null, 0, { copy: true });
+  game.step(1 / 60);
+  assert.ok(b.emSlow && Math.abs(b.vy - 300 * 0.3) < 1, '敌弹减速到30%');
+  const { hurt } = await import('../src/fleet.js');
+  e.invuln = 0; e.shieldHp = 0; const h0 = e.hp; hurt(game, e, 100, null);
+  const expect = 100 * (1 - e.stats.armor) * (1 - 0.35);
+  assert.ok(Math.abs(h0 - e.hp - expect) < 0.01, `力场内减伤35%（${h0 - e.hp} vs ${expect}）`);
+  // 存档认工程舰和它的锻造品质
+  const { Save } = await import('../src/save.js');
+  const v = Save.validate({ version: 1, players: { u: { cls: 'engineer', forge: { engineer: 3 } } } });
+  assert.equal(v.players.u.cls, 'engineer'); assert.equal(v.players.u.forge.engineer, 3);
+});
+
+test('阵型羁绊：同航道机甲+医疗=铁壁受伤-15%，输出+航母=火力网', async () => {
+  const game = pveGame(1, ['机甲', '医疗', '输出', '航母']);
+  for (const id of ['p0', 'p1']) game.chat({ id }, '左');
+  for (const id of ['p2', 'p3']) game.chat({ id }, '右');
+  game.vote = null; game.route = { ch: 1, pos: 'none', neg: 'none' };
+  game.bondT = 0; game.step(1 / 60);
+  assert.ok(game.bonds.L.includes('iron')); assert.ok(game.bonds.R.includes('fire'));
+  assert.ok(!game.bonds.L.includes('fire'));
+  const { shipMods } = await import('../src/events-pve.js');
+  assert.ok(Math.abs(shipMods(game, game.fighters.get('p0')).taken - 0.85) < 1e-9);
+  assert.ok(Math.abs(shipMods(game, game.fighters.get('p2')).aspd - 0.15) < 1e-9);
+});
+
+test('首领弱点：血量到60%露弱点，只有指定战舰的伤害削弱点；打破后首领瘫痪、受伤×1.5', () => {
+  const game = pveGame(5, ['机甲', '医疗']);
+  game.vote = null; game.route = { ch: 1, pos: 'none', neg: 'none' };
+  game.pve.t = 0.001;
+  for (let i = 0; i < 60 * 5 && game.pve.sub !== 'boss'; i++) game.step(1 / 60);
+  const boss = game.teams.red;
+  boss.core = boss.coreMax * 0.59; game.step(1 / 60);
+  const wk = boss.weak;
+  assert.ok(wk, '露出弱点');
+  const right = wk.cls === 'tank' ? 'p0' : 'p1', wrong = right === 'p0' ? 'p1' : 'p0';
+  const hp0 = wk.hp;
+  game.damageFlag('red', 100, wrong, 'shot');
+  assert.equal(wk.hp, hp0, '别的战舰打不动弱点');
+  game.damageFlag('red', 100, right, 'shot');
+  assert.ok(wk.hp < hp0, '指定战舰能削弱点');
+  wk.hp = 0; game.step(1 / 60);
+  assert.equal(boss.weak, null); assert.ok(boss.stunT > 0, '瘫痪');
+  const c0 = boss.core; game.damageFlag('red', 100, null, 'shot', true); const c1 = boss.core;
+  assert.ok(Math.abs((c0 - c1) - 150) < 1e-6, '瘫痪期间受伤×1.5');
+});
+
+test('全场口令：限时内够人数发口令就触发（能源过载=大招立即就绪），每人只算一次', () => {
+  const game = pveGame(1, ['输出', '机甲', '医疗', '航母', '工程', '输出', '机甲']);
+  game.vote = null; game.route = { ch: 1, pos: 'none', neg: 'none' };
+  game.calloutT = 0.001; game.step(1 / 60);
+  const c = game.callout;
+  assert.ok(c, '出口令');
+  c.id = 'power'; c.words = '能源过载';
+  for (const f of game.humans()) f.ultCd = 30;
+  game.chat({ id: 'p0' }, '能源过载'); game.chat({ id: 'p0' }, '能源过载！');
+  assert.equal(c.got.size, 1, '同一个人只算一次');
+  for (let i = 1; i < c.need; i++) game.chat({ id: 'p' + i }, '能 源 过 载');
+  game.step(1 / 60);
+  assert.equal(game.callout, null);
+  assert.ok(game.humans().every(f => f.ultCd === 0), '大招立即就绪');
 });

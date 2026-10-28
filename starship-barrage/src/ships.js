@@ -7,7 +7,7 @@ const TEAM = {
   red:  { armor: ['#ffffff', '#f6dade', '#c08c96'], frame: ['#64303c', '#220d14'], acc: ['#ff7a6b', '#e8304a'], glow: '#ffab8f', trim: '#1a070c', canopy: ['#fff6f0', '#ff9a6b', '#4a0f12'], eng: '#ffb08a' },
   npc:  { armor: ['#eef1f6', '#b9c0cc', '#727b8c'], frame: ['#434a58', '#1a1d24'], acc: ['#a7b0c2', '#6f7889'], glow: '#c8d2e6', trim: '#0e1016', canopy: ['#f4f7fb', '#9aa6ba', '#20252f'], eng: '#c8d2e6' },
 };
-const CLS = { dps: '#ffb43a', tank: '#5ff0ff', healer: '#5dff9e', carrier: '#c58bff' };
+const CLS = { dps: '#ffb43a', tank: '#5ff0ff', healer: '#5dff9e', carrier: '#c58bff', engineer: '#ffe95c' };
 
 // 涂装：0标准 1星尘 2极光 3暗金 4虹彩 5黑洞
 function palette(team, skin, npc) {
@@ -331,6 +331,59 @@ export function carrierSvg(skin, px) {
     `<path d="M0,13.5 L3.5,15.5 L3.5,19.5 L0,21.5 L-3.5,19.5 L-3.5,15.5 Z" fill="${C}" opacity=".7" filter="url(#gl)"/><path d="M0,13.5 L3.5,15.5 L3.5,19.5 L0,21.5 L-3.5,19.5 L-3.5,15.5 Z" fill="none" stroke="#fff" stroke-width=".8"/>`;
   const svg = finish(p, sil, body, 40, px);
   return svg.replace('url(#cg)"/>', 'url(#cg)"/>').replace(/<radialGradient id="cg">[^]*?<\/radialGradient>/, `<radialGradient id="cg"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="${C}"/><stop offset="1" stop-color="${C}" stop-opacity="0"/></radialGradient>`);
+}
+
+// ───────── 讨伐：工程舰「铁匠」——方块舰体、两侧吊臂、背上双管炮塔、黄黑警示条纹 ─────────
+export function engineerSvg(skin, px) {
+  const p = palette('blue', skin, false), C = CLS.engineer;
+  const hull = 'M-12,-36 L12,-36 L19,-26 L20,16 L14,28 L-14,28 L-20,16 L-19,-26 Z';
+  const armF = 'M-19,-18 L-33,-26 L-38,-20 L-36,4 L-27,10 L-20,6 Z';
+  const deck = 'M-9,-32 L9,-32 L15,-23 L15.5,13 L10.5,23 L-10.5,23 L-15.5,13 L-15,-23 Z';
+  const sil = `<path d="${hull}"/>` + flip(armF);
+  // 警示条纹（黄黑斜条）
+  const hazard = (x, y, w, h) => `<g><rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#141414" stroke="${p.trim}" stroke-width=".5"/>` +
+    Array.from({ length: Math.ceil(w / 3.2) + 2 }, (_, i) => `<path d="M${x + i * 3.2 - h},${y + h} L${x + i * 3.2},${y} L${x + i * 3.2 + 1.6},${y} L${x + i * 3.2 + 1.6 - h},${y + h} Z" fill="${C}"/>`).join('') + `</g>`;
+  const clip = `<clipPath id="hz"><rect x="-13" y="17" width="26" height="4"/></clipPath>`;
+  const body =
+    [-9, 0, 9].map(x => engine(x, 29, 2.6, 4.8) + nozzle(x, 25.5, 4.6, 3.6, p)).join('') +
+    // 两侧吊臂：骨架 + 液压杆 + 爪
+    pair(armF, `fill="url(#frm)" stroke="${p.trim}" stroke-width="1"`) +
+    plates('M-20.5,-15 L-31.5,-21.5 L-34.5,-17.5 L-33,1 L-26.5,5.5 L-21.5,3 Z', p, .8) +
+    pair('M-33,-24 L-40,-33 L-36,-35 L-31,-27', `fill="url(#metal)" stroke="${p.trim}" stroke-width=".6"`) +
+    pair('M-40,-33 L-43,-37 M-36,-35 L-36,-39', `stroke="#c9d1e2" stroke-width="1.4" stroke-linecap="round"`) +
+    pair('M-30,-17 L-24,-1', `stroke="${C}" stroke-width="1.6" opacity=".9"`) +
+    `<path d="${hull}" fill="url(#frm)" stroke="${p.trim}" stroke-width="1.1" stroke-linejoin="round"/>` +
+    plate(deck, p, .9) +
+    // 舰艏工作灯 + 机库门
+    pair('M-8,-35 L-2,-35 L-2,-31 L-8,-31 Z', `fill="#05070e" stroke="${p.trim}" stroke-width=".6"`) +
+    `<circle cx="-5" cy="-33" r="1.3" fill="${C}"/><circle cx="5" cy="-33" r="1.3" fill="${C}"/>` +
+    // 背上双管炮塔
+    `<circle cx="0" cy="-8" r="9.5" fill="url(#frm)" stroke="${p.trim}" stroke-width="1"/>` +
+    `<circle cx="0" cy="-8" r="7.4" fill="url(#arm)" stroke="${p.trim}" stroke-width=".8"/><circle cx="0" cy="-8" r="7.4" fill="url(#sh)"/>` +
+    pair('M-4,-10 L-4,-27 L-1.6,-27 L-1.6,-10 Z', `fill="url(#metal)" stroke="${p.trim}" stroke-width=".7"`) +
+    `<circle cx="-2.8" cy="-28" r="2.2" fill="url(#cg)"/><circle cx="2.8" cy="-28" r="2.2" fill="url(#cg)"/>` +
+    `<circle cx="0" cy="-8" r="2.6" fill="${C}" opacity=".8" filter="url(#gl)"/><circle cx="0" cy="-8" r="1.8" fill="#fff"/>` +
+    // 驾驶舱
+    canopy('M-5,4 L5,4 L6,11 L-6,11 Z', 'M-3.5,5.5 L-4.2,9.5') +
+    glowLine('M-13,-22 L-13,12', 'url(#acc)', 1) + glowLine('M13,-22 L13,12', 'url(#acc)', 1) +
+    clip + `<g clip-path="url(#hz)">${hazard(-13, 17, 26, 4)}</g><rect x="-13" y="17" width="26" height="4" fill="none" stroke="${p.trim}" stroke-width=".6"/>`;
+  return finish(p, sil, body, 42, px);
+}
+
+// 工程舰布下的自动炮台（三脚架 + 圆顶 + 单管炮），accent 是炮口光色
+export function engTurretSvg(px, accent = CLS.engineer) {
+  const p = palette('blue', 0, false);
+  const leg = 'M0,4 L-14,15 L-11,17 L1,8 Z';
+  const sil = flip(leg) + `<circle r="10"/>`;
+  const body =
+    pair(leg, `fill="url(#frm)" stroke="${p.trim}" stroke-width=".8"`) +
+    `<path d="M-2,6 L-2,17 L2,17 L2,6 Z" fill="url(#frm)" stroke="${p.trim}" stroke-width=".6"/>` +
+    `<circle r="10" fill="url(#frm)" stroke="${p.trim}" stroke-width="1"/><circle r="8" fill="url(#arm)" stroke="${p.trim}" stroke-width=".7"/><circle r="8" fill="url(#sh)"/>` +
+    `<path d="M-2,-4 L-2,-19 L2,-19 L2,-4 Z" fill="url(#metal)" stroke="${p.trim}" stroke-width=".7"/>` +
+    `<circle cy="-20" r="2.6" fill="${accent}" opacity=".9" filter="url(#gl)"/><circle cy="-20" r="1.4" fill="#fff"/>` +
+    `<circle r="3" fill="${accent}" opacity=".85" filter="url(#gl)"/><circle r="1.8" fill="#fff"/>` +
+    `<path d="M-6,4 L6,4" stroke="${accent}" stroke-width="1.4" opacity=".8"/>`;
+  return finish(p, sil, body, 24, px);
 }
 
 // 航母无人机（attack 紫色尖翼；guard 带护盾环）

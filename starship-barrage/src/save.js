@@ -58,15 +58,15 @@ export class Save {
         merit: clampInt(p.merit, 0, 1e12, 0),
         weekMerit: clampInt(p.weekMerit, 0, 1e12, 0),
         seen: clampInt(p.seen, 0, 1e15, 0),
-        cls: ['dps', 'tank', 'healer', 'carrier'].includes(p.cls) ? p.cls : null,
+        cls: ['dps', 'tank', 'healer', 'carrier', 'engineer'].includes(p.cls) ? p.cls : null,
         shards: Array.isArray(p.shards) ? [0, 1, 2, 3, 4].map(i => clampInt(p.shards[i], 0, 1e9, 0)) : [clampInt(p.shards, 0, 1e9, 0), 0, 0, 0, 0],
         dodgeLeft: clampInt(p.dodgeLeft, 0, 1e12, 0),
         pity: { gold: clampInt(p.pity?.gold, 0, 1e6, 0), red: clampInt(p.pity?.red, 0, 1e6, 0) },
         gear: validGear(p.gear),
         seenClear: clampInt(p.seenClear, 0, 1e12, 0),
         buffs: p.buffs && typeof p.buffs === 'object' ? { xp: Number(p.buffs.xp) || 0, hero: Number(p.buffs.hero) || 0, double: Number(p.buffs.double) || 0, super: clampInt(p.buffs.super, 0, 1e7, 0), mercs: Array.isArray(p.buffs.mercs) ? p.buffs.mercs.slice(0, 10).map(Number).filter(Number.isFinite) : [], floors: Array.isArray(p.buffs.floors) ? p.buffs.floors.slice(0, 6).map(x => ({ tier: clampInt(x?.tier, 0, 5, 0), until: Number(x?.until) || 0 })) : [] } : null,
-        forge: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forge?.[c], 0, 5, 0)])),
-        forgePity: Object.fromEntries(['dps', 'tank', 'healer', 'carrier'].map(c => [c, clampInt(p.forgePity?.[c], 0, 1e6, 0)])),
+        forge: Object.fromEntries(['dps', 'tank', 'healer', 'carrier', 'engineer'].map(c => [c, clampInt(p.forge?.[c], 0, 5, 0)])),
+        forgePity: Object.fromEntries(['dps', 'tank', 'healer', 'carrier', 'engineer'].map(c => [c, clampInt(p.forgePity?.[c], 0, 1e6, 0)])),
         gv: 3,
       };
       // 旧存档迁移：红+1 原来是+10%，现在每级+2% → 等级×5 保持强度；中间版本的「余料」按白碎片折算（10余料=1白碎片）

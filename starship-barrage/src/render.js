@@ -3,7 +3,8 @@ import { W, H, TEAMS, FLAGSHIP, GIFT, SKINS, LEVEL } from './config.js';
 import { ArtCache, fighterSvg, battleshipSvg, flagshipSvg, turretSvg, droneSvg, medalSvg, bulletSvg, alienSvg, podSvg, bossSvg, BOSS_VIEW } from './art.js';
 import { bossTimeText, rayHits, stageKind, chapterOf, stepOf, KIND_NAMES, leaderMax } from './pve.js';
 import { queenSvg, colossusSvg, eyeSvg, thunderSvg, magmaSvg, voidSvg, bossPodSvg, chestSvg } from './art.js';
-import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg } from './art.js';
+import { shockArcSvg, whirlSvg, invulnAuraSvg, carrierSvg, droneShipSvg, gunPodSvg, boltSvg, engineerSvg } from './art.js';
+import { drawFields, drawTurret, drawWeak, drawEventHud, EVENT_HELP, CLS_COLOR } from './render-events.js';
 import { dpsSvg, healerSvg, mechSvg, skillIconSvg, missileSvg, shieldBubbleSvg, barrierSvg, healPlusSvg, reticleSvg, radarSvg, zoneTileSvg, zoneGlyphSvg, gearIconSvg } from './art.js';
 import { PVE, CLASSES, GEAR, PVP_ENABLED, giftName, giftPrice } from './config.js';
 import { forgeTier } from './fleet.js';
@@ -130,6 +131,7 @@ export class Renderer {
       if (f.cls === 'healer') return this.art.get(`hl|${skin}`, px => healerSvg(skin, px), 58, 58, 3);
       if (f.cls === 'tank') return this.art.get(`mc|${skin}`, px => mechSvg(skin, px), 66, 66, 3);
       if (f.cls === 'carrier') return this.art.get(`cv|${skin}`, px => carrierSvg(skin, px), 60, 60, 3);
+      if (f.cls === 'engineer') return this.art.get(`en|${skin}`, px => engineerSvg(skin, px), 62, 62, 3);
       return this.art.get(`dps|${skin}`, px => dpsSvg(skin, px), 58, 58, 3);
     }
     return this.art.get(`f|${f.team}|${f.weapon}|${skin}|${f.npc ? 1 : 0}`, px => fighterSvg(f.team, f.weapon, skin, f.npc, px), 54, 54, 3);
@@ -198,9 +200,14 @@ export class Renderer {
         case 'skill': this.pops.push({ uid: e.uid, id: e.skill, t: 0 });
           if (e.skill === 'missile') for (const k of [-1, 1]) this.muzzles.push({ uid: e.uid, dx: k * 22, dy: 4, t: 0, color: '#ffb43a' });
           break;
+        case 'turret': this.ripples.push({ x: e.x, y: e.y, t: 0, dur: 0.5, r0: 6, r1: 34, color: '255,233,92', w: 3 }); this.burst(e.x, e.y, 0.4, 'blue'); break;
+        case 'bond': this.floaters.push({ x: laneCenter(e.lane), y: 955, text: `羁绊「${e.name}」${e.desc}`, color: '#ffd86b', t: 0, nop: true, crit: true }); break;
+        case 'weak': this.shake = Math.max(this.shake, 6); break;
+        case 'weakBroken': this.shake = Math.max(this.shake, 14); this.flashes.push({ t: 0.3, color: '#bfefff' }); break;
+        case 'calloutDone': this.flashes.push({ t: 0.3, color: '#ffd86b' }); break;
         case 'drones': for (let i = 0; i < 2; i++) this.muzzles.push({ uid: e.uid, dx: (i ? 6 : -6), dy: -36, t: 0, color: '#c58bff' }); if (e.kind === 'guard') this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.8, r0: 30, r1: 180, color: this.ultPal(g.fighters.get(e.uid)).rgb }); break;
         case 'ult': {
-          const id = { healer: 'healUlt', tank: 'whirl', dps: 'beam', carrier: 'swarm' }[e.cls];
+          const id = { healer: 'healUlt', tank: 'whirl', dps: 'beam', carrier: 'swarm', engineer: 'field' }[e.cls];
           const P = this.ultPal(g.fighters.get(e.uid));
           const tn = P.tier ? `${PVE.forge.tiers[P.tier].name}·` : '';
           this.pops.push({ uid: e.uid, id, t: 0, big: true });
@@ -212,6 +219,7 @@ export class Renderer {
           }
           if (e.cls === 'dps') this.shake = Math.max(this.shake, 4);
           if (e.cls === 'carrier') this.flashes.push({ t: 0.25, color: P.c });
+          if (e.cls === 'engineer') { this.flashes.push({ t: 0.25, color: P.c }); this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.6, r0: 20, r1: PVE.engineer.fieldR, color: P.lrgb, w: 6 }); }
           if (e.cls === 'tank') { this.flashes.push({ t: 0.3, color: P.c }); this.shake = Math.max(this.shake, 8); this.ring(e.x, e.y, P.l, 40); }
           // 传说及以上：释放瞬间多一圈品质色冲击环；神话/至尊再加一圈
           if (P.tier >= 3) this.ripples.push({ uid: e.uid, x: e.x, y: e.y, t: 0, dur: 0.7, r0: 30, r1: 160 + P.tier * 30, color: P.rgb, w: 4 + P.tier });
@@ -294,13 +302,13 @@ export class Renderer {
     this.sx = sx; this.sy = sy;
     x.save(); x.translate(sx, sy);
     for (const id of ['red', 'blue']) this.drawFlagship(x, g.teams[id]);
-    if (g.mode === 'pve') this.drawZones(x, dt);
+    if (g.mode === 'pve') { this.drawZones(x, dt); drawFields(this, x); }
     this.drawHazards(x);
     if (g.mode === 'pve') this.drawBarriers(x);
     for (const s of g.battleships) this.drawShip(x, s);
     this.drawFighters(x);
     this.drawBullets(x);
-    if (g.mode === 'pve') { this.drawShocks(x, dt); this.drawSlashes(x, dt); this.drawDrones(x); this.drawSupportFx(x, dt); this.drawPveFx(x, dt); }
+    if (g.mode === 'pve') { this.drawShocks(x, dt); this.drawSlashes(x, dt); this.drawDrones(x); this.drawSupportFx(x, dt); this.drawPveFx(x, dt); drawWeak(this, x); }
     this.drawParticles(x, dt);
     this.drawCannons(x);
     x.restore();
@@ -623,7 +631,7 @@ export class Renderer {
     if (f.charge >= 20) { x.strokeStyle = 'rgba(255,243,168,.7)'; x.lineWidth = 2; x.beginPath(); x.arc(f.x, f.y, 25, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * f.charge / 100); x.stroke(); }
     // 真人：技能 / 大招 就绪小图标（提醒发弹幕）
     if (!f.npc) {
-      const ids = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'], carrier: ['drones', 'swarm'] }[f.cls];
+      const ids = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'], carrier: ['drones', 'swarm'], engineer: ['turret', 'field'] }[f.cls];
       [[ids[0], f.skillCd, CLASSES[f.cls].skillCd], [ids[1], f.ultCd, PVE.ultCooldown]].forEach(([id, cd, max], i) => {
         const ic = this.skillIcon(id, 16), cx = f.x + bw / 2 + 10, cy = f.y + 14 + i * 17;
         if (!ic) return;
@@ -950,6 +958,7 @@ export class Renderer {
   drawDrones(x) {
     const g = this.game;
     for (const d of g.pveDrones || []) {
+      if (d.kind === 'turret') { drawTurret(this, x, d); continue; }
       if (d.kind === 'super') {
         const art = this.art.get('super', px => fighterSvg('blue', 'laser', 3, false, px), 50, 50, 3);
         x.save(); x.globalCompositeOperation = 'lighter'; const gl = this.glowSprite('#ffd23a', 9 + Math.sin(g.clock * 8)); x.drawImage(gl, d.x - gl.half, d.y + 16 - gl.half); x.restore();
@@ -1319,6 +1328,7 @@ export class Renderer {
     }
     // 本局战功榜
     if (pve) { this.board(x, 'blue', 520, 300); if (g.settings.showGiftBox !== false) this.giftBox(x, 14, 300); }   // 左侧礼物框：主播设置里可关
+    if (pve) drawEventHud(this, x);   // 航线投票 / 航线标签 / 全场口令 / 阵型羁绊
     else { this.board(x, 'red', 520, 196); this.board(x, 'blue', 520, 1000); }
     // 模式投票
     const v = g.voteView();
@@ -1400,7 +1410,7 @@ export class Renderer {
   infoPanel(x) {
     const g = this.game;
     const L = 364, T = BOTTOM_Y, Wd = 348, Hh = H - 8 - T;
-    const pages = ['怎么玩', '评论指令', '礼物效果①', '礼物效果②', '礼物效果③', '敌人图鉴', '四种战舰', '装备', '榜单与成长']   // 左侧礼物框是简表，这里轮播详细效果
+    const pages = ['怎么玩', '评论指令', '新玩法', '礼物效果①', '礼物效果②', '礼物效果③', '敌人图鉴', '五种战舰', '装备', '榜单与成长']   // 左侧礼物框是简表，这里轮播详细效果
       .filter(p => g.settings.showGiftInfo !== false || !p.startsWith('礼物效果'));   // 主播设置里关掉礼物说明就不轮播这三页
     const DUR = 7, page = Math.floor(g.clock / DUR) % pages.length, ph = g.clock % DUR;
     this.panelBox(x, L, T, Wd, Hh);
@@ -1424,14 +1434,14 @@ export class Renderer {
     const t = g.settings.tiers || [1, 10, 50, 200, 1000];
     const name = pages[page];
     if (name === '怎么玩') bullets([
-      '发「输出」「机甲」「医疗」「航母」选战舰，自动索敌开火',
+      '发「输出」「机甲」「医疗」「航母」「工程」选战舰，自动开火',
       '小技能每10秒自动放；发「大招」放大招（每45秒一次）',
       '红色区域10秒后命中，发「左」「中」「右」或「1」「2」「3」躲开',
       '每章5关：1–3关打精英头目，4精英，5首领；失败退回上一章',
       '湮灭炮锁定时全员发「拦截」· 点赞满500全队伤害+10%',
     ], 14, 4);
     else if (name === '评论指令') {
-      const cmds = [['输出 / 机甲 / 医疗 / 航母', '选战舰、换战舰'], ['大招', '放大招（每45秒一次）'], ['签到', '每天领一次每日战利品'], ['左中右 / 1 2 3', '换航道躲红区'], ['拦截', '削弱母舰湮灭炮'], ['装备', '看自己的装备'], ['我的', '看等级、贡献、属性']].concat(PVP_ENABLED ? [['换对战', '投票切到红蓝对战']] : []);
+      const cmds = [['输出 / 机甲 / 医疗 / 航母 / 工程', '选战舰、换战舰'], ['A / B / C', '投票选航线'], ['大招', '放大招（每45秒一次）'], ['签到', '每天领一次每日战利品'], ['左中右 / 1 2 3', '换航道躲红区'], ['拦截', '削弱母舰湮灭炮'], ['装备', '看自己的装备'], ['我的', '看等级、贡献、属性']].concat(PVP_ENABLED ? [['换对战', '投票切到红蓝对战']] : []);
       cmds.forEach(([a, b], i) => {
         const y = y0 + i * 25;
         if (i % 2) { x.fillStyle = 'rgba(255,255,255,.04)'; x.fillRect(L + 6, y - 12, Wd - 12, 24); }
@@ -1439,13 +1449,14 @@ export class Renderer {
         x.font = `13px ${FONT}`; x.fillStyle = '#e8eeff'; x.textAlign = 'right'; x.fillText(b, L + Wd - 12, y); x.textAlign = 'left';
       });
     }
-    else if (name === '四种战舰') {
-      const art = { dps: 'missile', tank: 'impact', carrier: 'drones', healer: 'heal' };
-      const txt = { dps: '导弹齐射 · 大招自动瞄准光束', tank: '冲上去近战砍 · 冲击波 · 大招无敌冲锋斩', carrier: '无人机 · 大招护卫蜂群拦子弹', healer: '自动奶3人 · 大招全体回血复活' };
-      ['dps', 'tank', 'carrier', 'healer'].forEach((c, i) => {
-        const y = y0 + 4 + i * 47;
+    else if (name === '新玩法') bullets(EVENT_HELP, 13, 3);
+    else if (name === '五种战舰') {
+      const art = { dps: 'missile', tank: 'impact', carrier: 'drones', healer: 'heal', engineer: 'turret' };
+      const txt = { dps: '导弹齐射 · 大招自动瞄准光束', tank: '冲上去近战砍 · 冲击波 · 大招无敌冲锋斩', carrier: '无人机 · 大招护卫蜂群拦子弹', healer: '自动奶3人 · 大招全体回血复活', engineer: '布自动炮台 · 大招电磁力场减速敌弹' };
+      ['dps', 'tank', 'carrier', 'healer', 'engineer'].forEach((c, i) => {
+        const y = y0 + 2 + i * 44;
         const ic = this.fighterArt({ cls: c, skin: 0, team: 'blue' }); if (ic) { x.save(); x.translate(cx + 18, y + 4); x.scale(0.62, 0.62); this.blit(x, ic, 0, 0); x.restore(); }
-        x.font = `700 15px ${FONT}`; x.fillStyle = { dps: '#ffb43a', tank: '#5ff0ff', carrier: '#c58bff', healer: '#5dff9e' }[c]; x.fillText(`${CLASSES[c].name}`, cx + 46, y - 6);
+        x.font = `700 15px ${FONT}`; x.fillStyle = CLS_COLOR[c]; x.fillText(`${CLASSES[c].name}`, cx + 46, y - 6);
         x.font = `11px ${FONT}`; x.fillStyle = '#8fa3c8'; x.fillText(`血${CLASSES[c].hp} 攻${CLASSES[c].atk}`, cx + 46 + x.measureText(CLASSES[c].name).width * 1.4 + 6, y - 6);
         const sk = this.skillIcon(art[c], 18); if (sk) this.blit(x, sk, cx + 55, y + 13);
         x.font = `13px ${FONT}`; x.fillStyle = '#e8eeff'; x.fillText(txt[c], cx + 68, y + 13);
@@ -1576,7 +1587,7 @@ export class Renderer {
   fleetBar(x, y) {
     const g = this.game;
     let n = 0, alive = 0, hp = 0, max = 0;
-    const cls = { dps: 0, tank: 0, healer: 0, carrier: 0 };
+    const cls = { dps: 0, tank: 0, healer: 0, carrier: 0, engineer: 0 };
     for (const f of g.fighters.values()) if (!f.alien && f.team === 'blue') { n++; cls[f.cls]++; if (f.alive) { alive++; hp += f.hp; } max += f.maxHp || 0; }
     x.fillStyle = 'rgba(4,6,16,.78)'; x.fillRect(0, y, W, 46);
     const pct = max ? hp / max : 0;
@@ -1587,7 +1598,7 @@ export class Renderer {
     x.fillText('苍穹舰队', 14, y + 20);
     x.font = `13px ${FONT}`; x.fillStyle = '#aab4cc'; x.fillText(`存活 ${alive}/${n}`, 14, y + 38);
     x.font = `12px ${FONT}`; x.fillStyle = '#c8d2ee'; x.textAlign = 'center';
-    x.fillText(`输出 ${cls.dps} · 机甲 ${cls.tank} · 医疗 ${cls.healer} · 航母 ${cls.carrier}`, 360, y + 37);
+    x.fillText(`输出 ${cls.dps} · 机甲 ${cls.tank} · 医疗 ${cls.healer} · 航母 ${cls.carrier} · 工程 ${cls.engineer}`, 360, y + 37);
     x.textAlign = 'right'; x.font = `700 20px ${NUM}`; x.fillStyle = '#ffffff'; x.fillText(`${Math.round(pct * 100)}%`, W - 14, y + 22);
     const c = g.teams.blue.cannon;
     x.font = `12px ${FONT}`; x.fillStyle = c.state === 'idle' ? '#7f8aa6' : '#ffe28a';

@@ -6,6 +6,7 @@ import { skinFor } from './save.js';
 import { setupBoss, setupFleetSide, startPve, stepPve, stepAlien, currentStage, interceptZone, spawnFormation, lateMul, failStage, stageKind, stageLabel, smallKill, chapterOf, alienSplit } from './pve.js';
 import { syncDodge, fmtDuration, score, giveItem, makeItem } from './fleet.js';
 import { nearestEnemy } from './fleet.js';
+import { stepEvents, routeVoteChat, calloutChat, clearRoute, weakHit, routeEnemyDmg } from './events-pve.js';
 import { pveGiftKind, applyPveGift, stepPveGifts, moraleLike, dailyCheckin, chestKilled, xpMul, pauseSummons, resumeSummons, loadBuffs } from './gifts-pve.js';
 import { setupShip, stepShip, stepBeam, hurt as fleetHurt, parseClass, parseSkill, requestSkill, refreshStats, rollDrops, laneCenter, growthE } from './fleet.js';
 import { GEAR } from './config.js';
@@ -187,6 +188,7 @@ export class Game {
       this.memStage = next;
       Object.assign(result, { stage, clear, next, kind: stageKind(stage), bossName: this.teams.red.bossName, small: this.pve?.smallDrops || 0 });
       result.drops = clear ? rollDrops(this, chapterOf(stage)) : [];
+      if (!clear) clearRoute(this);   // 失败退回：航线作废，回来重新投
       if (clear) result.reserve = this.clearReward(stage);
       for (const f of this.humans()) f.giftRound = 0;   // 结算后清零，结算期间送的算下一局
     }
@@ -402,7 +404,7 @@ export class Game {
     if (f.cls === cls) return true;
     f.cls = cls;
     refreshStats(f);
-    this.emit('toast', { uid: f.uid, text: `${f.name} 换成${{ dps: '输出舰', tank: '重装机甲', healer: '医疗舰', carrier: '蜂巢航母' }[cls]}` });
+    this.emit('toast', { uid: f.uid, text: `${f.name} 换成${{ dps: '输出舰', tank: '重装机甲', healer: '医疗舰', carrier: '蜂巢航母', engineer: '工程舰' }[cls]}` });
     f.labelUntil = this.clock + 3;
     return true;
   }
@@ -429,6 +431,8 @@ export class Game {
   chat(user, text) {
     this.stats.chats++;
     if (this.mode === 'pve') {
+      // 全场口令、航线投票优先识别
+      if (this.phase === 'battle' && (calloutChat(this, user, text) || routeVoteChat(this, user, text))) return true;
       const sk = parseSkill(text);
       if (sk) { const f = this.join(user); if (!f) return false; f.lastActive = this.now(); if (this.phase === 'battle') requestSkill(this, f, sk); return true; }
       const cls = parseClass(text);
@@ -657,6 +661,7 @@ export class Game {
     this.phaseT -= dt;
     if (Math.floor(this.clock) !== Math.floor(this.clock - dt) && Math.floor(this.clock) % 2 === 0) this.syncNpcs();
     if (this.mode === 'pve') stepPve(this, dt);
+    if (this.mode === 'pve' && this.phase === 'battle') stepEvents(this, dt);
     if (this.mode === 'pve' && this.phase === 'battle') stepPveGifts(this, dt);
     if (this.mode === 'pve' && this.phase === 'battle' && Math.floor(this.clock) !== Math.floor(this.clock - dt)) this.liveXp();
     for (const id of TEAM_IDS) this.stepTeam(this.teams[id], dt);
@@ -976,7 +981,7 @@ export class Game {
     const b = { x, y, vx, vy, r, dmg, team, kind, owner, pierce: pierce || 0, life: 6, split: 0, hue: 0, laser: false, orb: false, overload: false, gift: false, hit: null };
     if (extra) Object.assign(b, extra);
     if (this.mode === 'pve' && team === 'blue') { b.seek = true; if (b.life > 3.5 && !b.missile) b.life = 3.5; }
-    if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * (chapterOf(this.pve?.stage || 1) - 1)) * lateMul(this.pve?.stage || 1) : PVE.giftDmg;
+    if (this.mode === 'pve' && !b.pveScaled) b.dmg *= team === 'red' ? PVE.enemyBulletDmg * (1 + 0.08 * (chapterOf(this.pve?.stage || 1) - 1)) * lateMul(this.pve?.stage || 1) * routeEnemyDmg(this) : PVE.giftDmg;
     this.bullets.push(b);
     // 讨伐：敌方弹幕数量×3——每发子弹左右各多一发（稍微错开角度），不再递归
     if (this.mode === 'pve' && team === 'red' && !b.copy && PVE.enemyBulletCopies > 1) {
@@ -1108,6 +1113,7 @@ export class Game {
     const n = this.attackers(other(enemyId));
     const norm = fromGift ? 1 : Math.pow(FLAGSHIP.attackerNorm / Math.max(FLAGSHIP.attackerNorm, n), this.mode === 'pve' ? 0.7 : 0.8);
     let dmg = raw * norm * (kind === 'danmaku' ? 0.4 : 1);
+    if (this.mode === 'pve' && enemyId === 'red' && t.boss) dmg *= weakHit(this, t, dmg, ownerUid);   // 首领弱点 / 瘫痪易伤
     const counted = dmg;
     t.sinceHit = 0; t.dmgTaken += dmg;
     if (t.shield > 0) { const s = Math.min(t.shield, dmg); t.shield -= s; dmg -= s; }

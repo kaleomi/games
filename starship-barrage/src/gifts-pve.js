@@ -3,6 +3,7 @@
 import { PVE, GEAR, CLASSES, giftName } from './config.js';
 import { castUlt, rollItem, giveItem, makeItem, refreshStats, laneCenter, LANES, forgeTier, rollForge } from './fleet.js';
 import { bossMax, spawnAlien, chapterOf } from './pve.js';
+import { routeXpMul } from './events-pve.js';
 
 // 礼物名跟着设置里的「礼物名称」走（抖音礼物 / 直播玩法礼物），见 config.js 的 GIFT_SETS
 export const GIFT_KINDS = {
@@ -39,7 +40,7 @@ export function teamAtkMul(game) {
 // 自己普攻加成：英雄战机 +30%
 export function selfShotMul(game, f) { return active(f.heroUntil, game) ? 1 + PVE.gifts.hero.atk : 1; }
 // 自己经验倍率：小心心 +50%
-export function xpMul(game, f) { return active(f.xpUntil, game) ? 1 + PVE.gifts.heart.xp : 1; }
+export function xpMul(game, f) { return (active(f.xpUntil, game) ? 1 + PVE.gifts.heart.xp : 1) * routeXpMul(game); }   // ×航线「经验加成」
 // 自己战利品保底品质（-1 = 无）
 export function lootFloor(game, f) {
   let t = -1;

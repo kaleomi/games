@@ -1,5 +1,6 @@
 // 讨伐模式 · 我方战舰：三种战舰、技能、手动/自动躲避、贡献值、装备
 import { W, H, PVE, CLASSES, GEAR, LEVEL } from './config.js';
+import { shipMods, applyRouteShip, addField, fieldOwnerActive, routeLootExtra } from './events-pve.js';
 
 export const LANES = ['L', 'M', 'R'];
 export const LANE_NAMES = { L: '左', M: '中', R: '右' };
@@ -25,6 +26,7 @@ export function parseClass(text) {
   if (/^(机甲|坦克|肉|坦|重装|前排|换机甲|选机甲|当机甲)/.test(s)) return 'tank';
   if (/^(输出|dps|打手|输出舰|换输出|选输出|当输出)/.test(s)) return 'dps';
   if (/^(航母|蜂巢|母巢|换航母|选航母|当航母)/.test(s)) return 'carrier';
+  if (/^(工程|工程舰|换工程|选工程|当工程)/.test(s)) return 'engineer';
   return null;
 }
 
@@ -104,7 +106,7 @@ export function shipStats(f) {
   const lv = (1 + 0.02 * Math.max(0, (f.level || 1) - 1)) * forgeMul(f);   // 等级 × 锻造品质（全属性）
   const g = gearBonus(f.gear), cap = GEAR.caps;
   return {
-    maxHp: Math.round(c.hp * lv * (1 + g.hp)),
+    maxHp: Math.round(c.hp * lv * (1 + g.hp) * (f.hpMul || 1)),   // hpMul：航线「装甲强化」
     atk: c.atk * lv * (1 + g.atk),
     atkBase: c.atk * lv * (1 + g.atk),
     armor: Math.min(cap.def, c.armor + g.def),
@@ -119,10 +121,10 @@ export function shipStats(f) {
 // 暴击：返回 [伤害, 是否暴击]；持续伤害（光束、旋风）用期望值，免得数字乱跳
 export function rollCrit(game, f, dmg) {
   const st = f.stats; if (!st) return [dmg, false];
-  if (game.random() < st.crit) return [dmg * st.critDmg, true];
+  if (game.random() < st.crit + (f.mods?.crit || 0)) return [dmg * st.critDmg, true];
   return [dmg, false];
 }
-export function critAvg(f) { const st = f.stats; return st ? 1 + st.crit * (st.critDmg - 1) : 1; }
+export function critAvg(f) { const st = f.stats; return st ? 1 + Math.min(1, st.crit + (f.mods?.crit || 0)) * (st.critDmg - 1) : 1; }
 // 自动索敌：附近（260内）有异形先打异形；母舰在场就打母舰核心；否则打最近的异形
 // 战力：等级 + 装备评分（和职业无关，方便横向比较）
 export function combatPower(f) {
@@ -166,6 +168,7 @@ export function pickClass(game) {
   if (healers < Math.ceil(n / 5)) return 'healer';
   if (tanks < Math.ceil(n / 6)) return 'tank';
   if (ships.filter(f => f.cls === 'carrier').length < Math.floor(n / 6)) return 'carrier';
+  if (ships.filter(f => f.cls === 'engineer').length < Math.floor(n / 7)) return 'engineer';
   return 'dps';
 }
 
@@ -179,6 +182,7 @@ export function setupShip(game, f) {
       if (p && !p.cls) { p.cls = f.cls; game.save.dirty = true; }
     }
   }
+  applyRouteShip(game, f);
   f.stats = shipStats(f);
   f.maxHp = f.stats.maxHp; f.hp = f.maxHp;
   f.shieldHp = 0; f.taunt = 0; f.beamT = 0;
@@ -220,7 +224,9 @@ export function fmtDuration(sec) {
 
 // ───────── 每帧 ─────────
 export function stepShip(game, f, dt, combat) {
-  if (f.stats) f.stats.atk = (f.stats.atkBase ?? f.stats.atk) * teamAtkMul(game);
+  // 航线 / 阵型羁绊 / 口令的加成（攻击、攻速、暴击、技能间隔）
+  const md = f.mods = game.mode === 'pve' && !f.alien ? shipMods(game, f) : null;
+  if (f.stats) f.stats.atk = (f.stats.atkBase ?? f.stats.atk) * teamAtkMul(game) * (md ? md.atk : 1);
   f.hitFlash = Math.max(0, (f.hitFlash || 0) - dt);
   f.invuln = Math.max(0, f.invuln - dt);
   f.taunt = Math.max(0, f.taunt - dt);
@@ -307,7 +313,7 @@ export function stepShip(game, f, dt, combat) {
   const autoUlt = f.npc ? wantsUlt(game, f) : f.ultReq > game.clock || (auto && (wantsUlt(game, f) || f.ultReadyFor > 3));
   if (f.ultCd <= 0 && autoUlt && castUlt(game, f)) score(game, f, PVE.score.ult);
   if (f.skillCd <= 0) {
-    if (castSkill(game, f)) { f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste); if (f.freeSkill) f.freeSkill = false; else score(game, f, PVE.score.skill); }
+    if (castSkill(game, f)) { f.skillCd = CLASSES[f.cls].skillCd * (1 - f.stats.haste) * (md ? md.skill : 1); if (f.freeSkill) f.freeSkill = false; else score(game, f, PVE.score.skill); }
     else f.skillCd = 0.5;
   }
   // 点赞充满：超载炮
@@ -322,7 +328,7 @@ export function stepShip(game, f, dt, combat) {
   f.fireCd -= dt;
   if (f.cls === 'tank' && (f.mel || meleeTarget(game, f))) return;
   if (f.fireCd <= 0) {
-    f.fireCd = CLASSES[f.cls].fireCd / (1 + f.stats.aspd);
+    f.fireCd = CLASSES[f.cls].fireCd / (1 + f.stats.aspd + (md ? md.aspd : 0));
     const tgt = nearestEnemy(game, f.x, f.y);
     const ang = tgt ? Math.atan2(tgt.y - (f.y - 16), tgt.x - f.x) : -Math.PI / 2;
     f.aimAngle = ang + Math.PI / 2;
@@ -334,8 +340,8 @@ export function stepShip(game, f, dt, combat) {
     const twin = f.cls === 'dps';
     const total = base * (twin ? 1.4 : 1) * GEAR.barrelMult[barrels];
     const per = total / (pods.length * (twin ? 2 : 1));
-    const speed = { dps: 1050, tank: 760, healer: 780, carrier: 860 }[f.cls] || 860;
-    const r = { dps: 3.5, tank: 6.5, healer: 5, carrier: 4.5 }[f.cls] || 4;
+    const speed = { dps: 1050, tank: 760, healer: 780, carrier: 860, engineer: 900 }[f.cls] || 860;
+    const r = { dps: 3.5, tank: 6.5, healer: 5, carrier: 4.5, engineer: 4.5 }[f.cls] || 4;
     const pierce = wt >= 0 ? GEAR.pierce[wt] : 0;
     for (const [ox, oy] of pods) {
       for (const tw of twin ? [-3.5, 3.5] : [0]) {
@@ -351,7 +357,7 @@ export function stepShip(game, f, dt, combat) {
 }
 
 // 炮管位置（相对战舰中心）：1管在机头，2管在两侧炮舱，3管＝机头+两侧
-export const POD = { dps: [17, 2, -22], tank: [21, -12, -24], healer: [21, -4, -26], carrier: [25, -10, -32] };
+export const POD = { dps: [17, 2, -22], tank: [21, -12, -24], healer: [21, -4, -26], carrier: [25, -10, -32], engineer: [16, -6, -30] };
 export function barrelOffsets(cls, n) {
   const [px, py, ny] = POD[cls] || POD.dps;
   if (n <= 1) return [[0, ny]];
@@ -578,6 +584,15 @@ function whirlHit(game, f) {
 
 // ───────── 蜂巢航母：无人机 ─────────
 // attack：追着最近的异形（母舰战时追触手炮/核心）在下方盘旋射击；guard：在舰队区巡逻，撞到敌弹就拦下
+// 工程舰：在身前布一座自动炮台（超过上限先回收最老的）
+function deployTurret(game, f, dx = 0) {
+  const E = PVE.engineer, list = game.pveDrones || (game.pveDrones = []);
+  const mine = list.filter(d => d.owner === f.uid && d.kind === 'turret');
+  for (let i = 0; i < mine.length + 1 - E.maxTurrets; i++) mine[i].t = 0;
+  const tx = Math.max(40, Math.min(W - 40, f.x + dx + (game.random() - 0.5) * 50)), ty = Math.max(PVE.zone[0] - 40, f.y - 90 - game.random() * 50);
+  list.push({ owner: f.uid, kind: 'turret', x: f.x, y: f.y - 10, tx, ty, vx: 0, vy: 0, t: E.turretLife, max: E.turretLife, cd: 0.3, phase: 0, id: ++game.zoneSeq, aim: -Math.PI / 2 });
+  game.emit('turret', { uid: f.uid, x: tx, y: ty });
+}
 function launchDrones(game, f, kind, n) {
   const C = PVE.carrier, list = game.pveDrones || (game.pveDrones = []);
   const mine = list.filter(d => d.owner === f.uid);
@@ -621,6 +636,22 @@ export function stepDrones(game, dt) {
         const a = t2 ? Math.atan2(t2.y - d.y, t2.x - d.x) : -Math.PI / 2;
         for (const k of [-0.12, 0, 0.12]) { const [dd, crit] = rollCrit(game, o, 1.2 * atk * pw); game.addBullet(d.x, d.y - 12, Math.cos(a + k) * 900, Math.sin(a + k) * 900, 4, dd, 'blue', 'shot', o.uid, 0, { pveScaled: true, crit, wt: 4 }); }
       }
+      continue;
+    }
+    if (d.kind === 'turret') {   // 工程炮台：原地不动，打最近的敌人；主人开电磁力场时射速翻倍
+      d.x += (d.tx - d.x) * Math.min(1, dt * 8); d.y += (d.ty - d.y) * Math.min(1, dt * 8);
+      const E = PVE.engineer;
+      if (d.cd <= 0) {
+        const t2 = nearestEnemy(game, d.x, d.y, E.turretRange);
+        if (t2) {
+          d.cd = E.turretCd / (fieldOwnerActive(game, o.uid) ? 2 : 1);
+          const a = Math.atan2(t2.y - d.y, t2.x - d.x); d.aim = a;
+          const [dd, crit] = rollCrit(game, o, E.turretAtk * atk * pw);
+          game.addBullet(d.x + Math.cos(a) * 16, d.y + Math.sin(a) * 16, Math.cos(a) * 820, Math.sin(a) * 820, 4, dd, 'blue', 'shot', o.uid, 0, { pveScaled: true, crit, wt: 1, turret: true });
+          d.flash = 0.08;
+        } else d.cd = 0.2;
+      }
+      d.flash = Math.max(0, (d.flash || 0) - dt);
       continue;
     }
     if (d.kind === 'attack') {
@@ -682,6 +713,7 @@ function castSkill(game, f) {
     return true;
   }
   if (f.cls === 'tank') return castImpact(game, f);
+  if (f.cls === 'engineer') { deployTurret(game, f); game.emit('skill', { uid: f.uid, skill: 'turret', x: f.x, y: f.y }); f.recoilT = 0.3; return true; }
   if (f.cls === 'carrier') { launchDrones(game, f, 'attack', PVE.carrier.attackDrones); game.emit('skill', { uid: f.uid, skill: 'drones', x: f.x, y: f.y }); f.recoilT = 0.3; return true; }
   // 输出舰：集束导弹
   const n = 8;
@@ -720,6 +752,7 @@ function wantsUlt(game, f) {
   }
   if (f.cls === 'tank') { let n = 0; for (const e of game.fighters.values()) if (e.alien && e.alive) n++; return n >= 5 || game.teams.red.present; }
   if (f.cls === 'carrier') { let n = 0; for (const b of game.bullets) if (b.team === 'red' && b.y > PVE.zone[0] - 100) n++; return n >= 25 || game.zones.length > 0; }
+  if (f.cls === 'engineer') { let n = 0; for (const b of game.bullets) if (b.team === 'red' && Math.abs(b.x - f.x) < 220 && b.y > f.y - 380) n++; return n >= 14 || game.teams.red.present; }
   const boss = game.teams.red;
   const [l0, l1] = PVE.lanes[f.lane];
   if (boss.present && Math.max(l0, boss.x - boss.hitW / 2) < Math.min(l1, boss.x + boss.hitW / 2)) return true;
@@ -730,7 +763,7 @@ function wantsUlt(game, f) {
 
 export function castUlt(game, f) {
   if (f.ultCd > 0 || !f.alive) return false;
-  f.ultCd = PVE.ultCooldown * (1 - f.stats.haste); f.ultReq = 0; f.ultReadyFor = 0;
+  f.ultCd = PVE.ultCooldown * (1 - f.stats.haste) * (game.mode === 'pve' ? shipMods(game, f).ult : 1); f.ultReq = 0; f.ultReadyFor = 0;
   if (f.cls === 'healer') {
     let revived = 0;
     for (const a of allies(game)) {
@@ -743,6 +776,10 @@ export function castUlt(game, f) {
     f.rushT = T.rushTime; f.invuln = Math.max(f.invuln, T.rushTime); f.taunt = Math.max(f.taunt, T.rushTime);
     f.rushRetarget = 0; f.rushTick = 0.12; f.returning = false;
     game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y, lane: f.lane });
+  } else if (f.cls === 'engineer') {   // 电磁力场：敌弹减速、场内减伤，再补2座炮台，自己的炮台射速翻倍
+    addField(game, f);
+    for (let i = 0; i < PVE.engineer.fieldTurrets; i++) deployTurret(game, f, (i ? 1 : -1) * 70);
+    game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y });
   } else if (f.cls === 'carrier') {
     launchDrones(game, f, 'guard', PVE.carrier.guardDrones);
     game.emit('ult', { uid: f.uid, name: f.name, cls: f.cls, x: f.x, y: f.y });
@@ -774,7 +811,7 @@ export function hurt(game, f, dmg, ownerUid) {
     if (f.hp <= 0) game.killFighter(f, o || null);
     return true;
   }
-  let d = dmg * (1 - (f.stats?.armor || 0));
+  let d = dmg * (1 - (f.stats?.armor || 0)) * (game.mode === 'pve' ? shipMods(game, f).taken : 1);
   const taken = Math.min(d, f.hp + (f.shieldHp || 0));
   if (f.shieldHp > 0) { const s = Math.min(f.shieldHp, d); f.shieldHp -= s; d -= s; }
   f.hp -= d;
@@ -801,7 +838,8 @@ export function rollDrops(game, stage) {
   dropOrder(game).forEach((f, rank) => {
     if (rank >= 3 && game.random() >= 0.6) return;
     if (game.pve?.kind === 'wave' && game.random() >= PVE.chapter.waveDrop) return;   // 1–3关过得快，装备掉率×30%（另有小怪白装）
-   for (let k = 0; k < ((f.doubleUntil || 0) > game.clock ? 2 : 1); k++) {   // 礼花筒：只有送礼的人自己双倍
+   const times = ((f.doubleUntil || 0) > game.clock ? 2 : 1) + (routeLootExtra(game) && game.random() < routeLootExtra(game) ? 1 : 0);   // 礼花筒：只有送礼的人自己双倍；航线「满载而归」50%多掉1件
+   for (let k = 0; k < times; k++) {
     let item = rollItem(game.random, stage, rank === 0 ? 1 : 0);
     const fl = lootFloorOf(game, f);
     if (fl > item.tier) item = makeItem(game.random, item.slot, fl);   // 礼物给的保底品质

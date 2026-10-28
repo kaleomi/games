@@ -1,6 +1,6 @@
 // 星舰远征 · 矢量美术（SVG 绘制，加载后栅格化缓存到离屏画布）
 // 舰船（战机、讨伐三职业、召唤战舰）在 ships.js
-export { fighterSvg, dpsSvg, mechSvg, healerSvg, battleshipSvg, carrierSvg, droneShipSvg } from './ships.js';
+export { fighterSvg, dpsSvg, mechSvg, healerSvg, battleshipSvg, carrierSvg, droneShipSvg, engineerSvg, engTurretSvg } from './ships.js';
 export { gearIconSvg, gunPodSvg, boltSvg } from './gear-art.js';
 export { queenSvg, colossusSvg, eyeSvg, thunderSvg, magmaSvg, voidSvg, bossPodSvg, chestSvg } from './boss-art.js';
 // 所有舰船统一「机头朝上」绘制，原点在中心；红方在画面上方，绘制时整体翻转。
@@ -449,6 +449,8 @@ const SKILL_STYLE = {
   whirl:    { a: '#fff6d0', b: '#4fb8ff', c: '#071a3a', ult: true },
   drones:   { a: '#f0dcff', b: '#9a4dff', c: '#24063a', ult: false },
   swarm:    { a: '#fbeaff', b: '#b066ff', c: '#24063a', ult: true },
+  turret:   { a: '#fff8cc', b: '#e0b400', c: '#3a2c00', ult: false },
+  field:    { a: '#fffbe0', b: '#f0c419', c: '#3a2c00', ult: true },
 };
 export function skillIconSvg(id, px) {
   const st = SKILL_STYLE[id];
@@ -466,6 +468,8 @@ export function skillIconSvg(id, px) {
   const dr = (x, y, k) => `<path transform="translate(${x},${y}) scale(${k})" d="M0,-6 L4.6,3.4 L1.6,2.4 L0,5 L-1.6,2.4 L-4.6,3.4 Z" fill="#fff"/>`;
   if (id === 'drones') sym = dr(0, -8, 1.2) + dr(-9, 4, 1) + dr(9, 4, 1) + `<path d="M-6,14 L6,14" stroke="#fff" stroke-width="2" stroke-linecap="round"/>`;
   if (id === 'swarm') sym = [[0, -12, .8], [-9, -6, .8], [9, -6, .8], [-13, 4, .75], [13, 4, .75], [-5, 3, .85], [5, 3, .85], [0, 12, .8]].map(([x, y, k]) => dr(x, y, k)).join('') + `<circle r="16" fill="none" stroke="#fff" stroke-width="1.2" stroke-dasharray="4 3" opacity=".8"/>`;
+  if (id === 'turret') sym = `<path d="M-2,2 L-12,14 M2,2 L12,14 M0,4 L0,15" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cy="-1" r="7" fill="#fff"/><rect x="-2" y="-17" width="4" height="13" rx="1.5" fill="#fff"/><circle cy="-1" r="2.6" fill="${st.b}"/>`;
+  if (id === 'field') sym = `<circle r="15" fill="#fff" fill-opacity=".18" stroke="#fff" stroke-width="2"/><circle r="9" fill="none" stroke="#fff" stroke-width="1.4" stroke-dasharray="3 2.4"/><path d="M2,-9 L-4,1 L0,1 L-2,9 L5,-2 L1,-2 Z" fill="#fff"/>${[[-14, -8], [13, 9], [-10, 12]].map(([x, y]) => `<path d="M${x},${y - 2.6} L${x + 1},${y} L${x},${y + 2.6} L${x - 1},${y} Z" fill="#fff"/>`).join('')}`;
   if (id === 'whirl') sym = `${[0, 120, 240].map(a => `<path transform="rotate(${a})" d="M2,-3 C10,-8 15,-4 16,4 C12,-1 7,-1 3,2 Z" fill="#fff"/><path transform="rotate(${a})" d="M4,-15 A15,15 0 0 1 15,-4" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".7"/>`).join('')}<circle r="4.2" fill="#fff"/><circle r="2" fill="${st.b}"/>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${px}" height="${px}" viewBox="-24 -24 48 48">
     <defs>

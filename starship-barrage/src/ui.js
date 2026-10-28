@@ -1,7 +1,7 @@
 // 设置面板、开局规则页、结算页（DOM）
 import { TEAMS, GIFT, LEVEL, SKINS, PVE, CLASSES, GEAR, PVP_ENABLED, GIFT_SETS } from './config.js';
 import { bossMax, bossFor, stageLabel, stageKind, KIND_NAMES, bossTitle, leaderMax } from './pve.js';
-import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, dpsSvg, carrierSvg } from './art.js';
+import { emblemSvg, logoSvg, medalSvg, gearSvg, skillIconSvg, gearIconSvg, healerSvg, mechSvg, dpsSvg, carrierSvg, engineerSvg } from './art.js';
 import { describeItem, itemStats, statText } from './fleet.js';
 
 const SETTINGS_KEY = 'starship-barrage-settings-v1';
@@ -25,10 +25,12 @@ export function rulesHtml(settings, mode = 'pvp') {
   const range = i => i < 4 ? `${t[i]}–${t[i + 1] - 1}` : `${t[i]}+`;
   const pve = mode === 'pve';
   const how = pve ? `
-      <li>发 <b>输出 / 机甲 / 医疗 / 航母</b> 选战舰加入（发「加入」默认补缺的职业），战舰<b>自动开火</b></li>
+      <li>发 <b>输出 / 机甲 / 医疗 / 航母 / 工程</b> 选战舰加入（发「加入」默认补缺的职业），战舰<b>自动开火</b></li>
       <li>发 <b>技能</b> 放小技能，发 <b>大招</b> 放大招（每${PVE.ultCooldown}秒一次）；战机旁的小图标亮了就是好了</li>
       <li>异形放技能时航道会出现<b>红色区域，10秒倒计时</b>：发 <b>左 / 中 / 右</b>（或 <b>1 / 2 / 3</b>）换航道躲开（总有一条是安全的）</li>
-      <li><b>点赞</b>充能，满了打出超载炮 · 母舰「湮灭炮」锁定时全员发 <b>拦截</b> 削弱</li>
+      <li><b>点赞</b>满${PVE.morale.need}全队伤害+${Math.round(PVE.morale.dmg * 100)}% · 首领「湮灭炮」锁定时全员发 <b>拦截</b> 削弱</li>
+      <li><b>航线投票</b>：每章开打发 <b>A / B / C</b> 选航线，每条一个好效果一个坏效果，管整章；同航道战舰组合有<b>阵型羁绊</b></li>
+      <li><b>首领弱点</b>：血量60%、25%时露出弱点，只有指定战舰能打破，打破后首领瘫痪；<b>紧急口令</b>：限时内够人数发那句话就触发全队效果</li>
       <li><b>每章5关</b>：1–3关虫群+精英头目（打死头目过关），第4关精英，第5关首领；每关限时${PVE.stageSeconds / 60}分钟，过关<b>掉落装备</b>、自动进下一关</li>
       <li>全队阵亡或超时：退回上一章第1关（比如6-5没打过回5-1），已拿的经验和装备不收回${PVP_ENABLED ? ' · 发 <b>换对战</b> 切回红蓝对战' : ''}</li>`
     : `
@@ -68,15 +70,16 @@ export function rulesHtml(settings, mode = 'pvp') {
 const svgImg = (svg, size) => `<img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}" width="${size}" height="${size}" alt="">`;
 
 function classTable() {
-  const art = { dps: dpsSvg(0, 120), tank: mechSvg(0, 120), healer: healerSvg(0, 120), carrier: carrierSvg(0, 120) };
-  const icons = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'], carrier: ['drones', 'swarm'] };
+  const art = { dps: dpsSvg(0, 120), tank: mechSvg(0, 120), healer: healerSvg(0, 120), carrier: carrierSvg(0, 120), engineer: engineerSvg(0, 120) };
+  const icons = { dps: ['missile', 'beam'], tank: ['impact', 'whirl'], healer: ['heal', 'healUlt'], carrier: ['drones', 'swarm'], engineer: ['turret', 'field'] };
   const skillText = {
     dps: ['6枚追踪导弹', '自动瞄准光束2.5秒'],
     tank: ['冲击波击退、打散子弹', '无敌4秒冲进怪堆旋风斩'],
     healer: ['给血量最低的2艘回血', '全体回血40%，复活阵亡'],
     carrier: ['放4架无人机追着怪打', '10架护卫蜂群拦截子弹'],
+    engineer: ['身前布1座自动炮台（14秒，最多3座）', '6秒电磁力场：敌弹减速、场内减伤35%，再补2座炮台'],
   };
-  return `<h2>四种战舰 <small>发名字切换，存档记住</small></h2>
+  return `<h2>五种战舰 <small>发名字切换，存档记住</small></h2>
     <div class="classes">${Object.entries(CLASSES).map(([id, c]) => `
       <div class="cls ${id}">
         <div class="art">${svgImg(art[id], 54)}</div>
@@ -408,7 +411,7 @@ export class UI {
       this.resKey = res.round;
       const col = id => `<div class="mvp ${id}"><h3>${emblemSvg(id, 26)}${TEAMS[id].name}</h3>${(res.mvp[id] || []).map((m, i) => `<div><i>${medalSvg(i, 30)}</i><span>${esc(m.name)}<small class="lv">Lv.${m.level || 1}</small></span><b>战功 ${m.merit}</b><em>击落 ${m.kills}</em></div>`).join('') || '<div class="empty">暂无真人飞行员</div>'}</div>`;
       if (res.mode === 'pve') {
-        const shipArt = { dps: dpsSvg, tank: mechSvg, healer: healerSvg, carrier: carrierSvg };
+        const shipArt = { dps: dpsSvg, tank: mechSvg, healer: healerSvg, carrier: carrierSvg, engineer: engineerSvg };
         const face = m => m.avatar ? `<img class="av" src="${esc(m.avatar)}" alt="" referrerpolicy="no-referrer">` : `<span class="av ship">${svgImg((shipArt[m.cls] || dpsSvg)(0, 96), 40)}</span>`;
         // 一张表：名次 · 飞行员 · 贡献 · 掉落，一眼看到谁第几、掉了什么
         const dropsOf = uid => (res.drops || []).filter(d => d.uid === uid);
