@@ -1093,3 +1093,14 @@ test('讨伐礼物：抖音礼物和直播玩法礼物两套名字都认，价�
   assert.equal(giftName('forge', 'play'), '魔法镜');
   assert.equal(giftName('forge'), '加油鸭');
 });
+
+test('等级不设上限：经验够就一直升，超过100级照样升', () => {
+  const save = new Save();
+  const p = save.get('lvcap');
+  p.level = 100; p.xp = 0;
+  save.addXp(p, 1e8);
+  assert.ok(p.level > 120, `升到 ${p.level}`);
+  // 存档读回来也不会被压回100级
+  const back = Save.validate(JSON.parse(JSON.stringify(save.data)));
+  assert.equal(back.players.lvcap.level, p.level);
+});

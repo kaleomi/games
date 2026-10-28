@@ -78,7 +78,7 @@ export const MERIT = {          // 战功：只按战果，不按花费
 };
 
 export const LEVEL = {
-  max: 100,
+  max: Infinity,              // 等级不设上限
   // 经验 = 获得的贡献值（对战是战功）；升到下一级所需经验
   need: lv => Math.round(200 + 60 * lv + 4 * lv * lv),
   // 等级决定AI躲弹水平
