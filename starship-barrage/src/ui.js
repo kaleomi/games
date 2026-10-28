@@ -424,7 +424,7 @@ export class UI {
         }).join('') : '<span class="nodrop">—</span>';
         const table = rowsData.length ? rowsData.map((m, i) => `<tr><td class="rkc">${i < 3 && m.merit != null ? medalSvg(i, 28) : `<span class="rk">${m.merit != null ? i + 1 : ''}</span>`}</td><td class="who"><div class="whoin">${face(m)}<span class="nm">${esc(m.name)}<small>Lv.${m.level || 1}${m.cls ? ` · ${CLASSES[m.cls].short}` : ''}</small></span></div></td><td class="mer">${m.merit ?? ''}</td><td class="lootc">${dropCell(dropsOf(m.uid))}</td></tr>`).join('') : '<tr><td colspan="4" class="empty">暂无真人飞行员</td></tr>';
         this.resultEl.innerHTML = `
-          <div class="win ${res.clear ? 'blue' : 'fail'}">${res.clear ? `${stageLabel(res.stage)} 讨伐成功` : '讨伐失败'}</div>
+          <div class="win ${res.clear ? 'blue' : 'fail'}"><small>${stageLabel(res.stage)}</small>${res.clear ? '讨伐成功' : '讨伐失败'}</div>
           <div class="reason">${res.clear ? `${res.bossName || '异形母舰'}被击毁${res.small ? ` · 小怪额外掉落${res.small}件` : ''}${res.reserve?.players ? ` · 后援${res.reserve.players}人领奖` : ''} · 下一关 ${stageLabel(res.next)}` : `${res.reason === 'timeout' ? `${PVE.stageSeconds / 60}分钟内没打赢${res.bossName || 'BOSS'}` : '舰队全员阵亡'} · 退回 ${stageLabel(res.next)}`}</div>
           <table class="pvetable"><thead><tr><th></th><th>飞行员</th><th>贡献</th><th>掉落${res.clear && !(res.drops || []).length ? '（这关没人掉装备）' : !res.clear ? '（失败没有掉落）' : ''}</th></tr></thead><tbody>${table}</tbody></table>
           <div class="next">经验已结算 · 下一关马上开始</div>`;
