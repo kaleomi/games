@@ -1,9 +1,11 @@
 // 萌宠保卫战 · 战斗模拟（不依赖页面，可在 Node 里测试）
-import { ROUND, PET, SPECIES, SPECIES_IDS, GIFTS, SCORE, RESERVE, NPC, STAGE, LEVEL, RANK, TREE, FORMS, formOf, BOND, FOES } from './config.js';
-import { SLOT_IDS, makeItem, combatPower, growthE, talentText } from './gear.js';
+import { ROUND, PET, SPECIES, SPECIES_IDS, GIFTS, SCORE, RESERVE, NPC, STAGE, LEVEL, RANK, TREE, FORMS, formOf, BOND, FOES, COMFORT, FRIEND, SPRITES } from './config.js';
+import { SLOT_IDS, makeItem, rollItem, combatPower, growthE, talentText } from './gear.js';
 import { parseSpecies, parseSkill, pickSpecies, setupPet, refreshStats, stepPet, requestUlt, stepAreas, chooseRing, requestDodge, patPet } from './pets.js';
 import { stepFoe } from './foes.js';
-import { startStage, stepStage, stageKind, chapterOf, failTarget, stageLabel, stageTitle, interceptZone } from './stage.js';
+import { startStage, stepStage, stageKind, chapterOf, failTarget, stageLabel, stageTitle, interceptZone, likeShield } from './stage.js';
+import { makeWish, returnWish, startComfort, hugBoss, comforting, initTreeSlots, wishStore } from './wish.js';
+import { addFriendship, hugFriend, stepDuo, tame, maybeTame, loadSprites, stepGarden, bestFriend, friendsOf, friendLevel, SPRITE_UNITS } from './friends.js';
 import { stepProjs, LANES, score, healTree } from './combat.js';
 import { giftKind, applyGift, stepGifts, moraleLike, dailyCheckin, loadBuffs, pauseSummons, resumeSummons, xpMul, goldPurified, addBond } from './gifts.js';
 import { rollDrops, smallPurify, giveItem, profileOf, petRecord, lootFloor, dropTimes, grantProfileItem } from './loot.js';
@@ -12,16 +14,22 @@ import { petData, cleanNick, dayKeyOf } from './save.js';
 const NPC_NAMES = ['豆豆', '毛毛', '球球', '咕咕', '嘟嘟', '糯米', '布丁', '可可', '奶糖', '年糕', '芝麻', '汤圆', '饭团', '小满'];
 
 export function parseCommand(text) {
-  const s = String(text || '').trim().toLowerCase();
+  const raw = String(text || '').trim(), s = raw.toLowerCase();
   if (!s || s.length > 30) return null;
-  const name = s.match(/^(?:起名|取名|改名|名字叫|叫它|叫他|叫她)[:：\s]*(.+)$/);
+  const name = raw.match(/^(?:起名|取名|改名|名字叫|叫它|叫他|叫她)[:：\s]*(.+)$/);
   if (name) return { type: 'name', nick: name[1] };
+  const wish = raw.match(/^(?:许愿|许个愿|我许愿|我的心愿是|心愿)[:：\s]*(.+)$/);
+  if (wish) return { type: 'wish', text: wish[1] };
   const has = (...w) => w.some(x => s === x || s.startsWith(x) || s.includes(x));
   const m = s.match(/^(?:往|去|到|走|躲)?([123１２３一二三])(?:号|区|号区|圈)?$/);
   if (m) return { type: 'ring', ring: '1１一'.includes(m[1]) ? 0 : '2２二'.includes(m[1]) ? 1 : 2 };
   if (/^(闪|闪避|闪开|躲|躲开|快跑|shan)$/.test(s)) return { type: 'dodge' };
   if (has('撑伞', '打伞', 'cs') || /^(伞|挡|挡住|拦截|拦)$/.test(s)) return { type: 'umbrella' };
-  if (/^(摸摸|摸|摸头|rua|撸|撸撸|贴贴|抱抱|亲亲|mm)$/.test(s) || /^摸摸/.test(s)) return { type: 'pat' };
+  if (/抱抱|不哭|别哭|安慰|摸摸头|^hug$|^bb$/.test(s)) return { type: 'comfort', hug: /抱抱|hug|bb/.test(s) };
+  if (/^(贴贴|贴一贴|蹭蹭|抱一个|tt)/.test(s)) return { type: 'hugf' };
+  if (/^(摸摸|摸|rua|撸|撸撸|亲亲|mm)$/.test(s) || /^摸摸/.test(s)) return { type: 'pat' };
+  if (/^(朋友|好友|好朋友|我的朋友)$/.test(s)) return { type: 'friends' };
+  if (/^(图鉴|精灵|小精灵|我的精灵)$/.test(s)) return { type: 'sprites' };
   if (has('装备', '装扮', '背包', 'zb')) return { type: 'gear' };
   if (has('签到', '打卡')) return { type: 'checkin' };
   if (has('排行', '排名', '榜单', '战力榜')) return { type: 'rank' };
@@ -78,6 +86,7 @@ export class Game {
     this.foes.length = 0; this.projs.length = 0; this.zones.length = 0; this.areas.length = 0; this.boss = null; this.stage = null;
     const tm = Math.round(TREE.hp * (1 + TREE.grow * (chapterOf(this.stageN) - 1)));
     this.tree = { hp: tm, maxHp: tm, flash: 0 };
+    initTreeSlots(this);
     for (const f of this.pets.values()) if (!f.egg) setupPet(this, f, { keepCd: false });
     this.syncNpcs();
     this.emit('phase', { phase: 'lobby', n: this.stageN });
@@ -112,7 +121,7 @@ export class Game {
     if (kind === 'wave') {
       this.phase = 'clear'; this.phaseT = ROUND.clearSeconds;
       this.emit('banner', { text: `${stageLabel(n)} 守住啦！心愿果还剩 ${fruits} 个${drops.length ? ` · 掉落${drops.length}件` : ''}`, tier: 3, clear: true });
-    } else this.showResult({ clear: true, n, kind, drops, reserve, next: n + 1, fruits });
+    } else this.showResult({ clear: true, n, kind, drops, reserve, next: n + 1, fruits, grade: s.grade || null, wishes: kind === 'boss' ? this.lastWishTrue || 0 : 0, comfort: s.comfort ? { secs: Math.round(s.comfort.t * 10) / 10, hugs: s.comfort.have } : null });
     this.save?.flush();
   }
   stageFail(reason) {
@@ -189,6 +198,8 @@ export class Game {
     if (sec && Math.floor(this.clock) % 2 === 0) this.syncNpcs();
     stepGifts(this, dt, true);
     stepStage(this, dt);
+    stepGarden(this, dt);
+    stepDuo(this, dt);
     for (const f of [...this.pets.values()]) stepPet(this, f, dt, true);
     this.stepFoes(dt);
     stepAreas(this, dt);
@@ -254,6 +265,7 @@ export class Game {
     if (prof) d = petData(prof, sp);
     else { f.mem ||= {}; d = f.mem[sp] ||= { lv: f.level || 1, xp: 0, nick: '', talent: 0, star: 0, sub: 0, shiny: false, gear: {}, bond: 0 }; }
     f.level = d.lv; f.nick = d.nick || ''; f.talent = d.talent || 0; f.star = d.star || 0; f.sub = d.sub || 0; f.shiny = !!d.shiny; f.gear = d.gear; f.bond = d.bond || 0;
+    loadSprites(this, f, prof);
   }
   setSpecies(f, sp) {
     if (!SPECIES[sp] || f.npc) return false;
@@ -434,11 +446,13 @@ export class Game {
   // ───────── 弹幕 / 点赞 / 礼物 ─────────
   chat(user, text) {
     this.stats.chats++;
-    const sk = parseSkill(text);
+    const pre = parseCommand(text);
+    const early = pre && (pre.type === 'wish' || pre.type === 'name' || pre.type === 'comfort');
+    const sk = early ? null : parseSkill(text);
     if (sk) { const f = this.join(user); if (!f) return false; f.lastActive = this.now(); if (sk === 'ult' && this.phase === 'battle') requestUlt(this, f); return true; }
-    const sp = parseSpecies(text);
+    const sp = early ? null : parseSpecies(text);
     if (sp) { const f = this.join(user, sp); return !!f; }
-    const cmd = parseCommand(text);
+    const cmd = pre;
     if (!cmd) return false;
     const f = this.join(user);
     if (!f) return false;
@@ -447,7 +461,12 @@ export class Game {
       case 'ring': if (chooseRing(this, f, cmd.ring)) this.emit('ringpick', { uid: f.uid, ring: cmd.ring }); break;
       case 'umbrella': interceptZone(this, f); break;
       case 'dodge': if (this.phase === 'battle') requestDodge(this, f); break;
-      case 'pat': this.pat(f); break;
+      case 'pat': if (comforting(this)) hugBoss(this, f); else this.pat(f); break;
+      case 'comfort': if (comforting(this)) hugBoss(this, f); else if (this.stage?.sub === 'ceremony' || (this.phase === 'result' && this.result?.kind === 'boss')) f.happyT = 1.3; else if (cmd.hug) hugFriend(this, f); else this.pat(f); break;
+      case 'hugf': if (comforting(this)) hugBoss(this, f); else hugFriend(this, f); break;
+      case 'wish': makeWish(this, f, cmd.text); break;
+      case 'friends': this.friendToast(f); break;
+      case 'sprites': this.spriteToast(f); break;
       case 'name': this.rename(f, cmd.nick); break;
       case 'card': this.emit('card', { uid: f.uid }); break;
       case 'gear': this.emit('card', { uid: f.uid, gear: true }); break;
@@ -466,6 +485,9 @@ export class Game {
     if (!f) return;
     f.lastActive = this.now();
     moraleLike(this, f, n);
+    if (this.phase !== 'battle') return;
+    likeShield(this, f, n);   // 全屏大招蓄力中：点赞撑护罩
+    if (comforting(this)) { f.likeHug = (f.likeHug || 0) + Math.min(n, 40); while (f.likeHug >= COMFORT.likes) { f.likeHug -= COMFORT.likes; hugBoss(this, f, { free: true }); } }
   }
   gift(user, gift) {
     const amount = Math.max(0, Math.min(10000, Math.floor(Number(gift.count) || 0)));
@@ -504,6 +526,8 @@ export class Game {
   // ───────── 净化 / 打盹 ─────────
   purify(e, by) {
     if (!e.alive || e.purified) return;
+    // 首领打空不消失：委屈大哭，等大家抱抱
+    if (e.boss && !e.comforted && this.phase === 'battle' && this.stage?.sub === 'boss') { if (by) by.kills = (by.kills || 0) + 1; startComfort(this, e); return; }
     // 大泪泪泡：先哭成两个小的
     if (FOES[e.unit]?.split && !e.small && e.role === 'minion') {
       e.alive = false; e.purified = 0.001; e.split = true;
@@ -518,10 +542,13 @@ export class Game {
     if (e.kind === 'thief') {
       const o = by?.merc ? this.pets.get(by.owner) : by;
       if (o) score(this, o, SCORE.thief);
-      if (e.carry) { healTree(this, e.carry); this.emit('fruitReturn', { x: e.x, y: e.y }); }
+      if (e.carry) {
+        if (e.wish) { returnWish(this, e.wish, by); if (o) score(this, o, SCORE.wishBack); e.wish = null; }
+        healTree(this, e.carry); this.emit('fruitReturn', { x: e.x, y: e.y });
+      }
     }
     if (e.role === 'treasure') goldPurified(this, e);
-    else smallPurify(this, e, by);
+    else { smallPurify(this, e, by); maybeTame(this, e, by); }
     if (e.boss) { this.emit('bossDown', { name: e.name, unit: e.unit }); this.emit('shake', { k: 12 }); }
   }
   spawnSmall(e, dx) {
@@ -532,6 +559,31 @@ export class Game {
     if (!f.alive) return;
     f.alive = false; f.napT = PET.nap; f.act = null; f.shieldHp = 0;
     this.emit('nap', { uid: f.uid, x: f.x, y: f.y });
+  }
+
+  // ───────── 好朋友 / 小精灵 / 抱抱首领（wish.js、friends.js 回调） ─────────
+  addFriendship(a, b, pts, reason) { return addFriendship(this, a, b, pts, reason); }
+  addBondTo(f, n) { addBond(this, f, n); }
+  tame(f, unit, role) { return tame(this, f, unit, role); }
+  // 安慰评价 S：安慰最多的那个人多拿一件装扮
+  comfortBonus(grade, uids) {
+    const n = COMFORT.bonus[grade] || 0, ch = this.stage?.ch || 1;
+    if (!n) return;
+    for (const uid of uids.slice(0, 1)) {
+      const f = this.pets.get(uid);
+      if (!f || f.npc) continue;
+      for (let i = 0; i < n; i++) giveItem(this, f, rollItem(this.random, ch, 1), { source: 'comfort' });
+    }
+  }
+  friendToast(f) {
+    const M = friendsOf(this, f.uid), list = Object.entries(M).sort((a, b) => b[1].v - a[1].v).slice(0, 3);
+    if (!list.length) { this.emit('toast', { uid: f.uid, text: `${f.name}：还没有好朋友，发「贴贴」去抱抱别人家的萌宠吧` }); return; }
+    this.emit('toast', { uid: f.uid, text: `${f.name} 的朋友：` + list.map(([, r]) => `${r.n}（${friendLevel(r.v) ? FRIEND.names[friendLevel(r.v) - 1] : '认识'} ${r.v}）`).join('、') });
+  }
+  spriteToast(f) {
+    const p = this.save && !f.test ? this.save.peek(f.uid) : null, map = p ? p.sprites || {} : f.memSprites || {};
+    const kinds = SPRITE_UNITS.filter(u => map[u] > 0);
+    this.emit('toast', { uid: f.uid, text: kinds.length ? `${f.name} 的小精灵图鉴 ${kinds.length}/${SPRITE_UNITS.length}：${kinds.map(u => FOES[u].name).join('、')} · 跟着的：${FOES[f.follow]?.name || '无'}（${SPRITES.text[f.follow] || ''}）` : `${f.name}：还没有小精灵，净化坏心情有机会收服` });
   }
 
   emit(type, data = {}) {

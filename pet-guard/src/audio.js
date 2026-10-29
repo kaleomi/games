@@ -95,6 +95,9 @@ export class Audio {
       case 'hatch': if (this.ok(name, 0.3)) { this.noise(0.08, { vol: 0.2, freq: 2500 }); [784, 988, 1319].forEach((f, i) => this.tone(f, f, 0.2, { type: 'triangle', vol: 0.2, delay: 0.1 + i * 0.07 })); } break;
       case 'gift': if (this.ok(name, 0.3)) [1047, 1319, 1568, 2093].forEach((f, i) => this.tone(f, f, 0.25, { type: 'triangle', vol: 0.18, delay: i * 0.06 })); break;
       case 'win': if (this.ok(name, 1)) [523, 659, 784, 1047, 784, 1047].forEach((f, i) => this.tone(f, f, 0.3, { type: 'triangle', vol: 0.25, delay: i * 0.12 })); break;
+      case 'sob': if (this.ok(name, 1)) [660, 587, 523, 494, 440].forEach((f, i) => this.tone(f, f * 0.96, 0.28, { type: 'sine', vol: 0.16, delay: i * 0.16 })); break;
+      case 'lantern': if (this.ok(name, 0.4)) [784, 988, 1175, 1568, 1319, 1568, 2093].forEach((f, i) => this.tone(f, f, 0.4, { type: 'sine', vol: 0.16, delay: i * 0.14 })); break;
+      case 'duo': if (this.ok(name, 0.4)) { [659, 880, 1109, 1319].forEach((f, i) => this.tone(f, f * 1.02, 0.25, { type: 'triangle', vol: 0.2, delay: i * 0.05 })); this.tone(220, 110, 0.3, { type: 'sine', vol: 0.3, delay: 0.25 }); } break;
       case 'lose': if (this.ok(name, 1)) [523, 466, 392, 330].forEach((f, i) => this.tone(f, f * 0.98, 0.35, { type: 'triangle', vol: 0.2, delay: i * 0.18 })); break;
       default: break;
     }
@@ -120,6 +123,15 @@ export class Audio {
       case 'loot': this.play('coin'); break;
       case 'giftfx': case 'awaken': this.play('gift'); break;
       case 'clear': this.play('win'); break;
+      case 'wish': case 'tame': this.play('chime'); break;
+      case 'wishStolen': this.play('steal'); break;
+      case 'wishBack': case 'plant': this.play('fruit'); break;
+      case 'hugBoss': case 'hugFriend': this.play('heart'); break;
+      case 'likeShield': this.play('umbrella'); break;
+      case 'comfortStart': this.play('sob'); break;
+      case 'comforted': this.play('win'); break;
+      case 'wishTrue': this.play('lantern'); break;
+      case 'duo': this.play('duo'); break;
       case 'result': if (!e.clear) this.play('lose'); break;
       default: break;
     }

@@ -1,6 +1,7 @@
 // 画面：背景、心愿树、躲雨区域、萌宠、坏心情、弹道、粒子、名字条；HUD 在 hud.js
 // 所有角色都是一张生成图 + 程序动作（呼吸、蹦跳、扑击、受击压扁、打盹、孵化、进化、净化）；没有图时画占位图形
-import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS } from './config.js';
+import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS, WISH, STAGE, GARDEN, FRIEND } from './config.js';
+import { wishAt } from './wish.js';
 import { partHit, partLabels, safeParts, clamp, partOf as partOfZ } from './combat.js';
 const RINGS_SQUASH = RINGS.squash;
 import { drawHud, hudClick } from './hud.js';
@@ -36,6 +37,8 @@ export class Renderer {
     this.fruitAnim = [];
     this.lastFruits = 12;
     this.hoverUid = null;
+    this.fruitPos = [];   // 每个果子在画面上的位置（许愿气泡、灯笼、偷果用）
+    this.lanterns = []; this.flyHearts = []; this.duos = []; this.stamp = null; this.wishFocus = null;
     this.resize();
   }
   resize() {
@@ -85,7 +88,7 @@ export class Renderer {
         case 'dodged': this.floaters.push({ x: e.x, y: e.y - 70, text: '闪开了', color: '#9fe8ff', size: 14, t: 0, life: 0.7, vy: -40 }); break;
         case 'intercept': this.burst('drop', e.x, e.y - 90, 2, { spread: 30, up: 20, size: 10, grav: 300 }); break;
         case 'strike': this.onStrike(e); break;
-        case 'fruitLost': for (let i = 0; i < e.n; i++) this.fruitAnim.push({ t: 0, life: 1.1, kind: e.steal ? 'steal' : 'drop', tx: e.x, ty: e.y }); if (!e.steal) this.burst('leaf', TREE.x, TREE.y - 150, 6, { spread: 120, up: 60, size: 16, grav: 120 }); break;
+        case 'fruitLost': for (let i = 0; i < e.n; i++) this.fruitAnim.push({ t: 0, life: 1.1, kind: e.steal ? 'steal' : 'drop', tx: e.x, ty: e.y, from: e.slots?.[i] }); if (!e.steal) this.burst('leaf', TREE.x, TREE.y - 150, 6, { spread: 120, up: 60, size: 16, grav: 120 }); break;
         case 'fruitBack': case 'fruitReturn': this.burst('star', TREE.x, TREE.y - 150, 8, { spread: 100, up: 60, size: 16 }); break;
         case 'thiefAway': this.floaters.push({ x: e.x, y: FIELD.enemyTop + 10, text: '果子被偷走了！', color: '#ff7b8a', size: 18, t: 0, life: 1.6, vy: 20 }); break;
         case 'steal': this.floaters.push({ x: e.x, y: e.y - 70, text: '偷到啦！', color: '#ff7b8a', size: 16, t: 0, life: 1, vy: -40 }); break;
@@ -103,6 +106,21 @@ export class Renderer {
         case 'bossIn': this.pushBanner({ text: `首领「${e.name}」来了！`, tier: 5 }); this.shake = Math.max(this.shake, 8); break;
         case 'bossDown': this.pushBanner({ text: `${e.name}被净化啦！`, tier: 5 }); break;
         case 'result': this.resultT = 0; break;
+        // ───── 萌宠保卫战独有 ─────
+        case 'wish': { const p = this.fruitPos[e.i]; this.wishFocus = { i: e.i, t: 0, life: 4.5 }; if (p) { this.glow('sparkle', p.x, p.y, 90, 0.9); this.burst('heart', p.x, p.y, 6, { spread: 40, up: 80, size: 14 }); } break; }
+        case 'wishHang': { const p = this.fruitPos[e.i]; if (p) this.burst('star', p.x, p.y, 4, { spread: 30, up: 50, size: 12 }); break; }
+        case 'wishBack': { const p = this.fruitPos[e.i]; if (p) { this.glow('sparkle', p.x, p.y, 110, 1); this.burst('star', p.x, p.y, 10, { spread: 60, up: 90, size: 15 }); } this.wishFocus = { i: e.i, t: 0, life: 3.5 }; break; }
+        case 'wishTrue': e.list.forEach((w, k) => { const p = this.fruitPos[w.i] || { x: TREE.x, y: TREE.y - 160 }, n = e.list.length; this.lanterns.push({ x: p.x, y: p.y, t: -k * 0.35, life: 6.5, name: w.name, text: w.text, sway: Math.random() * 6, tx: n > 1 ? 90 + (k % 6) * 108 + (k >= 6 ? 54 : 0) : p.x }); }); this.glow('wave', TREE.x, TREE.y - 140, 420, 1.6, { flat: true }); break;
+        case 'likeShield': for (let k = 0; k < Math.min(3, Math.ceil(e.n / 5)); k++) this.flyHeart(60 + Math.random() * 600, 1000, TREE.x + (Math.random() - 0.5) * 300, 760 + Math.random() * 120, 0.6 + Math.random() * 0.3); break;
+        case 'comfortStart': this.burst('drop', e.x, e.y - 120, 14, { spread: 80, up: 60, size: 16, grav: 400 }); break;
+        case 'hugBoss': this.flyHeart(e.x, e.y - 40, e.bx + (Math.random() - 0.5) * 60, e.by + (Math.random() - 0.5) * 40, 0.55); if (!e.auto && Math.random() < 0.5) this.floaters.push({ x: e.x, y: e.y - 90, text: '抱抱~', color: '#ff8fb8', size: 15, t: 0, life: 0.9, vy: -40 }); break;
+        case 'comforted': { const b = g.foes.find(o => o.unit === e.unit && o.role === 'boss'); const bx = b?.x ?? 360, by = (b?.y ?? 500) - (b?.h ?? 220) * 0.5;
+          this.glow('wave', bx, by, 520, 1.6, { flat: true }); this.glow('sparkle', bx, by, 360, 1.4); this.burst('heart', bx, by, 40, { spread: 260, up: 220, size: 22 }); this.burst('rainbow', bx, by - 60, 8, { spread: 260, up: 160, size: 44 });
+          this.stamp = { text: e.grade === 'C' ? '慢慢好起来了' : `治愈 ${e.grade}`, grade: e.grade, t: 0, life: 2.8 }; break; }
+        case 'hugFriend': this.burst('heart', e.x, e.y - 70, 12, { spread: 60, up: 120, size: 18 }); this.glow('sparkle', e.x, e.y - 60, 120, 0.8); this.floaters.push({ x: e.x, y: e.y - 110, text: e.lv ? `贴贴~ ${FRIEND.names[e.lv - 1]}` : '贴贴~', color: '#ff8fb8', size: 17, t: 0, life: 1.4, vy: -30 }); break;
+        case 'duo': this.duos.push({ ...e, t: 0, life: 1.1 }); this.glow('circle', e.tx, e.ty, e.r * 2.2, 1.2, { flat: true, spin: 2 }); this.shake = Math.max(this.shake, 5); break;
+        case 'tame': { const f = g.pets.get(e.uid); const px = f?.x ?? e.x, py = f?.y ?? e.y; this.glow('sparkle', px, py - 40, 130, 1); this.burst('star', px, py - 40, 10, { spread: 60, up: 100, size: 15 }); this.floaters.push({ x: px, y: py - 120, text: `收服「${e.unitName}」！`, color: '#9fe8ff', size: 17, t: 0, life: 1.8, vy: -28 }); break; }
+        case 'plant': this.burst('leaf', e.x, e.y - 10, 6, { spread: 40, up: 80, size: 14, grav: 200 }); this.burst('petal', e.x, e.y - 20, 6, { spread: 50, up: 100, size: 14, grav: 120 }); break;
         case 'stage': this.lastFruits = 12; break;
         default: break;
       }
@@ -188,15 +206,21 @@ export class Renderer {
     if (this.shake > 0) { x.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake); this.shake = Math.max(0, this.shake - dt * 30); }
     this.drawBg(x);
     this.drawGates(x, dt);
+    this.drawFlowers(x, dt);
     this.drawTree(x, dt);
     this.drawZones(x);
     this.drawAreas(x);
     this.drawEntities(x, dt);
+    this.drawDome(x);
+    this.drawDuos(x, dt);
     this.drawBreaths(x, dt);
     this.drawProjs(x);
     this.drawStrikes(x, dt);
     this.drawParts(x, dt);
     this.drawLabels(x);
+    this.drawWishBubble(x, dt);
+    this.drawLanterns(x, dt);
+    this.drawFlyHearts(x, dt);
     this.drawFloaters(x, dt);
     this.drawTrucks(x, dt);
     x.restore();
@@ -295,16 +319,21 @@ export class Renderer {
     if (!tr) return;
     const per = tr.maxHp / TREE.fruits, n = Math.max(0, Math.ceil(tr.hp / per - 1e-6));
     const spots = this.fruitSpots(), left = cx - w / 2, top = fy - h;
-    for (let i = 0; i < n && i < spots.length; i++) {
+    for (let i = 0; i < spots.length; i++) {
       const p = spots[i], px = left + p.u * w, py = top + p.v * h + Math.sin(this.t * 2 + i) * 1.5;
-      const glow = 0.5 + 0.5 * Math.sin(this.t * 3 + i * 0.7);
-      x.save(); x.globalAlpha = 0.35 * glow; x.fillStyle = '#fff3a0'; x.beginPath(); x.arc(px, py, 16, 0, TAU); x.fill(); x.restore();
-      if (!this.icon(x, 'icon:fruit', px, py, 26)) { x.fillStyle = '#ffb347'; heart(x, px, py, 11); x.fill(); x.strokeStyle = '#a0522d'; x.lineWidth = 1.5; x.stroke(); }
+      this.fruitPos[i] = { x: px, y: py };
+      const on = tr.slots ? tr.slots[i]?.on : i < n;
+      if (!on) continue;
+      const wish = wishAt(g, i), glow = 0.5 + 0.5 * Math.sin(this.t * 3 + i * 0.7);
+      x.save(); x.globalAlpha = (wish ? 0.55 : 0.35) * glow; x.fillStyle = wish ? '#ffd0e6' : '#fff3a0'; x.beginPath(); x.arc(px, py, wish ? 19 : 16, 0, TAU); x.fill(); x.restore();
+      // 挂着心愿的果子：下面系一根粉色小丝带
+      if (wish) { x.save(); x.translate(px, py + 11); x.rotate(Math.sin(this.t * 2.4 + i) * 0.18); x.fillStyle = '#ff7fae'; x.beginPath(); x.moveTo(0, 0); x.lineTo(-5, 13); x.lineTo(-1, 11); x.lineTo(0, 15); x.lineTo(1, 11); x.lineTo(5, 13); x.closePath(); x.fill(); x.fillStyle = '#fff'; heart(x, 0, 2, 2.6); x.fill(); x.restore(); }
+      if (!this.icon(x, 'icon:fruit', px, py, wish ? 28 : 26)) { x.fillStyle = '#ffb347'; heart(x, px, py, 11); x.fill(); x.strokeStyle = '#a0522d'; x.lineWidth = 1.5; x.stroke(); }
     }
     // 掉下来 / 被偷走的果子
     for (const f of this.fruitAnim) {
       f.t += dt;
-      const k = Math.min(1, f.t / f.life), sx = cx + (Math.random() - 0.5) * 2, sy = top + h * 0.3;
+      const k = Math.min(1, f.t / f.life), fp = this.fruitPos[f.from], sx = fp ? fp.x : cx + (Math.random() - 0.5) * 2, sy = fp ? fp.y : top + h * 0.3;
       const px = f.kind === 'steal' ? sx + (f.tx - sx) * k : sx + (k * 60 - 30), py = f.kind === 'steal' ? sy + (f.ty - 50 - sy) * k - Math.sin(k * Math.PI) * 60 : sy + k * k * 220;
       x.globalAlpha = 1 - k * 0.6;
       if (!this.icon(x, 'icon:fruit', px, py, 24)) { x.fillStyle = '#ffb347'; heart(x, px, py, 10); x.fill(); }
@@ -393,6 +422,7 @@ export class Renderer {
     this.shadow(x, f.x, f.y, h * 0.32, f.alive ? 0.22 : 0.15);
     if (f.egg) { this.drawEgg(x, f, t); return; }
     const dozing = (f.sleepUntil || 0) > g.clock;
+    if (f.follow && f.alive && !f.mini) this.drawFollower(x, f, t, h);
     if (!f.alive || dozing) { // 打盹：有睡觉序列帧就放序列帧，没有就把站着的图压扁、变灰
       const hasSleep = !!this.assets.frames(`seq:${sp}:${f.form ?? 0}:sleep`);
       if (hasSleep) this.petSprite(x, f, f.x, f.y, h, { flip, sy: 1 + Math.sin(t * 2) * 0.015, variant: f.shiny ? 'shiny' : null, anim: 'sleep' });
@@ -501,6 +531,7 @@ export class Renderer {
     }
     const fly = e.fly;
     if (fly) oy = -18 - Math.sin(t * 2.2) * 6;
+    if (e.sad) { this.drawSadBoss(x, e, name, t, oy, dt); return; }
     this.shadow(x, e.x, e.y, h * (e.role === 'boss' ? 0.32 : 0.34), fly ? 0.12 : 0.22);
     const a = e.act;
     if (a?.kind === 'atk' || a?.kind === 'atk2') { const k = Math.min(1, a.t / a.dur); const p = Math.sin(k * Math.PI); sy = 1 - p * 0.12; sx = 1 + p * 0.1; oy -= p * (a.kind === 'atk2' ? 16 : 6); }
@@ -522,7 +553,10 @@ export class Renderer {
     // 偷果鼠：头上「！」，偷到了顶着果子
     if (e.kind === 'thief') {
       const py = e.y + oy - h - 14;
-      if (e.carry) { if (!this.icon(x, 'icon:fruit', e.x, py, 26)) { x.fillStyle = '#ffb347'; heart(x, e.x, py, 10); x.fill(); } }
+      if (e.carry) {
+        if (!this.icon(x, 'icon:fruit', e.x, py, 26)) { x.fillStyle = '#ffb347'; heart(x, e.x, py, 10); x.fill(); }
+        if (e.wish) { x.save(); x.font = `bold 12px ${FONT}`; const s2 = clipText(x, `${e.wish.name}的心愿`, 120), tw = x.measureText(s2).width + 14; x.fillStyle = 'rgba(255,127,174,0.92)'; rr(x, e.x - tw / 2, py - 36, tw, 18, 9); x.fill(); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(s2, e.x, py - 23); x.restore(); }
+      }
       else { x.save(); x.font = `900 22px ${FONT}`; x.textAlign = 'center'; x.fillStyle = '#ffb020'; x.strokeStyle = '#5a2a00'; x.lineWidth = 4; const b = Math.abs(Math.sin(t * 6)) * 4; x.strokeText('!', e.x, py - b); x.fillText('!', e.x, py - b); x.restore(); }
     }
     if (e.tauntUntil > g.clock && e.role !== 'boss') { x.save(); x.font = `bold 14px ${FONT}`; x.fillStyle = '#ffb36b'; x.textAlign = 'center'; x.fillText('♪', e.x + 14, e.y + oy - h - 2); x.restore(); }
@@ -688,6 +722,164 @@ export class Renderer {
       x.save(); x.font = `bold 18px ${FONT}`; x.textAlign = 'center'; x.fillStyle = '#fff'; x.strokeStyle = '#b04a7a'; x.lineWidth = 5; const t = `${tr.name} 的梦幻甜品车`; x.strokeText(t, px, py - 160); x.fillText(t, px, py - 160); x.restore();
     }
     this.trucks = this.trucks.filter(t => t.t < t.life);
+  }
+
+  // ───────── 萌宠保卫战独有：花园、护罩、合体技、许愿气泡、心愿灯笼、小精灵、委屈的首领 ─────────
+  flyHeart(x0, y0, x1, y1, life = 0.6) {
+    if (this.flyHearts.length > 80) return;
+    this.flyHearts.push({ x0, y0, x1, y1, t: 0, life, arc: 40 + Math.random() * 60 });
+  }
+  drawFlyHearts(x, dt) {
+    for (const h of this.flyHearts) {
+      h.t += dt;
+      const k = Math.min(1, h.t / h.life), e = 1 - (1 - k) * (1 - k);
+      const px = h.x0 + (h.x1 - h.x0) * e, py = h.y0 + (h.y1 - h.y0) * e - Math.sin(k * Math.PI) * h.arc;
+      x.save(); x.globalAlpha = k > 0.85 ? (1 - k) / 0.15 : 1;
+      if (!this.icon(x, 'fx:heart', px, py, 18 + 6 * Math.sin(k * Math.PI))) { x.fillStyle = '#ff7fae'; heart(x, px, py, 8); x.fill(); }
+      x.restore();
+      if (k >= 1) this.burst('heart', h.x1, h.y1, 1, { spread: 10, up: 30, size: 10, life: 0.4 });
+    }
+    this.flyHearts = this.flyHearts.filter(h => h.t < h.life);
+  }
+  // 鲜花：种子冒芽 → 开花；有生成图（flower:<0-3>）用图，没有画个简单的花
+  drawFlowers(x, dt) {
+    const list = this.game.flowers;
+    if (!list?.length) return;
+    const COL = ['#ff9fc4', '#ffd84a', '#b48cff', '#7fd3ff'];
+    for (const fl of list) {
+      const k = Math.min(1, fl.t / GARDEN.grow), s = k < 1 ? 0.25 + 0.75 * (1 - (1 - k) ** 3) : 1 + Math.sin(this.t * 2 + fl.sway) * 0.03;
+      if (k >= 1 && !fl.bloomed) { fl.bloomed = true; this.glow('sparkle', fl.x, fl.y - 20, 70, 0.8); this.parts.push({ kind: 'ring', x: fl.x, y: fl.y, t: 0, life: 0.8, size: GARDEN.healR, color: '#9ff0b0', squash: 0.55, w: 4 }); }
+      x.save(); x.translate(fl.x, fl.y); x.rotate(Math.sin(this.t * 1.6 + fl.sway) * 0.06);
+      x.fillStyle = 'rgba(40,70,30,0.18)'; x.beginPath(); x.ellipse(0, 0, 14 * s, 4 * s, 0, 0, TAU); x.fill();
+      const art = this.assets.get(`flower:${fl.color}`);
+      if (art) { const hh = 46 * s, sc = hh / art.h; x.drawImage(art.img, -art.w * sc / 2, -hh, art.w * sc, hh); }
+      else {
+        x.strokeStyle = '#5fae4e'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(3, -12 * s, 0, -24 * s); x.stroke();
+        x.fillStyle = '#7ccf6a'; x.beginPath(); x.ellipse(-6 * s, -10 * s, 6 * s, 3 * s, -0.5, 0, TAU); x.ellipse(6 * s, -14 * s, 6 * s, 3 * s, 0.5, 0, TAU); x.fill();
+        if (k > 0.35) {
+          const b = Math.min(1, (k - 0.35) / 0.65), r = 7 * s * b;
+          x.fillStyle = COL[fl.color % 4];
+          for (let i = 0; i < 5; i++) { const a = i / 5 * TAU + this.t * 0.2; x.beginPath(); x.arc(Math.cos(a) * r, -26 * s + Math.sin(a) * r, r * 0.8, 0, TAU); x.fill(); }
+          x.fillStyle = '#fff3a0'; x.beginPath(); x.arc(0, -26 * s, r * 0.6, 0, TAU); x.fill();
+        }
+      }
+      x.restore();
+      if (fl.t < 3.5) { x.save(); x.globalAlpha = Math.min(1, (3.5 - fl.t) / 0.6); x.font = `bold 11px ${FONT}`; x.textAlign = 'center'; x.lineWidth = 3; x.strokeStyle = 'rgba(60,40,50,.8)'; x.fillStyle = '#fff'; const nm = clipText(x, fl.name, 80); x.strokeText(nm, fl.x, fl.y + 14); x.fillText(nm, fl.x, fl.y + 14); x.restore(); }
+      if (k >= 1 && Math.random() < 0.01) this.burst('petal', fl.x, fl.y - 28, 1, { spread: 8, up: 20, size: 10, life: 1.2, grav: 30 });
+    }
+  }
+  // 点赞撑起的护罩：盖住心愿树和萌宠，挡得越多越大越亮
+  drawDome(x) {
+    const z = this.game.zones.find(q => q.full);
+    if (!z) return;
+    const k = Math.min(1, z.intercept / STAGE.intercept.max), cx = TREE.x, cy = TREE.y + 10;
+    const rx = 200 + 160 * k, ry = 230 + 230 * k, pulse = 1 + Math.sin(this.t * 6) * 0.01;
+    x.save();
+    x.beginPath(); x.ellipse(cx, cy, rx * pulse, ry * pulse, 0, Math.PI, TAU); x.closePath();
+    const gr = x.createRadialGradient(cx, cy - ry * 0.4, ry * 0.1, cx, cy, ry);
+    gr.addColorStop(0, `rgba(255,220,240,${0.04 + 0.06 * k})`); gr.addColorStop(0.8, `rgba(255,170,215,${0.1 + 0.14 * k})`); gr.addColorStop(1, `rgba(255,255,255,${0.25 + 0.3 * k})`);
+    x.fillStyle = gr; x.fill();
+    x.lineWidth = 3 + 3 * k; x.strokeStyle = `rgba(255,255,255,${0.5 + 0.4 * k})`; x.stroke();
+    x.lineWidth = 2; x.strokeStyle = `rgba(255,127,174,${0.35 + 0.4 * k})`; x.setLineDash([8, 10]); x.lineDashOffset = -this.t * 30; x.beginPath(); x.ellipse(cx, cy, rx * 0.93, ry * 0.93, 0, Math.PI, TAU); x.stroke(); x.setLineDash([]);
+    x.globalAlpha = 0.5 + 0.3 * k; x.strokeStyle = '#fff'; x.lineWidth = 6; x.lineCap = 'round';
+    x.beginPath(); x.ellipse(cx, cy, rx * 0.82, ry * 0.86, 0, Math.PI * 1.18, Math.PI * 1.36); x.stroke();
+    x.restore();
+    if (z.likes) { x.save(); x.font = `bold 15px ${FONT}`; x.textAlign = 'center'; x.lineWidth = 4; x.strokeStyle = 'rgba(120,40,80,.8)'; x.fillStyle = '#fff'; const tt = `点赞护罩 ${Math.round(z.intercept * 100)}%`; x.strokeText(tt, cx, cy - ry - 8); x.fillText(tt, cx, cy - ry - 8); x.restore(); }
+  }
+  // 友情合体技：两只萌宠各发一道爱心光，汇到目标那里炸开
+  drawDuos(x, dt) {
+    for (const d of this.duos) {
+      d.t += dt;
+      const k = Math.min(1, d.t / d.life), reach = Math.min(1, k / 0.35);
+      x.save(); x.globalCompositeOperation = 'lighter';
+      for (const s of [d.a, d.b]) {
+        const ex = s.x + (d.tx - s.x) * reach, ey = s.y + (d.ty - 40 - s.y) * reach;
+        x.globalAlpha = 0.9 * (1 - Math.max(0, k - 0.5) * 2);
+        const gr = x.createLinearGradient(s.x, s.y, ex, ey); gr.addColorStop(0, 'rgba(255,160,210,0.2)'); gr.addColorStop(1, d.lv >= 3 ? 'rgba(255,240,140,0.95)' : 'rgba(255,190,230,0.95)');
+        x.strokeStyle = gr; x.lineWidth = 14 * (1 - k * 0.6); x.lineCap = 'round';
+        x.beginPath(); x.moveTo(s.x, s.y); x.quadraticCurveTo((s.x + ex) / 2, Math.min(s.y, ey) - 60, ex, ey); x.stroke();
+      }
+      x.restore();
+      if (k >= 0.35 && !d.hit) { d.hit = true; this.burst('heart', d.tx, d.ty - 40, 22, { spread: d.r, up: 160, size: 20 }); this.glow('glow', d.tx, d.ty - 40, d.r * 1.6, 0.8); this.parts.push({ kind: 'ring', x: d.tx, y: d.ty, t: 0, life: 0.6, size: d.r, color: '#ffb0de', squash: 0.55, w: 9 }); }
+      if (k < 0.35) for (const s of [d.a, d.b]) if (Math.random() < 0.6) this.burst('heart', s.x + (d.tx - s.x) * reach, s.y + (d.ty - 40 - s.y) * reach, 1, { spread: 6, up: 10, size: 12, life: 0.4 });
+    }
+    this.duos = this.duos.filter(d => d.t < d.life);
+  }
+  // 树上的心愿轮流冒气泡；新挂上 / 抢回来的那个优先
+  drawWishBubble(x, dt) {
+    const g = this.game, tr = g.tree;
+    if (!tr?.slots || g.phase === 'result') return;
+    const list = [];
+    for (let i = 0; i < TREE.fruits; i++) if (tr.slots[i]?.on && wishAt(g, i)) list.push(i);
+    let i = -1, k = 0;
+    const F = this.wishFocus;
+    if (F) { F.t += dt; if (F.t > F.life || !list.includes(F.i)) this.wishFocus = null; else { i = F.i; k = F.t / F.life; } }
+    if (i < 0) { if (!list.length) return; const per = WISH.rotate, n = Math.floor(this.t / per); i = list[n % list.length]; k = (this.t % per) / per; }
+    const w = wishAt(g, i), p = this.fruitPos[i];
+    if (!w || !p) return;
+    const a = k < 0.1 ? k / 0.1 : k > 0.88 ? (1 - k) / 0.12 : 1;
+    const show = g.settings.wishShow !== false;
+    x.save(); x.globalAlpha = Math.max(0, a);
+    x.font = `bold 14px ${FONT}`;
+    const nm = clipText(x, w.name, 96), body = show ? `「${w.text}」` : '的心愿（悄悄的）';
+    x.font = `bold 15px ${FONT}`; const bw = x.measureText(body).width;
+    x.font = `bold 12px ${FONT}`; const nw = x.measureText(nm).width;
+    const bwid = Math.max(bw, nw) + 26, bh = 44, bx = clamp(p.x - bwid / 2, 10, W - 10 - bwid), by = p.y - 34 - bh;
+    x.fillStyle = 'rgba(255,250,252,0.95)'; rr(x, bx, by, bwid, bh, 14); x.fill();
+    x.strokeStyle = '#ff9fc4'; x.lineWidth = 2.5; x.stroke();
+    x.beginPath(); x.moveTo(clamp(p.x, bx + 16, bx + bwid - 16) - 7, by + bh - 1); x.lineTo(p.x, p.y - 16); x.lineTo(clamp(p.x, bx + 16, bx + bwid - 16) + 7, by + bh - 1); x.closePath(); x.fillStyle = 'rgba(255,250,252,0.95)'; x.fill(); x.strokeStyle = '#ff9fc4'; x.stroke();
+    x.fillStyle = 'rgba(255,250,252,1)'; x.fillRect(clamp(p.x, bx + 16, bx + bwid - 16) - 6, by + bh - 4, 12, 4);
+    x.textAlign = 'center'; x.font = `bold 12px ${FONT}`; x.fillStyle = '#c0578a'; x.fillText(nm + (show ? ' 许愿' : ''), bx + bwid / 2, by + 17);
+    x.font = `bold 15px ${FONT}`; x.fillStyle = '#5a3a35'; x.fillText(body, bx + bwid / 2, by + 36);
+    x.restore();
+  }
+  // 心愿成真：心愿变成灯笼慢慢飞上天，下面挂着名字和心愿
+  drawLanterns(x, dt) {
+    for (const L of this.lanterns) {
+      L.t += dt;
+      if (L.t < 0) continue;
+      const k = L.t / L.life, spread = Math.min(1, L.t / 1.8), px = L.x + ((L.tx ?? L.x) - L.x) * (1 - (1 - spread) ** 2) + Math.sin(L.t * 1.3 + L.sway) * 14 * spread, py = L.y - L.t * 70 - L.t * L.t * 4;
+      const a = k < 0.08 ? k / 0.08 : k > 0.75 ? (1 - k) / 0.25 : 1;
+      x.save(); x.globalAlpha = Math.max(0, a);
+      x.globalCompositeOperation = 'lighter';
+      const gr = x.createRadialGradient(px, py, 4, px, py, 46); gr.addColorStop(0, 'rgba(255,220,140,0.75)'); gr.addColorStop(1, 'rgba(255,160,90,0)');
+      x.fillStyle = gr; x.beginPath(); x.arc(px, py, 46, 0, TAU); x.fill();
+      x.globalCompositeOperation = 'source-over';
+      if (!this.icon(x, 'misc:lantern', px, py, 54)) {
+        const lg = x.createLinearGradient(px, py - 22, px, py + 22); lg.addColorStop(0, '#ffcf6b'); lg.addColorStop(1, '#ff7f6b');
+        x.fillStyle = lg; rr(x, px - 15, py - 20, 30, 40, 12); x.fill();
+        x.fillStyle = '#c0573d'; rr(x, px - 10, py - 24, 20, 6, 3); x.fill(); rr(x, px - 10, py + 18, 20, 6, 3); x.fill();
+        x.fillStyle = 'rgba(255,255,220,0.8)'; heart(x, px, py - 1, 6); x.fill();
+      }
+      x.font = `bold 13px ${FONT}`; x.textAlign = 'center'; x.lineWidth = 4; x.strokeStyle = 'rgba(120,50,40,.85)'; x.fillStyle = '#fff';
+      const show = this.game.settings.wishShow !== false;
+      const t1 = clipText(x, L.name, 120), t2 = show ? clipText(x, L.text, 140) : '心愿成真';
+      x.strokeText(t1, px, py + 42); x.fillText(t1, px, py + 42);
+      x.font = `bold 14px ${FONT}`; x.fillStyle = '#ffe9a8'; x.strokeText(t2, px, py + 60); x.fillText(t2, px, py + 60);
+      x.restore();
+      if (Math.random() < 0.15) this.burst('star', px, py + 20, 1, { spread: 8, up: -20, size: 9, life: 0.8, grav: 40 });
+    }
+    this.lanterns = this.lanterns.filter(L => L.t < L.life);
+  }
+  // 收服的小精灵：开心的样子，飘在萌宠身后
+  drawFollower(x, f, t, h) {
+    const u = f.follow, U = FOES[u];
+    if (!U) return;
+    const big = U.kind === 'boss' ? 50 : U.kind === 'elite' ? 40 : 32, dir = f.facing || 1;
+    const px = f.x - dir * (h * 0.42 + big * 0.35), py = f.y - 8 - (U.fly || U.kind === 'boss' ? 26 + Math.sin(t * 2.4) * 5 : Math.abs(Math.sin(t * 5)) * 4);
+    x.fillStyle = 'rgba(40,30,50,0.14)'; x.beginPath(); x.ellipse(px, f.y - 2, big * 0.3, big * 0.1, 0, 0, TAU); x.fill();
+    if (!this.sprite(x, `foe:${u}:1`, px, py, big, { flip: dir < 0 && u === 'thief' })) placeholderFoe(x, { unit: u, role: U.kind }, px, py, big, { happy: true });
+    if (U.kind === 'boss' && Math.random() < 0.03) this.burst('star', px + (Math.random() - 0.5) * big * 0.6, py - big * Math.random(), 1, { spread: 4, up: 20, size: 8, life: 0.6 });
+  }
+  // 委屈大哭的首领：有「委屈」图（foe:<首领>:2）就用，没有就用生气的图一抽一抽地哭、掉眼泪
+  drawSadBoss(x, e, name, t, oy, dt) {
+    const h = e.h, sob = Math.abs(Math.sin(t * 7));
+    this.shadow(x, e.x, e.y, h * 0.32, 0.18);
+    const sad = this.assets.has(name + ':2');
+    this.sprite(x, sad ? name + ':2' : name + ':0', e.x, e.y + oy, h, { sx: 1 + sob * 0.03, sy: 1 - sob * 0.04, rot: Math.sin(t * 3) * 0.02 }) || placeholderFoe(x, e, e.x, e.y + oy, h, {});
+    if (Math.random() < 0.35) for (const d of [-1, 1]) this.parts.push({ kind: 'drop', x: e.x + d * h * 0.13, y: e.y + oy - h * 0.6, vx: d * (30 + Math.random() * 40), vy: -60, t: 0, life: 0.9, size: 14, rot: 0, spin: 0, grav: 500 });
+    e.sadT = (e.sadT || 0) + dt;
+    if (e.sadT > 1.6) { e.sadT = 0; this.floaters.push({ x: e.x + (Math.random() - 0.5) * h * 0.5, y: e.y + oy - h - 10, text: ['呜呜…', '哇——', '抽抽…', '没人陪我…'][Math.floor(Math.random() * 4)], color: '#a8d8ff', size: 20, t: 0, life: 1.4, vy: -24 }); }
   }
 
   // ───────── 点击：看萌宠卡 ─────────

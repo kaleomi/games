@@ -148,3 +148,125 @@ test('打一会儿不报错：一整章能跑完', () => {
   run(400);
   assert.ok(g.stageN > 1, `推进到了 ${g.stageN}`);
 });
+
+// ───────── 萌宠保卫战独有玩法 ─────────
+import { wishStore, syncFruits, takeWish } from '../src/wish.js';
+import { friendship, addFriendship } from '../src/friends.js';
+import { damageTree } from '../src/combat.js';
+import { castZone } from '../src/stage.js';
+import { COMFORT, FRIEND, WISH } from '../src/config.js';
+
+function battle(g, run) { g.phaseT = 0.01; run(0.2); assert.equal(g.phase, 'battle'); }
+
+test('许愿：心愿挂上树；偷果鼠偷走心愿，别人抢回来两人结下友情', () => {
+  const { g, save, run } = setup(21);
+  const W = ['柴犬', '猫', '狐狸', '兔', '熊猫', '仓鼠', '企鹅', '龙', '狗', '猫', '兔', '狐狸'];
+  W.forEach((w, i) => g.chat({ id: 'w' + i, name: '许愿人' + i }, w));
+  battle(g, run);
+  W.forEach((w, i) => g.chat({ id: 'w' + i, name: '许愿人' + i }, `许愿 心愿${i}号`));
+  const S = wishStore(g);
+  assert.equal(S.slots.filter(Boolean).length, 12, '12个果子都挂上了心愿');
+  assert.equal(S.slots[0].text, '心愿0号');
+  g.chat({ id: 'w12', name: '排队的' }, '许愿 我也要');
+  assert.equal(S.queue.length, 1, '挂满了就排队');
+  // 偷果鼠偷一个（全是心愿果）
+  const per = g.tree.maxHp / TREE.fruits;
+  const thief = g._spawn('thief', 300, 700, {});
+  damageTree(g, per, thief, { steal: true });
+  const i = g.tree.lastLost[0];
+  thief.wish = takeWish(g, i); thief.carry = per;
+  assert.ok(thief.wish, '偷走的是心愿');
+  assert.equal(g.tree.slots.filter(s => s.on).length, 11);
+  const owner = thief.wish.uid, hero = [...g.pets.values()].find(f => !f.npc && f.uid !== owner);
+  g.purify(thief, hero);
+  assert.equal(g.tree.slots.filter(s => s.on).length, 12, '果子长回来了');
+  assert.ok(S.slots.some(w => w && w.uid === owner), '心愿挂回去了');
+  assert.equal(friendship(g, hero.uid, owner), WISH.rescue, '抢回心愿：两人友情+3');
+  assert.equal(save.data.players[hero.uid].friends[owner].v, WISH.rescue, '友情存进存档');
+});
+
+test('抱抱首领：首领打空委屈大哭，全场抱抱安慰好，心愿成真', () => {
+  const { g, save, run } = setup(23);
+  g.setStageN(5); g.startLobby('jump');
+  for (let i = 0; i < 6; i++) g.chat({ id: 'h' + i, name: '观众' + i }, ['柴犬', '猫', '兔', '狐狸', '熊猫', '龙'][i]);
+  run(3);
+  g.chat({ id: 'h0', name: '观众0' }, '许愿 天天开心');
+  battle(g, run);
+  run(3);
+  assert.ok(g.boss, '首领出来了');
+  const boss = g.boss;
+  boss.hp = 1;
+  g.purify(boss, g.pets.get('h1'));
+  assert.equal(g.stage.sub, 'comfort');
+  assert.ok(boss.sad && !boss.purified, '委屈大哭，没有直接消失');
+  assert.equal(g.foes.filter(e => e.alive && !e.purified).length, 0, '小坏心情也被感动了');
+  const need = g.stage.comfort.need;
+  for (let k = 0; k < 20 && g.stage.sub === 'comfort'; k++) { for (let i = 0; i < 6; i++) g.chat({ id: 'h' + i, name: '观众' + i }, '抱抱'); run(1); }
+  assert.equal(g.stage.sub, 'ceremony', `安慰好了（需要${need}）`);
+  assert.ok(['S', 'A', 'B'].includes(g.stage.grade), `评价 ${g.stage.grade}`);
+  assert.ok(boss.comforted && boss.purified);
+  assert.equal(save.data.players.h0.wishTrue, 1, '心愿成真记一次');
+  assert.equal(wishStore(g).slots.filter(Boolean).length, 0, '成真的心愿从树上摘下');
+  run(COMFORT.ceremony + 0.5);
+  assert.equal(g.phase, 'result');
+  assert.ok(g.result.grade, '结算带安慰评价');
+  assert.equal(g.stageN, 6);
+});
+
+test('抱抱首领：没人抱也能过（流浪萌宠慢慢抱，超时评C）', () => {
+  const { g, run } = setup(25);
+  g.settings.npcMin = 4; g.syncNpcs();
+  g.setStageN(5); g.startLobby('jump');
+  battle(g, run); run(3);
+  g.purify(g.boss, null);
+  assert.equal(g.stage.sub, 'comfort');
+  run(COMFORT.secs + 1);
+  assert.equal(g.stage.sub, 'ceremony');
+  run(COMFORT.ceremony + 0.5);
+  assert.equal(g.phase, 'result');
+});
+
+test('贴贴：跑过去抱别人家的萌宠，友情跨直播保存；好朋友在场放合体技', () => {
+  const { g, save, run } = setup(27);
+  g.chat({ id: 'a', name: '小A' }, '柴犬'); g.chat({ id: 'b', name: '小B' }, '猫');
+  run(3);
+  g.chat({ id: 'a', name: '小A' }, '贴贴');
+  run(3);
+  assert.equal(friendship(g, 'a', 'b'), 1);
+  assert.equal(save.data.players.b.friends.a.v, 1, '对方存档里也记着');
+  g.chat({ id: 'a', name: '小A' }, '贴贴');   // 冷却中
+  run(3);
+  assert.equal(friendship(g, 'a', 'b'), 1);
+  g.drainEvents();
+  addFriendship(g, { uid: 'a', name: '小A' }, { uid: 'b', name: '小B' }, FRIEND.steps[1]);
+  if (g.phase !== 'battle') battle(g, run);
+  run(FRIEND.duoCd + 3);
+  const ev = g.drainEvents();
+  assert.ok(ev.some(e => e.type === 'duo' && e.lv === 2), '放了友情合体技');
+});
+
+test('点赞撑伞：全屏大招蓄力时点赞加护罩（每人每秒有上限）', () => {
+  const { g, run } = setup(29);
+  g.chat({ id: 'l1', name: '点赞的' }, '兔');
+  battle(g, run);
+  const z = castZone(g, 'blast', '测试首领', { name: '大风' });
+  g.like({ id: 'l1', name: '点赞的' }, 100);
+  assert.ok(Math.abs(z.intercept - 15 * 0.0012) < 1e-9, `护罩 ${z.intercept}`);
+  run(1.1);
+  g.like({ id: 'l1', name: '点赞的' }, 5);
+  assert.ok(z.intercept > 15 * 0.0012);
+});
+
+test('收服小精灵、鲜花种花', () => {
+  const { g, save, run } = setup(31);
+  g.chat({ id: 's1', name: '收服的' }, '狐狸');
+  run(3); battle(g, run);
+  const f = g.pets.get('s1'), atk0 = f.stats.atk;
+  g.tame(f, 'cloud', 'minion');
+  g.tame(f, 'bear', 'elite');
+  assert.equal(f.follow, 'bear', '更稀有的跟在身边');
+  assert.equal(save.data.players.s1.sprites.cloud, 1);
+  assert.ok(f.stats.atk > atk0, '图鉴加成');
+  g.gift({ id: 's1', name: '收服的' }, { name: '鲜花', price: 10, count: 2 });
+  assert.equal(g.flowers.length, 2, '种了两朵花');
+});

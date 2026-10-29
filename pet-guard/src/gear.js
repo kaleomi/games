@@ -1,5 +1,5 @@
 // 装备（每只萌宠自己一套，四件）、天赋、亲密度、属性、战力
-import { GEAR, SPECIES, TALENT, PASSIVE, LEVEL, PET, SCORE, BOND } from './config.js';
+import { GEAR, SPECIES, TALENT, PASSIVE, LEVEL, PET, SCORE, BOND, SPRITES } from './config.js';
 
 export const SLOT_IDS = Object.keys(GEAR.slots);
 const TOP = GEAR.tiers.length - 1;
@@ -110,16 +110,17 @@ export function petStats(f) {
   const g = gearBonus(gear), cap = GEAR.caps;
   const lvMul = 1 + LEVEL.grow * Math.max(0, (f.level || 1) - 1);
   const tm = talentMul(f) * (f.shiny ? TALENT.shiny.mul : 1) * (1 + BOND.per * bondLevel(f.bond));
+  const sk = SPRITES.perKind * (f.spriteKinds || 0), SF = SPRITES.follow[f.follow] || {};   // 小精灵：图鉴每种+1%，跟着的那只另加
   const tl = talentLevel(f), P = PASSIVE[f.sp] || {};
   const set = setBonus(gear);
-  const atk = S.atk * lvMul * tm * (1 + g.atk);
+  const atk = S.atk * lvMul * tm * (1 + g.atk) * (1 + sk + (SF.atk || 0));
   return {
-    maxHp: Math.round(S.hp * lvMul * tm * (1 + g.hp)),
+    maxHp: Math.round(S.hp * lvMul * tm * (1 + g.hp) * (1 + sk + (SF.hp || 0))),
     atk, atkBase: atk,
     armor: Math.min(cap.def, S.armor + g.def),
     dr: (P.dr || 0) * tl,
     power: 1 + g.power,
-    heal: (S.heal || 0) * lvMul * tm * (1 + g.power) * (1 + (P.heal || 0) * tl),
+    heal: (S.heal || 0) * lvMul * tm * (1 + g.power) * (1 + (P.heal || 0) * tl) * (1 + sk + (SF.heal || 0)),
     aspd: Math.min(cap.aspd, g.aspd),
     haste: Math.min(cap.haste, g.haste + (P.haste || 0) * tl),
     crit: Math.min(cap.crit, PET.baseCrit + (S.crit || 0) + g.crit),

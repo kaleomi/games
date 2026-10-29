@@ -1,6 +1,6 @@
 // 玩家存档：按抖音用户ID保存每只萌宠的等级、经验、名字、天赋、闪光、亲密度、装备，以及贡献、送礼累计。
 // 存在主播这台电脑这个浏览器的本地数据库（IndexedDB，见 idb-store.js）里；可导出/导入 JSON。
-import { GEAR, LEVEL, SPECIES_IDS, TALENT } from './config.js';
+import { GEAR, LEVEL, SPECIES_IDS, TALENT, FOES, WISH, FRIEND } from './config.js';
 
 export const SAVE_KEY = 'pet-guard-save-v1';
 const MAX_PROFILES = 20000;
@@ -18,7 +18,8 @@ export function newPet(level = 1) {
 }
 export function newProfile(uid, clearNo = 0) {
   return { uid, name: '小可爱', avatar: '', cur: null, pets: {}, merit: 0, weekMerit: 0, coins: 0, weekCoins: 0, games: 0, clears: 0, seen: 0,
-    shards: [0, 0, 0, 0, 0], pity: { gold: 0, red: 0 }, auto: 0, seenClear: clearNo, buffs: null, checkinDay: '', patDay: '', patToday: 0 };
+    shards: [0, 0, 0, 0, 0], pity: { gold: 0, red: 0 }, auto: 0, seenClear: clearNo, buffs: null, checkinDay: '', patDay: '', patToday: 0,
+    friends: {}, sprites: {}, follow: null, wishTrue: 0 };
 }
 // 这位观众最高的萌宠等级
 export function bestLevel(p) { let b = 1; for (const d of Object.values(p?.pets || {})) b = Math.max(b, d.lv || 1); return b; }
@@ -45,7 +46,7 @@ export class Save {
     this.rollWeek();
   }
 
-  static empty(now) { return { version: 1, players: {}, week: weekKeyOf(now), rounds: 0, stage: 1, best: 0, clearNo: 0, failStreak: 0 }; }
+  static empty(now) { return { version: 1, players: {}, week: weekKeyOf(now), rounds: 0, stage: 1, best: 0, clearNo: 0, failStreak: 0, wishes: { slots: [], queue: [] }, wishTotal: 0 }; }
 
   static validate(obj) {
     if (!obj || typeof obj !== 'object' || obj.version !== 1 || typeof obj.players !== 'object' || Array.isArray(obj.players)) throw new Error('存档格式不对');
@@ -79,11 +80,13 @@ export class Save {
         checkinDay: typeof p.checkinDay === 'string' ? p.checkinDay.slice(0, 10) : '',
         patDay: typeof p.patDay === 'string' ? p.patDay.slice(0, 10) : '', patToday: clampInt(p.patToday, 0, 1e6, 0),
         buffs: validBuffs(p.buffs),
+        friends: validFriends(p.friends), sprites: validSprites(p.sprites), follow: FOES[p.follow] ? p.follow : null, wishTrue: clampInt(p.wishTrue, 0, 1e9, 0),
       };
     }
     return {
       version: 1, players, week: typeof obj.week === 'string' ? obj.week : '', rounds: clampInt(obj.rounds, 0, 1e9, 0),
       stage: clampInt(obj.stage, 1, 9999, 1), best: clampInt(obj.best, 0, 9999, 0), clearNo: clampInt(obj.clearNo, 0, 1e12, 0), failStreak: clampInt(obj.failStreak, 0, 99, 0),
+      wishes: validWishes(obj.wishes), wishTotal: clampInt(obj.wishTotal, 0, 1e9, 0),
     };
   }
 
@@ -167,5 +170,34 @@ function validBuffs(b) {
   if (!b || typeof b !== 'object') return null;
   const n = v => (Number.isFinite(Number(v)) ? Number(v) : 0);
   return { xp: n(b.xp), spirit: n(b.spirit), double: n(b.double), mercs: Array.isArray(b.mercs) ? b.mercs.slice(0, 9).map(n) : [], floors: Array.isArray(b.floors) ? b.floors.slice(0, 6).map(x => ({ tier: clampInt(x?.tier, 0, 5, 0), until: n(x?.until) })) : [] };
+}
+// 心愿：只留文字和名字（长度受限）
+export function cleanWish(s) {
+  return String(s || '').replace(/[\s\u200b-\u200f\u2028-\u202f]+/g, '').replace(/[^\p{L}\p{N}·_\-~～!！?？,，.。、♥❤]/gu, '').slice(0, WISH.maxLen);
+}
+function validWish(w) {
+  if (!w || typeof w !== 'object' || typeof w.uid !== 'string') return null;
+  const text = cleanWish(w.text);
+  return text ? { uid: w.uid.slice(0, 256), name: String(w.name || '小可爱').slice(0, 24), text, t: Number.isFinite(Number(w.t)) ? Number(w.t) : 0 } : null;
+}
+function validWishes(o) {
+  const slots = Array.isArray(o?.slots) ? o.slots.slice(0, 12).map(validWish) : [];
+  const queue = Array.isArray(o?.queue) ? o.queue.slice(0, WISH.queue).map(validWish).filter(Boolean) : [];
+  return { slots, queue };
+}
+function validFriends(o) {
+  const out = {};
+  if (!o || typeof o !== 'object') return out;
+  for (const [uid, v] of Object.entries(o).slice(0, FRIEND.max)) {
+    if (typeof uid !== 'string' || uid.length > 256 || !v || typeof v !== 'object') continue;
+    out[uid] = { n: String(v.n || '小可爱').slice(0, 24), v: clampInt(v.v, 0, 1e9, 0), day: typeof v.day === 'string' ? v.day.slice(0, 10) : '', dv: clampInt(v.dv, 0, 1e6, 0) };
+  }
+  return out;
+}
+function validSprites(o) {
+  const out = {};
+  if (!o || typeof o !== 'object') return out;
+  for (const u of Object.keys(FOES)) if (o[u]) out[u] = clampInt(o[u], 0, 1e9, 0);
+  return out;
 }
 function clampInt(v, lo, hi, d) { const n = Math.floor(Number(v)); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, n)) : d; }

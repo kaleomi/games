@@ -2,6 +2,9 @@
 import { W, FIELD, STAGE, CHAPTERS, ENEMY, FOES, ROUND, TREE, SCORE } from './config.js';
 import { partOf, inZone, safeParts, partLabels, makeSpots, petCluster, damagePet, damageTree, score } from './combat.js';
 import { spawnFoe, strikePose } from './foes.js';
+import { initTreeSlots, stepComfort } from './wish.js';
+import { gardenNewStage } from './friends.js';
+import { LIKE_SHIELD } from './config.js';
 
 export function chapterOf(n) { return Math.ceil(Math.max(1, n) / STAGE.chapterSize); }
 export function stepOf(n) { return (Math.max(1, n) - 1) % STAGE.chapterSize + 1; }
@@ -28,6 +31,8 @@ export function startStage(game, n) {
   game.dmgUnitHp = bossMax(n);
   const tm = treeMax(n);
   game.tree = { hp: tm, maxHp: tm, flash: 0 };
+  initTreeSlots(game);
+  gardenNewStage(game, ch);
   game.stage = { n, ch, step: stepOf(n), kind, chapter: def, sub: kind === 'wave' ? 'wave' : 'enter', t: kind === 'wave' ? STAGE.waveSeconds(ch) : 2.2, spawnT: 1, thiefT: 6,
     left: kind === 'boss' ? ROUND.bossSeconds : ROUND.stageSeconds, limit: kind === 'boss' ? ROUND.bossSeconds : ROUND.stageSeconds, smallDrops: 0, purified: 0, elites: [] };
   game.emit('stage', { n, ch, step: stepOf(n), kind, chapter: def.id, name: def.name, title: stageTitle(n), label: stageLabel(n) });
@@ -38,6 +43,9 @@ export function startStage(game, n) {
 export function stepStage(game, dt) {
   const s = game.stage;
   if (!s) return;
+  // 抱抱首领、心愿成真的时候不计时
+  if (s.sub === 'comfort') { stepComfort(game, dt); return; }
+  if (s.sub === 'ceremony') { s.t -= dt; if (s.t <= 0) s.cleared = true; return; }
   s.left -= dt;
   stepZones(game, dt);
   if (game.tree) game.tree.flash = Math.max(0, game.tree.flash - dt);
@@ -180,8 +188,7 @@ export function castZone(game, kind, caster, o = {}) {
   }
   game.zones.push(z);
   game.emit('zone', { kind, full: z.full, shape: z.shape, danger: z.danger, caster, warn });
-  if (z.full) game.emit('banner', { text: `${caster}蓄力「${z.name}」！${warn}秒后全屏落下，全员发「撑伞」挡一挡`, tier: 5 });
-  else {
+  if (!z.full) {
     const safe = safeParts(z).map(i => i + 1);
     game.emit('banner', { text: `${caster}「${z.name}」！${warn}秒后落下，发「${safe.join('」或「')}」躲开`, tier: z.danger.length > 1 ? 4 : 3 });
   }
@@ -224,6 +231,21 @@ export function interceptZone(game, f, every = STAGE.intercept.every) {
   z.intercept = Math.min(STAGE.intercept.max, z.intercept + STAGE.intercept.per);
   game.emit('intercept', { uid: f.uid, x: f.x, y: f.y });
   return true;
+}
+// 点赞撑伞：全屏大招蓄力时，每个赞给护罩 +0.12%（每人每秒最多算15个赞）
+export function likeShield(game, f, n) {
+  const z = game.zones.find(z => z.full);
+  if (!z || !f || !(n > 0)) return 0;
+  if (game.clock - (f.shieldWinT || 0) >= 1) { f.shieldWinT = game.clock; f.shieldWin = 0; }
+  const add = Math.max(0, Math.min(n, LIKE_SHIELD.capPerSec - (f.shieldWin || 0)));
+  if (!add) return 0;
+  f.shieldWin = (f.shieldWin || 0) + add;
+  const before = z.intercept;
+  z.intercept = Math.min(STAGE.intercept.max, z.intercept + add * LIKE_SHIELD.per);
+  z.likes = (z.likes || 0) + add;
+  if (f.alive && !f.egg) { f.umbrellaT = 1.2; f.umbrellaZ = z.id; }
+  game.emit('likeShield', { uid: f.uid, x: f.x, y: f.y, n: add });
+  return z.intercept - before;
 }
 function autoIntercept(game, z) {
   for (const f of game.pets.values()) {

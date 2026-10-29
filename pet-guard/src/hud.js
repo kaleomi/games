@@ -1,6 +1,8 @@
 // HUD：顶栏（关卡、倒计时、心愿果、爱心能量）、首领血条、礼物效果、本关贡献、萌宠战力榜、玩法轮播、
 // 横幅、提示、开场页、结算页、萌宠卡、天赋觉醒、长大
-import { W, H, FONT, ROUND_FONT, BOTTOM_Y, SPECIES, SPECIES_IDS, GEAR, TALENT, FORMS, TREE, GIFTS, GIFT_TITLES, MORALE, LEVEL, FOES, ROLE_NAMES, BOND } from './config.js';
+import { W, H, FONT, ROUND_FONT, BOTTOM_Y, SPECIES, SPECIES_IDS, GEAR, TALENT, FORMS, TREE, GIFTS, GIFT_TITLES, MORALE, LEVEL, FOES, ROLE_NAMES, BOND, COMFORT, FRIEND, SPRITES, WISH } from './config.js';
+import { wishStore } from './wish.js';
+import { bestFriend, friendLevel, SPRITE_UNITS } from './friends.js';
 import { rr, heart, star, clipText } from './render.js';
 import { talentParts, combatPower, setBonus, itemName, bondLevel, bondNext, SLOT_IDS, talentMul } from './gear.js';
 import { stageLabel, stageTitle, stageKind, KIND_NAMES, chapterOf, chapterDef } from './stage.js';
@@ -59,10 +61,13 @@ export function drawHud(r, x, dt) {
   x.save();
   topBar(r, x);
   bossBar(r, x);
-  if (g.settings.giftBox !== false) giftBox(r, x);
-  meritBoard(r, x);
+  const prompt = g.zones.some(z => z.full) || (g.phase === 'battle' && g.stage?.sub === 'comfort');
+  if (g.settings.giftBox !== false && !prompt) giftBox(r, x);   // 全屏大招 / 抱抱首领的大提示出来时，两边小面板先让开
+  if (!prompt) meritBoard(r, x);
   bottomPanels(r, x);
   blastPrompt(r, x);
+  comfortPrompt(r, x);
+  drawStamp(r, x, dt);
   drawBanners(r, x, dt);
   drawToasts(r, x, dt);
   if (g.phase === 'lobby') lobby(r, x);
@@ -188,8 +193,54 @@ function bottomPanels(r, x) {
 }
 const PAGES = [
   { id: 'how', title: '怎么玩', draw(r, x, l, t, w) {
-    const rows = [['狗 猫 兔 熊猫…', '领养萌宠（发物种名）'], ['摸摸', '撸一下，亲密度+1'], ['起名 小黄', '给萌宠起名字'], ['大招', '放大招（45秒一次）'], ['1 / 2 / 3', '躲到安全那块（躲雨）'], ['撑伞', '全屏大招时一起挡'], ['闪', '冲出去躲弹幕'], ['我的 / 装备 / 签到', '看萌宠卡、领每日礼物']];
+    const rows = [['狗 猫 兔 熊猫…', '领养萌宠（发物种名）'], ['许愿 考研上岸', '把心愿挂上心愿树'], ['贴贴', '抱别人家萌宠，交朋友'], ['摸摸 · 起名 小黄', '撸一下 · 给萌宠起名'], ['大招 · 闪', '放大招 · 冲出去躲弹幕'], ['1 / 2 / 3', '躲到安全那块（躲雨）'], ['点赞', '全屏大招时撑起护罩'], ['抱抱', '首领哭了，大家安慰它']];
     rows.forEach(([a, b], i) => { const y = t + 18 + i * 26; pill(x, a, l + 76, y - 5, '#fff0f5', C.pink, 12); text(x, b, l + 150, y, 13, C.ink, 'left', 'normal'); });
+  } },
+  { id: 'wish', title: '心愿树', draw(r, x, l, t, w) {
+    const g = r.game, S = wishStore(g), on = [];
+    for (let i = 0; i < TREE.fruits; i++) if (S.slots[i]) on.push(S.slots[i]);
+    const total = g.save ? g.save.data.wishTotal || 0 : g.memWishTotal || 0;
+    if (!on.length) {
+      text(x, '发「许愿 + 你的心愿」', l + w / 2, t + 50, 18, C.pink, 'center');
+      text(x, '把心愿挂上心愿树，比如「许愿 考试顺利」', l + w / 2, t + 80, 13, C.ink, 'center', 'normal');
+      text(x, '守住它，打完首领就会变成灯笼飞上天', l + w / 2, t + 106, 13, C.ink, 'center', 'normal');
+      text(x, '偷果鼠会偷心愿，抢回来能交到朋友', l + w / 2, t + 132, 13, C.mute, 'center', 'normal');
+    } else on.slice(0, 7).forEach((wv, i) => {
+      const y = t + 18 + i * 25;
+      x.fillStyle = '#ff7fae'; heart(x, l + 20, y - 5, 5); x.fill();
+      text(x, clipText(x, wv.name, 96), l + 32, y, 12, C.mute, 'left', 'normal');
+      text(x, g.settings.wishShow !== false ? clipText(x, wv.text, 190) : '（悄悄的心愿）', l + 134, y, 13, C.ink, 'left', 'bold');
+    });
+    text(x, `树上 ${on.length}/${TREE.fruits} · 排队 ${S.queue.length} · 已经成真 ${total} 个`, l + w / 2, t + 196, 12, C.mute, 'center', 'normal');
+  } },
+  { id: 'friends', title: '好朋友', draw(r, x, l, t, w) {
+    const g = r.game, seen = new Set(), pairs = [];
+    for (const f of g.humans()) {
+      if (f.merc) continue;
+      const bf = bestFriend(g, f, true);
+      if (!bf || bf.lv < 1) continue;
+      const key = [f.uid, bf.uid].sort().join('|');
+      if (seen.has(key)) continue;
+      seen.add(key); pairs.push({ a: f, b: g.pets.get(bf.uid), lv: bf.lv, v: bf.v });
+    }
+    pairs.sort((p, q) => q.v - p.v);
+    if (!pairs.length) {
+      text(x, '发「贴贴」', l + w / 2, t + 46, 18, C.pink, 'center');
+      text(x, '你的萌宠会跑去抱抱别人家的萌宠', l + w / 2, t + 76, 13, C.ink, 'center', 'normal');
+      text(x, `贴贴${FRIEND.steps[0]}次成为好朋友，友情一直记着`, l + w / 2, t + 102, 13, C.ink, 'center', 'normal');
+      text(x, '好朋友同时在场，会一起放「友情合体技」', l + w / 2, t + 128, 13, C.ink, 'center', 'normal');
+      text(x, FRIEND.names.join(' → '), l + w / 2, t + 160, 12, C.mute, 'center', 'normal');
+      return;
+    }
+    pairs.slice(0, 6).forEach((p, i) => {
+      const y = t + 20 + i * 30;
+      petIcon(r, x, p.a.sp, p.a.form ?? 0, l + 22, y - 6, 24, p.a.shiny);
+      text(x, clipText(x, p.a.name, 88), l + 38, y, 12, C.ink);
+      x.fillStyle = '#ff7fae'; heart(x, l + 142, y - 5, 6); x.fill();
+      petIcon(r, x, p.b.sp, p.b.form ?? 0, l + 166, y - 6, 24, p.b.shiny);
+      text(x, clipText(x, p.b.name, 80), l + 182, y, 12, C.ink);
+      text(x, FRIEND.names[p.lv - 1], l + w - 12, y, 12, p.lv >= 3 ? '#e08a2a' : C.pink, 'right');
+    });
   } },
   { id: 'pets', title: '八种萌宠', draw(r, x, l, t, w) {
     SPECIES_IDS.forEach((sp, i) => {
@@ -200,7 +251,7 @@ const PAGES = [
     });
   } },
   { id: 'gift', title: '礼物', draw(r, x, l, t, w) {
-    const rows = [['小心心', '投喂零食：经验+50%、亲密+2'], ['鲜花', '呼朋唤友：叫来小伙伴、放大招'], ['加油鸭', '天赋觉醒：洗天赋，有机会闪光'], ['爱你哟', '爱心派对：全队攻击+30%、爱心雨'], ['墨镜', '酷酷墨镜：戴墨镜、攻击+30%'], ['礼花筒', '庆典：装备掉落×2 十分钟'], ['跑车', '梦幻甜品车：全场吃甜点、梦幻装扮'], ['任意礼物', '自动守护：每1抖币12秒']];
+    const rows = [['小心心', '投喂零食：经验+50%、亲密+2'], ['鲜花', '种花回血 + 叫来小伙伴、放大招'], ['加油鸭', '天赋觉醒：洗天赋，有机会闪光'], ['爱你哟', '爱心派对：全队攻击+30%、爱心雨'], ['墨镜', '酷酷墨镜：戴墨镜、攻击+30%'], ['礼花筒', '庆典：装备掉落×2 十分钟'], ['跑车', '梦幻甜品车：全场吃甜点、梦幻装扮'], ['任意礼物', '自动守护：每1抖币12秒']];
     rows.forEach(([a, b], i) => { const y = t + 18 + i * 26; text(x, a, l + 14, y, 13, C.pink); text(x, b, l + 86, y, 13, C.ink, 'left', 'normal'); });
   } },
   { id: 'grow', title: '养成', draw(r, x, l, t, w) {
@@ -209,7 +260,7 @@ const PAGES = [
     TALENT.tiers.forEach((tt, i) => { text(x, `${tt.name}×${tt.mul}`, l + 14 + (i % 3) * 108, t + 70 + Math.floor(i / 3) * 22, 13, tt.color === '#e8edf5' ? '#8a8a9a' : tt.color); });
     text(x, '神话之后还能升星 · 觉醒有机会变「闪光」异色', l + 14, t + 128, 12, C.mute, 'left', 'normal');
     text(x, '亲密度：摸摸、投喂涨，每一级全属性+2%', l + 14, t + 154, 13, C.ink, 'left', 'normal');
-    text(x, '每只萌宠各自养，换物种不丢', l + 14, t + 180, 13, C.ink, 'left', 'normal');
+    text(x, '小精灵：净化坏心情有机会收服，图鉴每种+1%', l + 14, t + 180, 13, C.ink, 'left', 'normal');
   } },
   { id: 'gear', title: '装扮', draw(r, x, l, t, w) {
     GEAR.tiers.forEach((tt, i) => {
@@ -233,17 +284,48 @@ function blastPrompt(r, x) {
   const y = 210;
   panel(x, 140, y - 50, 440, 120, 0.92);
   outlined(x, `「${z.name}」 ${Math.ceil(z.warn)}`, 360, y - 12, 26, '#fff', '#6a3a8a');
-  outlined(x, '全员发「撑伞」！', 360, y + 24, 30, '#ffd84a', '#8a4a00');
-  x.fillStyle = '#eee'; rr(x, 180, y + 40, 360, 14, 7); x.fill(); x.fillStyle = '#7fd3ff'; rr(x, 180, y + 40, 360 * k, 14, 7); x.fill();
-  text(x, `已挡住 ${Math.round(z.intercept * 100)}%`, 360, y + 66, 13, C.mute, 'center');
+  outlined(x, '全场点赞撑护罩！', 360, y + 24, 30, '#ffd84a', '#8a4a00');
+  x.fillStyle = '#eee'; rr(x, 180, y + 40, 360, 14, 7); x.fill(); x.fillStyle = C.pink; rr(x, 180, y + 40, 360 * k, 14, 7); x.fill();
+  text(x, `已挡住 ${Math.round(z.intercept * 100)}%${z.likes ? ` · 收到 ${z.likes} 个赞` : ''} · 发「撑伞」也行`, 360, y + 66, 13, C.mute, 'center');
+  x.restore();
+}
+
+// 首领委屈大哭：全场发「抱抱」安慰它
+function comfortPrompt(r, x) {
+  const g = r.game, s = g.stage;
+  if (g.phase !== 'battle' || s?.sub !== 'comfort' || !s.comfort) return;
+  const c = s.comfort, e = g.foes.find(q => q.id === c.id), k = Math.min(1, c.have / c.need);
+  const y = 160;
+  x.save();
+  panel(x, 120, y - 56, 480, 136, 0.94);
+  outlined(x, `${e?.name || '首领'}委屈地哭了……`, 360, y - 22, 22, '#fff', '#4a6a9a');
+  outlined(x, '全场发「抱抱」安慰它！', 360, y + 14, 30, '#ffd84a', '#8a4a00');
+  x.fillStyle = '#f3e3ea'; rr(x, 160, y + 30, 400, 18, 9); x.fill();
+  const gr = x.createLinearGradient(160, 0, 560, 0); gr.addColorStop(0, '#ffb3d1'); gr.addColorStop(1, '#ff7fae');
+  x.fillStyle = gr; rr(x, 160, y + 30, Math.max(18, 400 * k), 18, 9); x.fill();
+  for (let i = 0; i < 5; i++) { const px = 160 + 400 * (i + 0.5) / 5; x.fillStyle = k >= (i + 1) / 5 ? '#fff' : 'rgba(255,255,255,.5)'; heart(x, px, y + 39, 5); x.fill(); }
+  const left = Math.max(0, COMFORT.secs - c.t), next = COMFORT.grades.find(([sec]) => c.t <= sec);
+  text(x, `抱抱 ${c.have}/${c.need} · ${next ? `${Math.ceil(next[0] - c.t)}秒内安慰好评${next[1]}` : `还剩${Math.ceil(left)}秒`} · 点赞也算`, 360, y + 70, 13, C.mute, 'center');
+  x.restore();
+}
+function drawStamp(r, x, dt) {
+  const st = r.stamp;
+  if (!st) return;
+  st.t += dt;
+  if (st.t > st.life) { r.stamp = null; return; }
+  const k = st.t / st.life, s = k < 0.12 ? 2.4 - k / 0.12 * 1.4 : 1, a = k > 0.85 ? (1 - k) / 0.15 : 1;
+  x.save(); x.globalAlpha = a; x.translate(360, 470); x.scale(s, s); x.rotate(-0.08);
+  const col = { S: '#ffd84a', A: '#ffb3d1', B: '#a8d8ff' }[st.grade] || '#e0e0f0';
+  outlined(x, st.text, 0, 0, 60, col, '#b04a7a', 'center', ROUND_FONT, 10);
   x.restore();
 }
 
 // ───────── 横幅 / 提示 ─────────
 const TIER_BG = ['#7fdcb0', '#7fdcb0', '#7cc6ff', '#ff8fb8', '#b48cff', '#ffb84a'];
 export function drawBanners(r, x, dt) {
-  // 横幅挂在首领血条下面、左右两块面板中间（宽280），不压战场中央；放不下折成两行
-  let y = 102;
+  // 横幅挂在首领血条下面、左右两块面板中间（宽280），不压战场中央；放不下折成两行；有大提示时挪到提示下面
+  const g = r.game, big = g.zones.some(z => z.full) ? 290 : g.phase === 'battle' && g.stage?.sub === 'comfort' ? 252 : 0;
+  let y = big || 102;
   const MAXW = 252;
   for (const b of r.banners) {
     b.t += dt;
@@ -301,7 +383,8 @@ function lobby(r, x) {
   if (!r.icon(x, 'logo', 360, t + 70, 300)) { outlined(x, '萌宠保卫战', 360, t + 78, 52, '#ff8fb8', '#fff', 'center', ROUND_FONT, 10); }
   text(x, '守护心愿树，把坏心情都净化掉', 360, t + 132, 16, C.mute, 'center', 'normal');
   pill(x, `${stageTitle(n)} · ${stageLabel(n)}  ${Math.ceil(g.phaseT)} 秒后开始`, 360, t + 170, '#7cc6ff', '#fff', 16);
-  if (g.lobbyReason === 'fail') text(x, '心愿果被偷光了…大家休息一下，从本章第一关重新守', 360, t + 202, 14, '#ff6b81', 'center');
+  if (g.lobbyReason === 'fail') text(x, '心愿果被偷光了…大家休息一下，从本章第一关重新守', 360, t + 198, 14, '#ff6b81', 'center');
+  else text(x, '发「许愿 + 你的心愿」，把心愿挂上心愿树', 360, t + 202, 14, '#c0578a', 'center');
   text(x, '发弹幕领养一只萌宠：', 360, t + 236, 15, C.ink, 'center');
   SPECIES_IDS.forEach((sp, i) => {
     const col = i % 4, row = Math.floor(i / 4), cx = 160 + col * 133, cy = t + 280 + row * 84;
@@ -324,9 +407,10 @@ function result(r, x, dt) {
   x.fillStyle = 'rgba(70,40,60,0.35)'; x.fillRect(0, 66, W, BOTTOM_Y - 66);
   const l = 40, t = 150, w = 640, hh = 820;
   panel(x, l, t, w, hh, 0.96);
-  const title = R.clear ? (R.kind === 'boss' ? `${R.bossName}被净化啦！` : '精英关守住啦！') : (R.reason === 'tree' ? '心愿果被偷光了…' : '天亮了，没守完…');
+  const title = R.clear ? (R.kind === 'boss' ? `${R.bossName}被抱抱治愈啦！` : '精英关守住啦！') : (R.reason === 'tree' ? '心愿果被偷光了…' : '天亮了，没守完…');
+  if (R.grade) { const gc = { S: '#ffb020', A: '#ff7fae', B: '#7cc6ff', C: '#a8a8b8' }[R.grade] || C.pink; x.save(); x.translate(l + w - 62, t + 58); x.rotate(0.12); x.fillStyle = gc; x.beginPath(); x.arc(0, 0, 38, 0, TAU); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 4; x.stroke(); outlined(x, R.grade, 0, 16, 46, '#fff', 'rgba(90,40,30,.6)', 'center', ROUND_FONT, 5); text(x, '安慰评价', 0, -24, 10, '#fff', 'center'); x.restore(); }
   outlined(x, title, 360, t + 56, 36, R.clear ? '#ffd84a' : '#a8c8ff', R.clear ? '#c0571d' : '#4a5a9a', 'center', ROUND_FONT, 8);
-  text(x, R.clear ? `${R.title} ${R.label} 过关 · 心愿果还剩 ${R.fruits} 个 · 下一关 ${R.nextLabel}` : `回到 ${R.nextLabel} 重新守护（等级、装扮都还在）`, 360, t + 88, 15, C.mute, 'center', 'normal');
+  text(x, R.clear ? `${R.title} ${R.label} 过关 · ${R.kind === 'boss' ? `心愿成真 ${R.wishes || 0} 个` : `心愿果还剩 ${R.fruits} 个`} · 下一关 ${R.nextLabel}` : `回到 ${R.nextLabel} 重新守护（等级、装扮都还在）`, 360, t + 88, 15, C.mute, 'center', 'normal');
   let y = t + 116;
   if (g.settings.giftRank !== false && R.gifts?.length) {
     pill(x, '本局送礼', l + 60, y + 6, '#ffb84a', '#fff', 13);
@@ -411,6 +495,10 @@ function drawCards(r, x, dt) {
     if (!it) text(x, GEAR.slots[sl].name, cx, cy + 5, 12, '#c9b8be', 'center', 'normal');
     text(x, it ? clipText(x, itemName(it), 82) : '空', cx, cy + 40, 11, it ? (tc === '#e8edf5' ? '#8a8a9a' : tc) : '#c9b8be', 'center');
   });
+  { const bf = bestFriend(g, f), fk = f.spriteKinds || 0, fl = FOES[f.follow];
+    const s1 = bf ? `好朋友 ${clipText(x, bf.name, 70)}·${bf.lv ? FRIEND.names[bf.lv - 1] : '认识'}` : '好朋友：发「贴贴」交朋友';
+    const s2 = fl ? `小精灵 ${fl.name}（${fk}/${SPRITE_UNITS.length}）` : `小精灵 ${fk}/${SPRITE_UNITS.length}`;
+    text(x, s1, l + 14, t + 175, 11, '#c0578a', 'left', 'bold'); text(x, s2, l + w - 14, t + 175, 11, '#3a8fc0', 'right', 'bold'); }
   const sb = setBonus(f.gear);
   text(x, `套装 技能精进${sb.nSkill}/4${sb.skill ? '✓' : ''} · 大招大成${sb.nUlt}/4${sb.ult ? '✓' : ''}`, l + w / 2, t + h - 8, 11, C.mute, 'center', 'normal');
   x.restore();

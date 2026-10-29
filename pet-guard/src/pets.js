@@ -5,6 +5,8 @@ import {
   clamp, LANES, foesIn, petsIn, liveFoes, livePets, densest, rollCrit, damageFoe, healPet, score, addProj, aimAt,
   slowE, stunE, burnE, partOf, partHit, inZone, safeParts, ringZone, partPoint, inGround, treeDist, damagePet,
 } from './combat.js';
+import { stepHug } from './friends.js';
+import { comfortSpot } from './wish.js';
 
 // ───────── 弹幕解析 ─────────
 const SP_WORDS = SPECIES_IDS.flatMap(id => SPECIES[id].words.map(w => [w, id])).sort((a, b) => b[0].length - a[0].length);
@@ -100,6 +102,7 @@ export function stepPet(game, f, dt, combat) {
   stepSpirit(game, f, dt, combat);
   if (!combat) {
     if (f.act && f.act.kind !== 'ult') f.act = null;
+    if (stepHug(game, f, dt, walkTo)) return;
     if (!f.act) walkTo(game, f, homeWander(game, f, dt), dt, 0.6); else stepAct(game, f, dt);
     return;
   }
@@ -112,6 +115,10 @@ export function stepPet(game, f, dt, combat) {
   if ((f.aliveAcc = (f.aliveAcc || 0) + dt) >= SCORE.aliveEvery) { f.aliveAcc -= SCORE.aliveEvery; score(game, f, SCORE.alive); }
   if (f.ultCd <= 0) f.ultReadyFor = (f.ultReadyFor || 0) + dt; else f.ultReadyFor = 0;
   if (f.act) { stepAct(game, f, dt); return; }
+  // 首领委屈大哭：大家围过去抱抱
+  const cs = comfortSpot(game, f);
+  if (cs) { if (!stepHug(game, f, dt, walkTo) && walkTo(game, f, cs, dt, 1.1)) faceTo(game, f, cs.face, 0); return; }
+  if (stepHug(game, f, dt, walkTo)) return;
   autoRing(game, f, dt);
   const bz = myBand(game, f);
   if (bz) { const q = partPoint(bz, f.ring, f.x, f.y); if (Math.hypot(q.x - f.x, q.y - f.y) > 10) { walkTo(game, f, q, dt, 1.15); return; } }

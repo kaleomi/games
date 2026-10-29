@@ -1,10 +1,11 @@
 // 主播设置面板（DOM）；开场页、结算页都画在画布上（窗口捕获一起带走）
 import { SPECIES, SPECIES_IDS, GIFTS, GIFT_TITLES } from './config.js';
 import { stageLabel, stageTitle, chapterOf, castZone } from './stage.js';
+import { wishStore } from './wish.js';
 
 const SETTINGS_KEY = 'pet-guard-settings-v1';
 export function loadSettings() {
-  const d = { v: 1, port: 8765, autoConnect: true, npcMin: 4, sfx: true, bgm: true, bgmVol: 50, sfxVol: 70, giftByName: {}, giftBox: true, giftPages: true, giftRank: true, rankPage: true };
+  const d = { v: 1, port: 8765, autoConnect: true, npcMin: 4, sfx: true, bgm: true, bgmVol: 50, sfxVol: 70, giftByName: {}, giftBox: true, giftPages: true, giftRank: true, rankPage: true, wishShow: true, wishBlock: '' };
   try { return { ...d, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'), v: 1 }; } catch { return d; }
 }
 export function storeSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* 忽略 */ } }
@@ -51,6 +52,13 @@ export class UI {
         <div class="note">浏览器要求先点一下页面才能出声：开播前在游戏画面上点一下鼠标。</div>
       </section>
       <section>
+        <h3>心愿树</h3>
+        <div class="row wrap"><label><input id="cfg-wishshow" type="checkbox" ${s.wishShow !== false ? 'checked' : ''}> 心愿文字上屏（关掉只显示「某某的心愿」）</label></div>
+        <div class="row">屏蔽词（空格或逗号隔开，含这些字的心愿挂不上树）：</div>
+        <input id="cfg-wishblock" type="text" style="width:100%" value="${esc(s.wishBlock || '')}" placeholder="例如：微信 加我 vx">
+        <div class="row wrap"><button data-act="wish-clear">清空心愿树</button></div>
+      </section>
+      <section>
         <h3>礼物对照</h3>
         <div class="note">默认：${Object.entries(GIFTS.byName).filter(([k]) => k !== '爱的爆炸').map(([k, v]) => `${k}=${WORD[v]}`).join('、')}；认不出的按单价：1+投喂 10+呼朋 15+觉醒 52+派对 99+墨镜 199+双倍 1200+甜品车。</div>
         <div class="row">追加 / 改礼物（每行「礼物名=效果」，效果填 ${Object.values(WORD).join(' / ')}）：</div>
@@ -66,6 +74,7 @@ export class UI {
           <button data-act="test-join">来10只测试萌宠</button>
           ${Object.keys(WORD).map(k => `<button data-act="test-gift" data-kind="${k}">${GIFT_TITLES[k][0]}</button>`).join('')}
           <button data-act="test-ult">全员大招</button><button data-act="test-like">点赞</button><button data-act="test-pat">全员摸摸</button><button data-act="test-name">起名</button>
+          <button data-act="test-wish">全员许愿</button><button data-act="test-hugf">全员贴贴</button><button data-act="test-comfort">首领直接哭</button><button data-act="test-hug">全员抱抱</button>
           <button data-act="test-ring">放个躲雨区（轮换四种）</button><button data-act="test-full">放全屏大招</button><button data-act="test-ring-pick">全员发1/2/3</button>
           <button data-act="test-xp">测试萌宠+500经验</button>
           <button data-act="start-now">立即开打</button><button data-act="win-now">本关直接过</button><button data-act="end-now">本关判负</button>
@@ -103,6 +112,7 @@ export class UI {
     s.sfx = document.getElementById('cfg-sfx').checked; s.bgm = document.getElementById('cfg-bgm').checked;
     s.giftBox = document.getElementById('cfg-giftbox').checked; s.giftPages = document.getElementById('cfg-giftpages').checked; s.giftRank = document.getElementById('cfg-giftrank').checked; s.rankPage = document.getElementById('cfg-rankpage').checked;
     s.bgmVol = num('cfg-bgmvol', 0, 100, 50); s.sfxVol = num('cfg-sfxvol', 0, 100, 70);
+    s.wishShow = document.getElementById('cfg-wishshow').checked; s.wishBlock = String(document.getElementById('cfg-wishblock').value || '').slice(0, 500);
     const map = {}, words = Object.fromEntries(Object.entries(WORD).map(([k, v]) => [v, k]));
     for (const line of document.getElementById('cfg-gifts').value.split('\n')) {
       const m = line.trim().match(/^(.{1,30}?)\s*[=＝]\s*(\S+)$/);
@@ -142,6 +152,11 @@ export class UI {
       case 'test-pat': if (!this.testAllowed()) break; for (const f of tests()) g.chat({ id: f.uid, name: f.name }, '摸摸'); break;
       case 'test-name': if (!this.testAllowed()) break; { const names = ['小黄', '团子', '布丁', '芝士', '可乐', '旺财', '咪咪', '豆包', '奶茶', '麻薯']; tests().forEach((f, i) => g.chat({ id: f.uid, name: f.name }, '起名' + names[i % names.length])); } break;
       case 'test-xp': if (!this.testAllowed()) break; for (const f of tests()) g.grantXp(f, 500); break;
+      case 'test-wish': if (!this.testAllowed()) break; { const ws = ['考试顺利', '家人健康', '天天开心', '暴富', '找到对象', '升职加薪', '猫猫长胖', '旅行去海边', '早点下班', '一夜好梦']; tests().forEach((f, i) => { f.wishAt = -99; g.chat({ id: f.uid, name: f.name }, '许愿' + ws[i % ws.length]); }); } break;
+      case 'test-hugf': if (!this.testAllowed()) break; for (const f of tests()) { f.hugFAt = -99; g.chat({ id: f.uid, name: f.name }, '贴贴'); } break;
+      case 'test-hug': if (!this.testAllowed()) break; for (const f of tests()) g.chat({ id: f.uid, name: f.name }, '抱抱'); break;
+      case 'test-comfort': if (g.phase === 'battle' && g.boss?.alive) { g.boss.hp = 1; g.purify(g.boss, null); } else this.note('首领关打到首领出来再按'); break;
+      case 'wish-clear': { const S = wishStore(g); S.slots.length = 0; S.queue.length = 0; if (g.save) g.save.dirty = true; this.note('心愿树清空了'); } break;
       case 'test-ring-pick': if (!this.testAllowed()) break; for (const f of tests()) g.chat({ id: f.uid, name: f.name }, String(1 + Math.floor(Math.random() * 3))); break;
       case 'test-ring': if (g.phase === 'battle') { const c = g.boss || g.foes.find(e => e.alive) || { x: 360, y: 640, name: '测试' }; const shape = ['rings', 'fan', 'rows', 'spots'][g.zoneSeq % 4]; castZone(g, 'strike', c.name || '测试', { shape, cx: c.x, cy: c.y, count: 1 + Math.floor(Math.random() * 2), name: { rings: '大砸', fan: '喷刺刺', rows: '打雷啦', spots: '倾盆大雨' }[shape], fx: { rings: 'slam', fan: 'mist', rows: 'bolt', spots: 'rain' }[shape] }); } break;
       case 'test-full': if (g.phase === 'battle') castZone(g, 'blast', g.boss?.name || '测试', { name: '狂风暴雨' }); break;

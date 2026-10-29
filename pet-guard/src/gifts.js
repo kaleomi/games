@@ -7,6 +7,7 @@ import { spawnFoe } from './foes.js';
 import { bossMax, chapterOf } from './stage.js';
 import { giveItem, dropTimes, lootFloor, profileOf, petRecord } from './loot.js';
 import { dayKeyOf } from './save.js';
+import { plantFlowers } from './friends.js';
 
 export function giftKind(gift, custom = null) {
   const name = String(gift?.name || '');
@@ -55,7 +56,8 @@ export function applyGift(game, f, kind, amount) {
     case 'flower':
       for (let i = 0; i < Math.min(n, G.flower.maxPerGift); i++) summonMerc(game, f);
       if (f.alive && !f.egg) castUlt(game, f, { free: true });
-      game.emit('banner', { uid: f.uid, name: f.name, text: `呼朋唤友！叫来${Math.min(n, G.flower.maxPerGift)}只小伙伴，立即放大招`, tier: 2 });
+      plantFlowers(game, f, n);
+      game.emit('banner', { uid: f.uid, name: f.name, text: `种下${Math.min(n, 3)}朵花、叫来${Math.min(n, G.flower.maxPerGift)}只小伙伴，立即放大招`, tier: 2 });
       break;
     case 'drum':
       game.partyUntil = extend(game.partyUntil, game, G.drum.sec * n);

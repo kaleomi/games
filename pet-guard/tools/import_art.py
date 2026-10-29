@@ -29,6 +29,9 @@ def spec_of(fid):
     if m and m.group(1) in FOE_H:
         u = m.group(1)
         return dict(grid=(1, 2), names=[f'foe:{u}:0', f'foe:{u}:1'], h=FOE_H[u], bg='white', dir='foes')
+    m = re.fullmatch(r'sad_(\w+)', fid)          # 首领委屈大哭版（抱抱首领）
+    if m and m.group(1) in FOE_H:
+        return dict(grid=(1, 1), names=[f'foe:{m.group(1)}:2'], h=FOE_H[m.group(1)], bg='white', dir='foes')
     m = re.fullmatch(r'bg_(\w+)', fid)
     if m: return dict(kind='bg', names=[f'bg:{m.group(1)}'], dir='bg')
     m = re.fullmatch(r'seq_(\w+?)_(idle|attack|happy|sleep)(?:_(\d))?', fid)
@@ -49,6 +52,8 @@ def spec_of(fid):
         'fx_glow':       dict(grid=(2, 4), names=[f'glow:{n}' for n in ['glow', 'sparkle', 'ring', 'circle', 'pillar', 'wave', 'frost', 'bolt']], box=240, bg='black', dir='fx', split='cells'),
         'gift_truck':    dict(grid=(1, 1), names=['truck'], h=320, bg='white', dir='misc'),
         'logo':          dict(grid=(1, 1), names=['logo'], w=760, bg='white', dir='misc'),
+        'flowers':       dict(grid=(1, 4), names=[f'flower:{i}' for i in range(4)], h=200, bg='white', dir='misc'),
+        'lantern':       dict(grid=(1, 1), names=['misc:lantern'], box=200, bg='white', dir='icons'),
     }
     return table.get(fid)
 

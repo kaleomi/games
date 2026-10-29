@@ -254,10 +254,64 @@ export const GIFT_TITLES = {
 export const MORALE = { need: 500, dmg: 0.1, sec: 15, capPerSec: 20 };
 
 // 贡献值 = 成长分E × 有效行为（不看伤害高低，萌宠之间公平）
-export const SCORE = { aliveEvery: 5, alive: 1, skill: 6, ult: 12, dodge: 3, dmg: 1, heal: 0.25, perCoin: 1, eLv: 0.02, eGear: 0.02, thief: 4 };
+export const SCORE = { aliveEvery: 5, alive: 1, skill: 6, ult: 12, dodge: 3, dmg: 1, heal: 0.25, perCoin: 1, eLv: 0.02, eGear: 0.02, thief: 4, hug: 2, hugFriend: 2, duo: 8, wishBack: 6 };
 export const RANK = { coinW: 0, shown: 8 };
 export const RESERVE = { cap: 30, idle: 300, keep: 1800, xpRate: 0.5, baseXp: ch => 40 + 4 * ch, catchupMax: 500 };
 export const NPC = { min: 4 };
 export const RINGS = { r1: 140, r2: 290, squash: 0.62 };
 export const SMALL_DROP = { chance: 0.1, maxPerStage: 3 };
 export const LIMITS = { fx: 360, floaters: 120, projectiles: 1400, particles: 700 };
+
+// ───────── 萌宠保卫战独有的玩法 ─────────
+// 许愿果：观众发「许愿 xxx」把心愿挂上心愿树；每个果子就是一个观众的心愿
+export const WISH = {
+  maxLen: 10,               // 心愿最多10个字
+  queue: 24,                // 树上挂满了就排队
+  rotate: 3.2,              // 树上的心愿轮流冒气泡（秒）
+  stealWish: 0.75,          // 偷果鼠优先偷挂着心愿的果子
+  xp: ch => 40 + 15 * ch,   // 心愿成真：许愿人的萌宠拿经验
+  bond: 3,                  // 心愿成真：亲密度
+  rescue: 3,                // 抢回别人的心愿：两人友情 +3
+};
+// 点赞撑伞：首领全屏大招蓄力时，点赞给心愿树撑起护罩（发「撑伞」也算）
+export const LIKE_SHIELD = { per: 0.0012, capPerSec: 15 };
+// 抱抱首领：首领打空不消失，委屈大哭；全场发「抱抱」安慰它
+export const COMFORT = {
+  secs: 14,                 // 最多哭这么久（超时它也会自己慢慢好起来，只是奖励少）
+  cd: 0.8,                  // 每人每0.8秒算一次
+  perHuman: 2.2, min: 8, max: 50,   // 需要的抱抱数 = 在场真人 × 2.2（8~50）
+  npc: 0.25,                // 流浪萌宠每秒自己抱一下（主播挂机也能过）
+  auto: 1.5,                // 自动守护的萌宠每1.5秒自动抱
+  likes: 20,                // 每20个赞算一次抱抱
+  grades: [[5, 'S'], [9, 'A'], [14, 'B']],
+  ceremony: 4.5,            // 安慰好了：心愿成真仪式这么久，再出结算
+  bonus: { S: 1, A: 0, B: 0, C: 0 },   // 评价S：安慰最多的那个人多拿一件装扮（首领小精灵也给他）
+};
+// 好朋友：发「贴贴」去抱别人家的萌宠；友情跨直播保存；好朋友同时在场放「友情合体技」
+export const FRIEND = {
+  steps: [3, 12, 30, 60],
+  names: ['好朋友', '好伙伴', '最佳拍档', '灵魂伙伴'],
+  duo: ['友情抱抱', '默契连击', '心心相印', '灵魂共鸣'],
+  hugCd: 20,                // 「贴贴」冷却
+  pairDaily: 10,            // 同一对每天贴贴最多涨这么多
+  duoCd: 45, duoGap: 8,     // 同一对45秒一次；全场至少隔8秒
+  duoMul: [2.5, 3, 3.6, 4.5], // 合体技伤害 = (两只攻击之和) × 倍数
+  duoR: 170, duoHeal: 0.1,  // 两只各回10%体力
+  max: 40,                  // 每人最多记40个朋友
+};
+// 收服小精灵：净化的坏心情有机会变成小精灵跟着萌宠
+export const SPRITES = {
+  chance: { minion: 0.012, thief: 0.04, elite: 0.15 },
+  rank: { minion: 1, thief: 2, elite: 3, boss: 4 },
+  perKind: 0.01,            // 图鉴每多一种：全属性 +1%
+  follow: {                 // 跟在身边的那只：额外加成
+    dust: { atk: 0.03 }, cloud: { heal: 0.06 }, thief: { atk: 0.04 }, burr: { hp: 0.06 }, tear: { hp: 0.03, atk: 0.02 },
+    bear: { hp: 0.08 }, clock: { atk: 0.06 }, crow: { atk: 0.05, hp: 0.03 },
+    storm: { atk: 0.08, hp: 0.08, heal: 0.08 }, puffer: { atk: 0.08, hp: 0.08, heal: 0.08 }, owl: { atk: 0.08, hp: 0.08, heal: 0.08 },
+    yeti: { atk: 0.08, hp: 0.08, heal: 0.08 }, king: { atk: 0.12, hp: 0.12, heal: 0.12 },
+  },
+  text: { dust: '攻击+3%', cloud: '治疗+6%', thief: '攻击+4%', burr: '体力+6%', tear: '体力+3% 攻击+2%', bear: '体力+8%', clock: '攻击+6%', crow: '攻击+5% 体力+3%',
+    storm: '全属性+8%', puffer: '全属性+8%', owl: '全属性+8%', yeti: '全属性+8%', king: '全属性+12%' },
+};
+// 鲜花种花：送鲜花在场上种花，花开给旁边萌宠回血、让坏心情走慢（整章都在，换季清空）
+export const GARDEN = { max: 36, perGift: 3, grow: 2.2, healR: 80, heal: 0.012, slowR: 72, slow: 0.35 };

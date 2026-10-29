@@ -1,5 +1,6 @@
 // 战斗公共部分：躲雨区域、选目标、伤害、治疗、状态、飞行道具
 import { W, H, FIELD, ENEMY, STAGE, SCORE, LIMITS, PET, RINGS, TREE } from './config.js';
+import { syncFruits } from './wish.js';
 import { growthE } from './gear.js';
 
 export const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -208,7 +209,8 @@ export function damageTree(game, dmg, src = null, opts = {}) {
   const before = t.hp;
   t.hp = Math.max(0, t.hp - dmg); t.flash = 0.2;
   const per = t.maxHp / TREE.fruits, lost = Math.ceil(before / per - 1e-6) - Math.ceil(t.hp / per - 1e-6);
-  if (lost > 0) game.emit('fruitLost', { n: lost, x: src?.x ?? TREE.x, y: src?.y ?? TREE.y - 120, by: src?.unit, steal: !!opts.steal });
+  const slots = syncFruits(game, opts.steal ? 'steal' : 'hit');
+  if (lost > 0) game.emit('fruitLost', { n: lost, x: src?.x ?? TREE.x, y: src?.y ?? TREE.y - 120, by: src?.unit, steal: !!opts.steal, slots });
   if (t.hp <= 0) game.emit('treeDown', {});
   return before - t.hp;
 }
@@ -218,6 +220,7 @@ export function healTree(game, amount) {
   const before = t.hp;
   t.hp = Math.min(t.maxHp, t.hp + amount);
   const per = t.maxHp / TREE.fruits, got = Math.ceil(t.hp / per - 1e-6) - Math.ceil(before / per - 1e-6);
+  syncFruits(game);
   if (got > 0) game.emit('fruitBack', { n: got });
   return t.hp - before;
 }

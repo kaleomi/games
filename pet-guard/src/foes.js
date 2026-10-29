@@ -4,6 +4,7 @@ import {
   clamp, petsIn, livePets, damagePet, damageTree, speedMul, stepStatus, addProj, aimAt, treeDist, petCluster, inGround,
 } from './combat.js';
 import { castZone } from './stage.js';
+import { takeWish, loseWish } from './wish.js';
 import { chapterOf, cycleOf, dmgScale } from './stage.js';
 
 let seq = 0;
@@ -158,7 +159,7 @@ function stepRanged(game, e, t, dt) {
 function stepThief(game, e, dt) {
   if (e.carry) {
     move(game, e, e.x + (e.x < 360 ? -40 : 40), FIELD.enemyTop - 220, dt, 1.15);
-    if (e.y < FIELD.enemyTop - 180) { e.alive = false; e.gone = true; game.emit('thiefAway', { x: e.x }); }
+    if (e.y < FIELD.enemyTop - 180) { e.alive = false; e.gone = true; game.emit('thiefAway', { x: e.x, wish: e.wish || null }); if (e.wish) { loseWish(game, e.wish); e.wish = null; } }
     return;
   }
   const s = treeSpot(e);
@@ -170,6 +171,8 @@ function stepThief(game, e, dt) {
     const per = g.tree.maxHp / TREE.fruits;
     damageTree(g, per * TREE.stealFrac, e, { steal: true });
     e.carry = per * TREE.stealFrac;
+    const i = g.tree.lastLost?.[0];
+    if (i != null) e.wish = takeWish(g, i);
     g.emit('steal', { id: e.id, x: e.x, y: e.y });
   } }]);
 }
