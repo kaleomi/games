@@ -1,0 +1,7 @@
+{
+  "name": "pet-guard",
+  "private": true,
+  "type": "module",
+  "description": "萌宠保卫战：抖音直播弹幕互动养成守护（纯静态，无需构建）",
+  "scripts": { "test": "node --test tests/game.test.js", "sim": "node tests/sim.mjs" }
+}

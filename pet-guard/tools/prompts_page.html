@@ -1,0 +1,218 @@
+<title>萌宠保卫战生图清单</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&family=Noto+Sans+SC:wght@400;500;700&display=swap">
+<style>
+/* 版式：一本「生图工作簿」——顶部说明 + 吸顶筛选条，按类别分组的提示词卡片，两列网格，手机一列 */
+:root {
+  --bg: #fbf6f8;
+  --surface: #ffffff;
+  --sunk: #f5ecf0;
+  --ink: #3b2a33;
+  --muted: #86707b;
+  --line: #ecdde4;
+  --accent: #d9557f;
+  --accent-ink: #ffffff;
+  --mint: #2f9e7f;
+  --mint-soft: #e2f4ee;
+  --butter: #fff1c9;
+  --butter-ink: #7a5a00;
+  --sky: #e3eefb;
+  --sky-ink: #2d5b8f;
+  --display: "ZCOOL KuaiLe", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --body: "Noto Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #1d1619; --surface: #281f23; --sunk: #211a1d; --ink: #f5e8ee; --muted: #b19aa5; --line: #3b2e34;
+    --accent: #ff86ab; --accent-ink: #2a1019; --mint: #6dd3b2; --mint-soft: #1d3a31;
+    --butter: #3d3218; --butter-ink: #f3d27a; --sky: #1d2b3c; --sky-ink: #9cc4f0; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #1d1619; --surface: #281f23; --sunk: #211a1d; --ink: #f5e8ee; --muted: #b19aa5; --line: #3b2e34;
+  --accent: #ff86ab; --accent-ink: #2a1019; --mint: #6dd3b2; --mint-soft: #1d3a31;
+  --butter: #3d3218; --butter-ink: #f3d27a; --sky: #1d2b3c; --sky-ink: #9cc4f0; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.65; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header.top { padding-block: 36px 20px; display: grid; gap: 18px; }
+h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 6vw, 46px); line-height: 1.15; margin: 0; letter-spacing: 0.02em; text-wrap: balance; }
+h1 small { display: block; font-family: var(--body); font-size: 15px; color: var(--muted); letter-spacing: 0; margin-top: 6px; font-weight: 400; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; counter-reset: s; }
+.steps li { counter-increment: s; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px 14px 52px; position: relative; min-width: 0; }
+.steps li::before { content: counter(s); position: absolute; left: 14px; top: 13px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-family: var(--display); display: grid; place-items: center; font-size: 15px; }
+.steps b { display: block; font-weight: 700; }
+.steps span { color: var(--muted); font-size: 14px; }
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; padding-block: 10px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.chip:focus-visible, .copy:focus-visible, .done input:focus-visible + i, .toggle input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); cursor: pointer; user-select: none; }
+.toggle input { position: absolute; opacity: 0; pointer-events: none; }
+.toggle span { width: 34px; height: 20px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; flex: none; }
+.toggle span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; border-radius: 50%; background: var(--surface); transition: transform .15s; }
+.toggle input:checked + span { background: var(--mint); }
+.toggle input:checked + span::after { transform: translateX(14px); }
+.progress { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.progress .meter { width: 120px; height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
+.progress .meter i { display: block; height: 100%; width: 0; background: var(--mint); transition: width .25s; }
+main { padding-block: 8px 64px; }
+section.group { padding-top: 28px; }
+section.group h2 { font-family: var(--display); font-weight: 400; font-size: 26px; margin: 0 0 4px; }
+section.group > p { margin: 0 0 14px; color: var(--muted); max-width: 72ch; font-size: 14px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 460px), 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+.card.is-done { background: var(--mint-soft); border-color: transparent; }
+.card.is-done .prompt { opacity: .55; }
+.head { display: flex; gap: 12px; align-items: flex-start; }
+.done { position: relative; flex: none; cursor: pointer; margin-top: 2px; }
+.done input { position: absolute; opacity: 0; width: 24px; height: 24px; margin: 0; cursor: pointer; }
+.done i { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--line); background: var(--surface); }
+.done input:checked + i { background: var(--mint); border-color: var(--mint); }
+.done input:checked + i::after { content: ""; width: 10px; height: 5px; border: solid var(--surface); border-width: 0 0 2.5px 2.5px; transform: translateY(-1px) rotate(-45deg); }
+.head .t { min-width: 0; flex: 1; }
+.head h3 { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.35; }
+.head .use { color: var(--muted); font-size: 14px; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-size: 12.5px; padding: 1px 8px; border-radius: 6px; background: var(--sunk); color: var(--muted); white-space: nowrap; }
+.tag.file { font-family: var(--mono); color: var(--ink); cursor: copy; border: 1px dashed var(--line); background: transparent; }
+.tag.b1 { background: var(--butter); color: var(--butter-ink); }
+.tag.b2 { background: var(--sky); color: var(--sky-ink); }
+.prompt { background: var(--sunk); border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.75; white-space: pre-wrap; word-break: break-word; margin: 0; }
+.prompt .pre { color: var(--muted); }
+.foot { display: flex; align-items: center; gap: 10px; }
+.copy { font: inherit; font-size: 14px; font-weight: 500; border: 0; border-radius: 10px; padding: 7px 16px; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.copy.ok { background: var(--mint); color: var(--surface); }
+.foot small { color: var(--muted); font-size: 13px; }
+.style-box { display: grid; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.style-box div { font-size: 14px; }
+.style-box b { font-weight: 700; margin-right: 6px; }
+.style-box span { color: var(--muted); }
+.empty { color: var(--muted); padding: 24px 0; }
+@media (max-width: 560px) { .progress { margin-left: 0; width: 100%; } .progress .meter { flex: 1; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="wrap top">
+  <h1>萌宠保卫战 · 生图清单<small>养成系弹幕守护游戏的全部美术资源。每张卡片一张图，复制提示词去生成，生好了勾上。</small></h1>
+  <ol class="steps">
+    <li><b>先出一张风格样张</b><span>在 GPT 里先生成「柴柴」那张，不满意就让它重画，挑出最喜欢的。之后最好在同一个对话里接着生成，或者每次把样张一起上传、说「保持这张图的画风」，整套就统一了。</span></li>
+    <li><b>照单生成，先做第一批</b><span>第一批 21 张生好就能开播，第二批是后面几章和装扮。挑的标准：几只像同一只、彼此不粘连、背景纯白、没有字。</span></li>
+    <li><b>按文件名存好发给我</b><span>用卡片上的文件名（png/jpg 都行）放进一个文件夹，或者直接拖进对话。抠图、切开、缩放、打包我来做。</span></li>
+  </ol>
+  <div class="style-box" id="styles"></div>
+</header>
+
+<div class="bar">
+  <div class="wrap">
+    <div class="chips" role="group" aria-label="按批次筛选">
+      <button class="chip" type="button" data-f="all" id="f-all">全部</button>
+      <button class="chip" type="button" data-f="1" id="f-1">第一批</button>
+      <button class="chip" type="button" data-f="2" id="f-2">第二批</button>
+      <button class="chip" type="button" data-f="3" id="f-3">可选</button>
+      <button class="chip" type="button" data-f="todo" id="f-todo">还没生成</button>
+    </div>
+    <label class="toggle" for="withStyle"><input type="checkbox" id="withStyle" checked><span></span>复制时带上通用风格</label>
+    <div class="progress"><span id="pText">已生成 0 / 0</span><div class="meter"><i id="pBar"></i></div></div>
+  </div>
+</div>
+
+<main class="wrap" id="list"></main>
+
+<script>
+const DATA = /*__DATA__*/null;
+const BATCH = { 1: '第一批', 2: '第二批', 3: '可选' };
+const STYLE_NAME = { char: '角色通用风格', item: '道具通用风格', bg: '背景通用风格', fx: '发光特效通用风格' };
+const KEY = 'pet-guard-prompts-v1';
+let state = { done: {}, filter: 'all', withStyle: true };
+try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && typeof s === 'object') state = { ...state, ...s }; } catch (e) { /* 浏览器不让存就不存 */ }
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* 忽略 */ } };
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+
+const styles = document.getElementById('styles');
+for (const [k, v] of Object.entries(DATA.styles)) {
+  const d = el('div'); d.append(el('b', '', STYLE_NAME[k]), el('span', '', v)); styles.append(d);
+}
+
+function ratioLine(it) { const m = String(it.ratio).match(/^(\d+:\d+)\s*(.*)$/); return m ? `画面比例 ${m[1]}${m[2] ? '（' + m[2] + '）' : ''}。` : ''; }
+function fullText(it) { return (state.withStyle && it.style !== 'none' ? DATA.styles[it.style] : '') + it.prompt + ratioLine(it); }
+
+async function copyText(text, btn, label) {
+  let ok = false;
+  try { await navigator.clipboard.writeText(text); ok = true; } catch (e) { ok = false; }
+  if (!ok) {
+    const card = btn.closest('.card'); const pre = card && card.querySelector('.prompt');
+    if (pre) { const r = document.createRange(); r.selectNodeContents(pre); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+  }
+  if (btn) { btn.classList.toggle('ok', ok); btn.textContent = ok ? '已复制' : '已选中，按 Ctrl+C'; setTimeout(() => { btn.classList.remove('ok'); btn.textContent = label; }, 1600); }
+}
+
+const list = document.getElementById('list');
+const cards = [];
+for (const g of DATA.groups) {
+  const sec = el('section', 'group'); sec.dataset.g = g.id;
+  sec.append(el('h2', '', g.name));
+  if (g.note) sec.append(el('p', '', g.note));
+  const grid = el('div', 'grid');
+  for (const it of g.items) {
+    const card = el('article', 'card');
+    const head = el('div', 'head');
+    const lab = el('label', 'done'); lab.title = '生好了就勾上';
+    const cb = el('input'); cb.type = 'checkbox'; cb.id = 'done-' + it.file; cb.setAttribute('aria-label', '已生成：' + it.title);
+    lab.append(cb, el('i'));
+    const t = el('div', 't'); t.append(el('h3', '', it.title), el('div', 'use', it.use));
+    head.append(lab, t);
+    const tags = el('div', 'tags');
+    const ft = el('span', 'tag file', it.file); ft.title = '点一下复制文件名';
+    ft.addEventListener('click', () => { navigator.clipboard?.writeText(it.file).then(() => { ft.textContent = '已复制'; setTimeout(() => ft.textContent = it.file, 1200); }).catch(() => {}); });
+    tags.append(ft, el('span', 'tag', it.ratio), el('span', 'tag b' + it.batch, BATCH[it.batch]));
+    const pre = el('p', 'prompt');
+    const preStyle = el('span', 'pre', '');
+    pre.append(preStyle, document.createTextNode(it.prompt));
+    const foot = el('div', 'foot');
+    const btn = el('button', 'copy', '复制提示词'); btn.type = 'button'; btn.id = 'copy-' + it.file;
+    btn.addEventListener('click', () => copyText(fullText(it), btn, '复制提示词'));
+    const hint = el('small', '', it.style === 'none' ? '这条不用加通用风格' : '');
+    foot.append(btn, hint);
+    card.append(head, tags, pre, foot);
+    grid.append(card);
+    cb.checked = !!state.done[it.file];
+    cb.addEventListener('change', () => { state.done[it.file] = cb.checked; save(); refresh(); });
+    cards.push({ it, card, cb, preStyle, hint, sec });
+  }
+  sec.append(grid); list.append(sec);
+}
+
+const withStyle = document.getElementById('withStyle');
+withStyle.checked = state.withStyle;
+withStyle.addEventListener('change', () => { state.withStyle = withStyle.checked; save(); refresh(); });
+document.querySelectorAll('.chip').forEach(b => b.addEventListener('click', () => { state.filter = b.dataset.f; save(); refresh(); }));
+
+function refresh() {
+  let done = 0, total = 0;
+  const visibleSecs = new Set();
+  for (const c of cards) {
+    const isDone = !!state.done[c.it.file];
+    const isImage = c.it.batch < 3 || /logo/.test(c.it.file);
+    if (isImage) { total++; if (isDone) done++; }
+    c.card.classList.toggle('is-done', isDone);
+    const f = state.filter;
+    const show = f === 'all' || (f === 'todo' ? !isDone : String(c.it.batch) === f);
+    c.card.hidden = !show;
+    if (show) visibleSecs.add(c.sec);
+    c.preStyle.textContent = state.withStyle && c.it.style !== 'none' ? '〔' + STYLE_NAME[c.it.style] + '〕' : '';
+  }
+  for (const c of cards) c.sec.hidden = !visibleSecs.has(c.sec);
+  document.querySelectorAll('.chip').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === state.filter)));
+  document.getElementById('pText').textContent = `图片已生成 ${done} / ${total}`;
+  document.getElementById('pBar').style.width = (total ? done / total * 100 : 0) + '%';
+}
+refresh();
+</script>
