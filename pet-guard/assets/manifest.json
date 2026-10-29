@@ -39,6 +39,18 @@
   "egg:shiba": {
    "src": "misc/egg_shiba.webp"
   },
+  "flower:0": {
+   "src": "misc/flower_0.webp"
+  },
+  "flower:1": {
+   "src": "misc/flower_1.webp"
+  },
+  "flower:2": {
+   "src": "misc/flower_2.webp"
+  },
+  "flower:3": {
+   "src": "misc/flower_3.webp"
+  },
   "foe:bear:0": {
    "src": "foes/foe_bear_0.webp"
   },
@@ -81,11 +93,17 @@
   "foe:king:1": {
    "src": "foes/foe_king_1.webp"
   },
+  "foe:king:2": {
+   "src": "foes/foe_king_2.webp"
+  },
   "foe:owl:0": {
    "src": "foes/foe_owl_0.webp"
   },
   "foe:owl:1": {
    "src": "foes/foe_owl_1.webp"
+  },
+  "foe:owl:2": {
+   "src": "foes/foe_owl_2.webp"
   },
   "foe:puffer:0": {
    "src": "foes/foe_puffer_0.webp"
@@ -93,11 +111,17 @@
   "foe:puffer:1": {
    "src": "foes/foe_puffer_1.webp"
   },
+  "foe:puffer:2": {
+   "src": "foes/foe_puffer_2.webp"
+  },
   "foe:storm:0": {
    "src": "foes/foe_storm_0.webp"
   },
   "foe:storm:1": {
    "src": "foes/foe_storm_1.webp"
+  },
+  "foe:storm:2": {
+   "src": "foes/foe_storm_2.webp"
   },
   "foe:tear:0": {
    "src": "foes/foe_tear_0.webp"
@@ -116,6 +140,9 @@
   },
   "foe:yeti:1": {
    "src": "foes/foe_yeti_1.webp"
+  },
+  "foe:yeti:2": {
+   "src": "foes/foe_yeti_2.webp"
   },
   "fx:bubble": {
    "src": "fx/fx_bubble.webp"
@@ -281,6 +308,9 @@
   },
   "misc:giftbox": {
    "src": "icons/misc_giftbox.webp"
+  },
+  "misc:lantern": {
+   "src": "icons/misc_lantern.webp"
   },
   "misc:medal": {
    "src": "icons/misc_medal.webp"

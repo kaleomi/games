@@ -178,7 +178,7 @@ export function plantFlowers(game, f, n) {
     for (let k = 0; k < 8; k++) {
       const a = game.random() * Math.PI * 2, r = 50 + game.random() * 120;
       x = clamp((f.x || 360) + Math.cos(a) * r, 40, W - 40); y = clamp((f.y || 800) + Math.sin(a) * r * 0.5, FIELD.top + 140, FIELD.bottom - 10);
-      if (!(Math.abs(x - TREE.x) < 90 && y > TREE.y - 150)) break;
+      if (!(Math.abs(x - TREE.x) < 135 && y > TREE.y - TREE.h - 20)) break;   // 不种在心愿树身上
     }
     const fl = { id: ++flowerSeq, x, y, uid: f.uid, name: f.name, color: (f.uid.length + list.length + i) % 4, t: 0, sway: game.random() * 6 };
     list.push(fl); out.push(fl);

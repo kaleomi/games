@@ -750,9 +750,11 @@ export class Renderer {
       const k = Math.min(1, fl.t / GARDEN.grow), s = k < 1 ? 0.25 + 0.75 * (1 - (1 - k) ** 3) : 1 + Math.sin(this.t * 2 + fl.sway) * 0.03;
       if (k >= 1 && !fl.bloomed) { fl.bloomed = true; this.glow('sparkle', fl.x, fl.y - 20, 70, 0.8); this.parts.push({ kind: 'ring', x: fl.x, y: fl.y, t: 0, life: 0.8, size: GARDEN.healR, color: '#9ff0b0', squash: 0.55, w: 4 }); }
       x.save(); x.translate(fl.x, fl.y); x.rotate(Math.sin(this.t * 1.6 + fl.sway) * 0.06);
-      x.fillStyle = 'rgba(40,70,30,0.18)'; x.beginPath(); x.ellipse(0, 0, 14 * s, 4 * s, 0, 0, TAU); x.fill();
+      // 送礼种下的花：脚下一圈淡淡的光，和背景里画的花区分开
+      if (k >= 1) { const pr = 0.6 + 0.4 * Math.sin(this.t * 2.5 + fl.sway); const hg = x.createRadialGradient(0, 0, 2, 0, 0, 34); hg.addColorStop(0, `rgba(255,240,170,${0.5 * pr})`); hg.addColorStop(1, 'rgba(255,200,230,0)'); x.fillStyle = hg; x.beginPath(); x.ellipse(0, 0, 34, 12, 0, 0, TAU); x.fill(); }
+      x.fillStyle = 'rgba(40,70,30,0.18)'; x.beginPath(); x.ellipse(0, 0, 16 * s, 5 * s, 0, 0, TAU); x.fill();
       const art = this.assets.get(`flower:${fl.color}`);
-      if (art) { const hh = 46 * s, sc = hh / art.h; x.drawImage(art.img, -art.w * sc / 2, -hh, art.w * sc, hh); }
+      if (art) { const hh = 60 * s, sc = hh / art.h; x.drawImage(art.img, -art.w * sc / 2, -hh, art.w * sc, hh); }
       else {
         x.strokeStyle = '#5fae4e'; x.lineWidth = 3; x.beginPath(); x.moveTo(0, 0); x.quadraticCurveTo(3, -12 * s, 0, -24 * s); x.stroke();
         x.fillStyle = '#7ccf6a'; x.beginPath(); x.ellipse(-6 * s, -10 * s, 6 * s, 3 * s, -0.5, 0, TAU); x.ellipse(6 * s, -14 * s, 6 * s, 3 * s, 0.5, 0, TAU); x.fill();
@@ -765,7 +767,7 @@ export class Renderer {
       }
       x.restore();
       if (fl.t < 3.5) { x.save(); x.globalAlpha = Math.min(1, (3.5 - fl.t) / 0.6); x.font = `bold 11px ${FONT}`; x.textAlign = 'center'; x.lineWidth = 3; x.strokeStyle = 'rgba(60,40,50,.8)'; x.fillStyle = '#fff'; const nm = clipText(x, fl.name, 80); x.strokeText(nm, fl.x, fl.y + 14); x.fillText(nm, fl.x, fl.y + 14); x.restore(); }
-      if (k >= 1 && Math.random() < 0.01) this.burst('petal', fl.x, fl.y - 28, 1, { spread: 8, up: 20, size: 10, life: 1.2, grav: 30 });
+      if (k >= 1 && Math.random() < 0.015) this.burst(Math.random() < 0.5 ? 'petal' : 'star', fl.x, fl.y - 40, 1, { spread: 8, up: 20, size: 10, life: 1.2, grav: 30 });
     }
   }
   // 点赞撑起的护罩：盖住心愿树和萌宠，挡得越多越大越亮
@@ -845,7 +847,7 @@ export class Renderer {
       const gr = x.createRadialGradient(px, py, 4, px, py, 46); gr.addColorStop(0, 'rgba(255,220,140,0.75)'); gr.addColorStop(1, 'rgba(255,160,90,0)');
       x.fillStyle = gr; x.beginPath(); x.arc(px, py, 46, 0, TAU); x.fill();
       x.globalCompositeOperation = 'source-over';
-      if (!this.icon(x, 'misc:lantern', px, py, 54)) {
+      if (!this.icon(x, 'misc:lantern', px, py, 64)) {
         const lg = x.createLinearGradient(px, py - 22, px, py + 22); lg.addColorStop(0, '#ffcf6b'); lg.addColorStop(1, '#ff7f6b');
         x.fillStyle = lg; rr(x, px - 15, py - 20, 30, 40, 12); x.fill();
         x.fillStyle = '#c0573d'; rr(x, px - 10, py - 24, 20, 6, 3); x.fill(); rr(x, px - 10, py + 18, 20, 6, 3); x.fill();
@@ -877,7 +879,7 @@ export class Renderer {
     this.shadow(x, e.x, e.y, h * 0.32, 0.18);
     const sad = this.assets.has(name + ':2');
     this.sprite(x, sad ? name + ':2' : name + ':0', e.x, e.y + oy, h, { sx: 1 + sob * 0.03, sy: 1 - sob * 0.04, rot: Math.sin(t * 3) * 0.02 }) || placeholderFoe(x, e, e.x, e.y + oy, h, {});
-    if (Math.random() < 0.35) for (const d of [-1, 1]) this.parts.push({ kind: 'drop', x: e.x + d * h * 0.13, y: e.y + oy - h * 0.6, vx: d * (30 + Math.random() * 40), vy: -60, t: 0, life: 0.9, size: 14, rot: 0, spin: 0, grav: 500 });
+    if (Math.random() < (sad ? 0.14 : 0.35)) for (const d of [-1, 1]) this.parts.push({ kind: 'drop', x: e.x + d * h * 0.13, y: e.y + oy - h * 0.6, vx: d * (30 + Math.random() * 40), vy: -60, t: 0, life: 0.9, size: 14, rot: 0, spin: 0, grav: 500 });
     e.sadT = (e.sadT || 0) + dt;
     if (e.sadT > 1.6) { e.sadT = 0; this.floaters.push({ x: e.x + (Math.random() - 0.5) * h * 0.5, y: e.y + oy - h - 10, text: ['呜呜…', '哇——', '抽抽…', '没人陪我…'][Math.floor(Math.random() * 4)], color: '#a8d8ff', size: 20, t: 0, life: 1.4, vy: -24 }); }
   }
