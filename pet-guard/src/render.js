@@ -1,7 +1,7 @@
 // 画面：背景、心愿树、躲雨区域、萌宠、坏心情、弹道、粒子、名字条；HUD 在 hud.js
 // 所有角色都是一张生成图 + 程序动作（呼吸、蹦跳、扑击、受击压扁、打盹、孵化、进化、净化）；没有图时画占位图形
 import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS } from './config.js';
-import { partHit, partLabels, safeParts, clamp } from './combat.js';
+import { partHit, partLabels, safeParts, clamp, partOf as partOfZ } from './combat.js';
 const RINGS_SQUASH = RINGS.squash;
 import { drawHud, hudClick } from './hud.js';
 import { chapterDef } from './stage.js';
@@ -59,7 +59,8 @@ export class Renderer {
       switch (e.type) {
         case 'hit': this.hitFx(e); break;
         case 'dmg': this.floaters.push({ x: e.x, y: e.y, text: String(e.v), color: '#ffcf3a', size: 22, t: 0, life: 0.9, vy: -60 }); break;
-        case 'heal': if (!e.small || Math.random() < 0.3) { this.floaters.push({ x: e.x + (Math.random() - 0.5) * 20, y: e.y - 70, text: '+' + e.amount, color: '#5ee08a', size: e.small ? 14 : 18, t: 0, life: 0.9, vy: -50 }); this.burst('heart', e.x, e.y - 40, e.small ? 1 : 4, { spread: 30, up: 60, size: 14 }); } if (e.carrot) this.burst('carrot', e.x, e.y - 50, 1, { size: 22, up: 30 }); break;
+        case 'heal': if (!e.small) this.glow('pillar', e.x, e.y - 40, 110, 0.9, { grow: 0.1 });
+          if (!e.small || Math.random() < 0.3) { this.floaters.push({ x: e.x + (Math.random() - 0.5) * 20, y: e.y - 70, text: '+' + e.amount, color: '#5ee08a', size: e.small ? 14 : 18, t: 0, life: 0.9, vy: -50 }); this.burst('heart', e.x, e.y - 40, e.small ? 1 : 4, { spread: 30, up: 60, size: 14 }); } if (e.carrot) this.burst('carrot', e.x, e.y - 50, 1, { size: 22, up: 30 }); break;
         case 'purify': this.onPurify(e); break;
         case 'split': this.burst('drop', e.x, e.y - 20, 10, { spread: 120, up: 160, size: 14, grav: 500 }); break;
         case 'nap': this.floaters.push({ x: e.x, y: e.y - 60, text: '累趴了…', color: '#cfd6ff', size: 15, t: 0, life: 1.2, vy: -30 }); break;
@@ -67,11 +68,18 @@ export class Renderer {
         case 'pat': this.burst('heart', e.x, e.y - 60, 6, { spread: 40, up: 110, size: 18 }); this.floaters.push({ x: e.x, y: e.y - 90, text: '摸摸~', color: '#ff8fb8', size: 16, t: 0, life: 1, vy: -40 }); break;
         case 'feed': this.burst(SPECIES[e.sp]?.food || 'candy', e.x, e.y - 70, Math.min(5, e.n || 1), { spread: 40, up: 60, size: 26, icon: true }); this.burst('heart', e.x, e.y - 60, 5, { spread: 50, up: 90, size: 16 }); break;
         case 'egg': break;
-        case 'hatch': this.burst('shell', e.x, e.y - 30, 14, { spread: 110, up: 220, size: 12, grav: 600 }); this.burst('star', e.x, e.y - 40, 10, { spread: 90, up: 160, size: 16 }); this.flashes.set(e.uid, { t: 0, life: 0.8, kind: 'hatch' }); break;
-        case 'evolve': this.flashes.set(e.uid, { t: 0, life: 1.6, kind: 'evolve' }); this.burst('star', e.x, e.y - 50, 24, { spread: 160, up: 260, size: 18 }); this.popups.push({ kind: 'evolve', ...e, t: 0, life: 4 }); break;
+        case 'hatch': this.glow('sparkle', e.x, e.y - 30, 150, 0.9); this.burst('shell', e.x, e.y - 30, 14, { spread: 110, up: 220, size: 12, grav: 600 }); this.burst('star', e.x, e.y - 40, 10, { spread: 90, up: 160, size: 16 }); this.flashes.set(e.uid, { t: 0, life: 0.8, kind: 'hatch' }); break;
+        case 'evolve': { // 长大：就地发光、放大一下、横幅，不挡战场
+          const f = g.pets.get(e.uid), px = f?.x ?? e.x, py = f?.y ?? e.y;
+          this.glow('glow', px, py - 40, 170, 1.2, { alpha: 0.8 }); this.glow('sparkle', px, py - 50, 200, 1.2); this.glow('circle', px, py, 150, 1.4, { flat: true, spin: 1.2 });
+          this.flashes.set(e.uid, { t: 0, life: 1.6, kind: 'evolve' }); this.burst('star', px, py - 50, 24, { spread: 160, up: 260, size: 18 });
+          this.floaters.push({ x: px, y: py - 130, text: `长成${e.formName}啦！`, color: '#ffd84a', size: 20, t: 0, life: 2, vy: -25 });
+          this.pushBanner({ text: `${e.nick ? `${e.name}的「${e.nick}」` : `${e.name}的${SPECIES[e.sp].name}`}长大了！${FORMS[Math.max(0, e.form - 1)].name} → ${e.formName}`, tier: 4 });
+          break;
+        }
         case 'levelup': this.floaters.push({ x: e.x, y: e.y - 100, text: `Lv${e.level}↑`, color: '#ffd84a', size: 18, t: 0, life: 1.2, vy: -40 }); this.burst('star', e.x, e.y - 50, 6, { spread: 40, up: 120, size: 13 }); break;
         case 'skill': this.onSkill(e); break;
-        case 'ult': this.flashes.set(e.uid, { t: 0, life: 0.6, kind: 'ult' }); this.pushBanner({ text: `${e.nick || e.name}「${e.ult}」`, tier: 2, sp: e.sp, small: true }); break;
+        case 'ult': this.glow('circle', e.x, e.y, 170, 1, { flat: true, spin: 1.5 }); this.flashes.set(e.uid, { t: 0, life: 0.6, kind: 'ult' }); this.floaters.push({ x: e.x, y: e.y - 120, text: `「${e.ult}」`, color: '#ff9fd0', size: 19, t: 0, life: 1.6, vy: -30 }); break;
         case 'burst': this.onBurst(e); break;
         case 'dodge': this.burst('cloud', e.x, e.y - 10, 3, { spread: 20, up: 10, size: 22, life: 0.5 }); break;
         case 'dodged': this.floaters.push({ x: e.x, y: e.y - 70, text: '闪开了', color: '#9fe8ff', size: 14, t: 0, life: 0.7, vy: -40 }); break;
@@ -87,7 +95,7 @@ export class Renderer {
         case 'banner': this.pushBanner(e); break;
         case 'toast': this.toasts.push({ text: e.text, t: 0, life: 4.5 }); if (this.toasts.length > 6) this.toasts.shift(); break;
         case 'card': this.cards = this.cards.filter(c => c.uid !== e.uid); this.cards.push({ uid: e.uid, gear: !!e.gear, t: 0, life: 7 }); if (this.cards.length > 2) this.cards.shift(); break;
-        case 'awaken': this.popups.push({ kind: 'awaken', ...e, t: 0, life: 4.2 }); break;
+        case 'awaken': this.popups.push({ kind: 'awaken', ...e, t: 0, life: 3.4 }); break;
         case 'bondUp': this.floaters.push({ x: g.pets.get(e.uid)?.x || 360, y: (g.pets.get(e.uid)?.y || 700) - 100, text: `亲密度 ${e.lv} 级`, color: '#ff8fb8', size: 16, t: 0, life: 1.4, vy: -30 }); break;
         case 'rename': { const f = g.pets.get(e.uid); if (f) this.burst('note', f.x, f.y - 70, 4, { spread: 40, up: 80, size: 16 }); break; }
         case 'loot': if (e.equipped && e.item.tier >= 2) { const f = g.pets.get(e.uid); if (f) this.floaters.push({ x: f.x, y: f.y - 110, text: `${GEAR.tiers[e.item.tier].name}·${e.label}`, color: GEAR.tiers[e.item.tier].color, size: 15, t: 0, life: 1.8, vy: -30, item: e.item }); } break;
@@ -101,9 +109,10 @@ export class Renderer {
     }
   }
   pushBanner(e) {
-    const b = { text: e.text, tier: e.tier || 1, t: 0, life: e.small ? 2.2 : 3.2, small: !!e.small, uid: e.uid };
+    const text = e.name && !String(e.text).includes(e.name) ? `${e.name}：${e.text}` : e.text;   // 送礼横幅带上是谁送的
+    const b = { text, tier: e.tier || 1, t: 0, life: e.small ? 2.2 : 3.6, small: !!e.small, uid: e.uid };
     this.banners.push(b);
-    if (this.banners.length > 4) this.banners.shift();
+    if (this.banners.length > 3) this.banners.shift();
   }
   hitFx(e) {
     const k = e.k || 1;
@@ -118,6 +127,7 @@ export class Renderer {
     this.burst('heart', e.x, e.y - 30 * big, 3 + big * 3, { spread: 40 * big, up: 120, size: 14 + big * 3 });
     this.burst(['note', 'star', 'bubble'][Math.floor(Math.random() * 3)], e.x, e.y - 30 * big, 2 + big * 2, { spread: 50 * big, up: 140, size: 14 + big * 3 });
     this.parts.push({ kind: 'ring', x: e.x, y: e.y - 20 * big, t: 0, life: 0.5, size: 40 * big, color: '#fff3a8' });
+    if (big >= 2) this.glow(big >= 3 ? 'wave' : 'sparkle', e.x, e.y - 30 * big, 140 * big, 1, { flat: big >= 3 });
     if (big >= 3) this.burst('rainbow', e.x, e.y - 100, 6, { spread: 220, up: 160, size: 40 });
   }
   onSkill(e) {
@@ -134,12 +144,12 @@ export class Renderer {
   onBurst(e) {
     const r = e.r || 80;
     switch (e.kind) {
-      case 'hug': this.parts.push({ kind: 'ring', x: e.x, y: e.y - 10, t: 0, life: 0.7, size: r, color: '#ffb36b', squash: 0.55, w: 10 }); this.burst('heart', e.x, e.y - 40, 16, { spread: r, up: 120, size: 18 }); this.shake = Math.max(this.shake, 6); break;
+      case 'hug': this.glow('wave', e.x, e.y - 10, r * 2.2, 0.8, { flat: true, grow: 0.5 }); this.parts.push({ kind: 'ring', x: e.x, y: e.y - 10, t: 0, life: 0.7, size: r, color: '#ffb36b', squash: 0.55, w: 10 }); this.burst('heart', e.x, e.y - 40, 16, { spread: r, up: 120, size: 18 }); this.shake = Math.max(this.shake, 6); break;
       case 'claw': case 'bigclaw': this.parts.push({ kind: 'claw', x: e.x, y: e.y, t: 0, life: 0.35, size: e.kind === 'bigclaw' ? 120 : 70, rot: (Math.random() - 0.5) * 0.4, icon: 'proj:claw' }); if (e.kind === 'bigclaw') this.shake = Math.max(this.shake, 6); break;
-      case 'candyrain': this.burst('candy', 360, 300, 30, { spread: 360, up: -60, size: 24, grav: 300, life: 1.6, icon: true }); this.burst('heart', 360, 500, 24, { spread: 360, up: 80, size: 18 }); break;
+      case 'candyrain': this.glow('circle', 360, 640, 520, 1.4, { flat: true, spin: 0.8 }); this.burst('candy', 360, 300, 30, { spread: 360, up: -60, size: 24, grav: 300, life: 1.6, icon: true }); this.burst('heart', 360, 500, 24, { spread: 360, up: 80, size: 18 }); break;
       case 'bamboo': this.burst('leaf', e.x, e.y - 30, 18, { spread: r, up: 100, size: 16, grav: 60, life: 1.2 }); break;
-      case 'fireburst': this.burst('spark', e.x, e.y - 20, 22, { spread: r, up: 200, size: 18 }); this.parts.push({ kind: 'ring', x: e.x, y: e.y, t: 0, life: 0.5, size: r, color: '#7ad7ff', squash: 0.55, w: 8 }); this.shake = Math.max(this.shake, 6); break;
-      case 'freeze': this.burst('snow', 360, 400, 50, { spread: 360, up: -40, size: 18, grav: 80, life: 1.8 }); this.flashScreen = { t: 0, life: 0.5, color: 'rgba(170,220,255,0.45)' }; break;
+      case 'fireburst': this.glow('glow', e.x, e.y - 20, r * 2, 0.8); this.burst('spark', e.x, e.y - 20, 22, { spread: r, up: 200, size: 18 }); this.parts.push({ kind: 'ring', x: e.x, y: e.y, t: 0, life: 0.5, size: r, color: '#7ad7ff', squash: 0.55, w: 8 }); this.shake = Math.max(this.shake, 6); break;
+      case 'freeze': this.glow('frost', 360, 640, 760, 1.6, { flat: true, grow: 0.2 }); this.burst('snow', 360, 400, 50, { spread: 360, up: -40, size: 18, grav: 80, life: 1.8 }); this.flashScreen = { t: 0, life: 0.5, color: 'rgba(170,220,255,0.45)' }; break;
       case 'candy': this.burst('candy', e.x, e.y - 10, 3, { spread: r * 0.6, up: 120, size: 18, icon: true, grav: 400 }); this.parts.push({ kind: 'ring', x: e.x, y: e.y, t: 0, life: 0.35, size: r, color: '#ffd1f3', squash: 0.55 }); break;
       case 'rainbow': this.parts.push({ kind: 'ring', x: e.x, y: e.y, t: 0, life: 0.3, size: r, color: '#ffe0ff' }); break;
       case 'snow': this.burst('snow', e.x, e.y, 8, { spread: r, up: 60, size: 14 }); break;
@@ -150,7 +160,15 @@ export class Renderer {
     const z = e.zone;
     if (!z) return;
     this.strikes.push({ z, t: 0, life: z.full ? 1.4 : 1.1, full: z.full, fx: z.fx });
+    if (!z.full && (z.fx === 'bolt' || z.fx === 'bell')) for (let i = 0; i < 6; i++) { const px = 60 + Math.random() * 600, py = 360 + Math.random() * 560; if (partHit(z, partOfZ(z, px, py))) this.glow('bolt', px, py - 60, 170, 0.6, { grow: 0.1 }); }
+    if (!z.full && (z.fx === 'snow' || z.fx === 'snowball')) for (let i = 0; i < 4; i++) { const px = 80 + Math.random() * 560, py = 380 + Math.random() * 520; if (partHit(z, partOfZ(z, px, py))) this.glow('frost', px, py, 160, 0.9, { flat: true }); }
     if (z.full) { this.flashScreen = { t: 0, life: 0.6, color: 'rgba(255,255,255,0.6)' }; this.burst(z.freeze ? 'snow' : 'drop', 360, 300, 60, { spread: 360, up: -100, size: 16, grav: 600, life: 1.4 }); }
+  }
+  // 发光贴图（黑底生成、按亮度抠的那一套）：叠加发光，放大淡出；flat=贴地（纵向压扁）
+  glow(name, x, y, size, life = 0.7, o = {}) {
+    if (!this.assets.has('glow:' + name) || this.parts.length > LIMITS.particles) return false;
+    this.parts.push({ kind: 'glowimg', icon: 'glow:' + name, x, y, t: 0, life, size, grow: o.grow ?? 0.35, flat: o.flat ? 0.55 : 1, spin: o.spin || 0, rot: o.rot || 0, alpha: o.alpha ?? 1 });
+    return true;
   }
   burst(kind, x, y, n, o = {}) {
     if (this.parts.length > LIMITS.particles) return;
@@ -199,6 +217,7 @@ export class Renderer {
     x.scale((o.flip ? -1 : 1) * (o.sx || 1), o.sy || 1);
     if (o.alpha != null) x.globalAlpha *= o.alpha;
     x.drawImage(a.img, -w / 2, -h, w, h);
+    if (o.tint > 0) { const wh = this.assets.white(name); if (wh) { x.globalAlpha *= Math.min(1, o.tint); x.drawImage(wh.img, -w / 2, -h, w, h); } }   // 受击：半透明白光盖一层，不整只变白
     x.restore();
     return { w, h };
   }
@@ -373,14 +392,14 @@ export class Renderer {
     if (f.auto > 0 && !f.npc) { x.save(); x.globalAlpha = 0.5 + 0.2 * Math.sin(t * 4); x.strokeStyle = '#ff9fd0'; x.lineWidth = 2; x.beginPath(); x.ellipse(f.x, f.y, h * 0.42, h * 0.14, 0, 0, TAU); x.stroke(); x.restore(); }
     this.shadow(x, f.x, f.y, h * 0.32, f.alive ? 0.22 : 0.15);
     if (f.egg) { this.drawEgg(x, f, t); return; }
-    if (!f.alive) { // 打盹
-      rot = (flip ? 1 : -1) * 0.0; sy = 0.78 + Math.sin(t * 2) * 0.03; sx = 1.12; alpha = 0.9;
-      this.petSprite(x, f, f.x, f.y, h, { flip, sx, sy, rot, alpha, variant: 'gray' });
-      this.zzz(x, f.x + 16, f.y - h * 0.8, t);
+    const dozing = (f.sleepUntil || 0) > g.clock;
+    if (!f.alive || dozing) { // 打盹：有睡觉序列帧就放序列帧，没有就把站着的图压扁、变灰
+      const hasSleep = !!this.assets.frames(`seq:${sp}:${f.form ?? 0}:sleep`);
+      if (hasSleep) this.petSprite(x, f, f.x, f.y, h, { flip, sy: 1 + Math.sin(t * 2) * 0.015, variant: f.shiny ? 'shiny' : null, anim: 'sleep' });
+      else this.petSprite(x, f, f.x, f.y, h, { flip, sx: 1.12, sy: 0.78 + Math.sin(t * 2) * 0.03, alpha: 0.9, variant: 'gray' });
+      this.zzz(x, f.x + 16, f.y - h * (hasSleep ? 0.55 : 0.8), t);
       return;
     }
-    const dozing = (f.sleepUntil || 0) > g.clock;
-    if (dozing) { sy = 0.85 + Math.sin(t * 2.5) * 0.04; sx = 1.08; rot = Math.sin(t * 1.5) * 0.08; }
     else if ((f.stunUntil || 0) > g.clock) { rot = Math.sin(t * 20) * 0.08; }
     else if (a?.kind === 'atk') { const k = Math.min(1, a.t / a.dur); const p = Math.sin(k * Math.PI); ox = (flip ? -1 : 1) * p * 10; sx = 1 + p * 0.1; sy = 1 - p * 0.06; }
     else if (a?.kind === 'skill' || a?.kind === 'ult') { const k = Math.min(1, a.t / Math.max(0.3, a.dur)); const p = Math.sin(Math.min(1, k * 1.6) * Math.PI); sy = 1 + p * 0.12; sx = 1 - p * 0.06; oy = -p * 14; }
@@ -389,11 +408,15 @@ export class Renderer {
     else if (a?.kind === 'dodge') { const k = Math.min(1, a.t / a.dur); oy = -Math.sin(k * Math.PI) * 26; rot = (flip ? -1 : 1) * k * TAU * 0.5; }
     else if (f.happyT > 0) { const k = 1 - f.happyT / 1.3; const p = Math.abs(Math.sin(k * Math.PI * 2)); oy = -p * 30; sy = 1 + (p < 0.2 ? -0.1 : 0.05); }
     else if (f.anim === 'move') { const p = Math.abs(Math.sin(t * 9)); oy = -p * 7; sy = 1 + (p < 0.15 ? -0.07 : 0.03); sx = 1 - (sy - 1) * 0.6; }
+    else if (this.assets.frames(`seq:${sp}:${f.form ?? 0}:idle`)) { sy = 1 + Math.sin(t * 2.6) * 0.008; }
     else { sy = 1 + Math.sin(t * 2.6) * 0.025; sx = 1 - Math.sin(t * 2.6) * 0.015; }
     if (a?.kind === 'dodge') { x.save(); x.globalAlpha = 0.25; this.petSprite(x, f, f.x - (f.facing || 1) * 18, f.y, h, { flip, sx, sy }); x.restore(); }
     const flash = this.flashes.get(f.uid);
-    const variant = f.hitFlash > 0.08 || (flash && flash.kind !== 'ult' && Math.sin(flash.t * 30) > 0 && flash.t < flash.life * 0.7) ? 'white' : f.shiny ? 'shiny' : null;
-    const dims = this.petSprite(x, f, f.x + ox, f.y + oy, h, { flip, sx, sy, rot, alpha, variant });
+    if (flash?.kind === 'evolve' || flash?.kind === 'hatch') { const k = flash.t / flash.life, p = Math.sin(Math.min(1, k * 1.4) * Math.PI); sx *= 1 + 0.28 * p; sy *= 1 + 0.28 * p; }
+    const blink = flash && flash.kind !== 'ult' && flash.t < flash.life * 0.7 ? 0.35 + 0.35 * Math.sin(flash.t * 24) : 0;
+    const tint = Math.max(blink, (f.hitFlash || 0) / 0.15 * 0.55);
+    const variant = f.shiny ? 'shiny' : null;
+    const dims = this.petSprite(x, f, f.x + ox, f.y + oy, h, { flip, sx, sy, rot, alpha, variant, tint });
     // 头饰 / 墨镜
     const wear = wearOf(sp), w = dims?.w || h * 0.9;
     const headX = f.x + ox + (flip ? -1 : 1) * wear.hatX * w, headY = f.y + oy - h * sy;
@@ -404,21 +427,27 @@ export class Renderer {
       if (!this.icon(x, `gear:hat:${hat.tier}`, headX, headY + h * wear.hatY, hw, { rot: rot + (flip ? 0.12 : -0.12) })) { x.fillStyle = GEAR.tiers[hat.tier].color; x.beginPath(); x.moveTo(headX - hw / 3, headY + 6); x.lineTo(headX, headY - hw / 3); x.lineTo(headX + hw / 3, headY + 6); x.closePath(); x.fill(); }
     }
     // 撑伞
-    if (f.umbrellaT > 0 || this.game.zones.some(z => z.full && (g.clock - (f.interceptT || -9)) < 1.2)) { if (!this.icon(x, 'misc:umbrella', f.x + ox, headY - 18, h * 0.9)) { x.fillStyle = '#7fd3ff'; x.beginPath(); x.arc(f.x + ox, headY - 6, h * 0.42, Math.PI, 0); x.fill(); } }
+    if (f.umbrellaT > 0 || this.game.zones.some(z => z.full && f.umbrellaZ === z.id)) { if (!this.icon(x, 'misc:umbrella', f.x + ox, headY - 18, h * 0.9)) { x.fillStyle = '#7fd3ff'; x.beginPath(); x.arc(f.x + ox, headY - 6, h * 0.42, Math.PI, 0); x.fill(); } }
     f.umbrellaT = Math.max(0, (f.umbrellaT || 0) - dt);
-    if (f.shiny && Math.random() < 0.06) this.burst('star', f.x + (Math.random() - 0.5) * h * 0.8, f.y - h * Math.random(), 1, { spread: 4, up: 30, size: 10, life: 0.7 });
+    if (f.shiny && Math.random() < 0.012) this.glow('sparkle', f.x + (Math.random() - 0.5) * h * 0.6, f.y - h * (0.3 + Math.random() * 0.6), 40, 0.7);
+    if (f.shiny && Math.random() < 0.05) this.burst('star', f.x + (Math.random() - 0.5) * h * 0.8, f.y - h * Math.random(), 1, { spread: 4, up: 30, size: 10, life: 0.7 });
     if (flash?.kind === 'evolve' || flash?.kind === 'ult') { x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.5 * (1 - flash.t / flash.life); x.fillStyle = flash.kind === 'ult' ? '#ffd0ef' : '#fff6b0'; x.beginPath(); x.arc(f.x, f.y - h * 0.5, h * (0.7 + flash.t), 0, TAU); x.fill(); x.restore(); }
-    if (dozing) this.zzz(x, f.x + 16, f.y - h * 0.9, t);
-    if ((f.stunUntil || 0) > g.clock && !dozing) this.stunStars(x, f.x, f.y - h - 6, t);
+    if ((f.stunUntil || 0) > g.clock) this.stunStars(x, f.x, f.y - h - 6, t);
   }
+  // 序列帧：待机慢慢呼吸、偶尔眨眼甩尾；攻击 / 技能按出招进度放；摸摸按开心进度放；睡觉两帧慢慢换
   petSprite(x, f, cx, fy, h, o) {
-    const sp = f.sp, form = f.form ?? 0;
-    const seqName = `seq:${sp}:${form}:${f.alive ? (f.happyT > 0 ? 'happy' : f.act?.kind === 'atk' ? 'attack' : 'idle') : 'sleep'}`;
-    const seq = this.assets.frames(seqName);
-    if (seq && !o.variant) {
-      const im = seq.frames[Math.floor(this.t * seq.fps) % seq.frames.length], s = h / im.naturalHeight, w = im.naturalWidth * s;
-      x.save(); x.translate(cx, fy); if (o.rot) x.rotate(o.rot); x.scale((o.flip ? -1 : 1) * (o.sx || 1), o.sy || 1); if (o.alpha != null) x.globalAlpha *= o.alpha; x.drawImage(im, -w / 2, -h, w, h); x.restore();
-      return { w, h };
+    const sp = f.sp, form = f.form ?? 0, a = f.act;
+    const anim = o.anim || (f.happyT > 0 ? 'happy' : a && (a.kind === 'atk' || a.kind === 'skill' || a.kind === 'ult') ? 'attack' : 'idle');
+    const seq = this.assets.frames(`seq:${sp}:${form}:${anim}`);
+    if (seq) {
+      const n = seq.names.length, ph = (f.uid.length * 0.37) % 1;
+      let i = 0;
+      if (anim === 'idle') i = IDLE_PATTERN[Math.floor(this.t * 4 + ph * IDLE_PATTERN.length) % IDLE_PATTERN.length] % n;
+      else if (anim === 'attack') i = Math.min(n - 1, Math.floor(Math.min(0.999, a.t / Math.max(0.2, a.dur)) * n));
+      else if (anim === 'happy') i = Math.min(n - 1, Math.floor(Math.min(0.999, 1 - f.happyT / 1.3) * n));
+      else i = Math.floor(this.t * 1.4 + ph * 2) % n;
+      const got = this.sprite(x, seq.names[i], cx, fy, h * (SEQ_K[anim] || 1), o);
+      if (got) return got;
     }
     const got = this.sprite(x, `pet:${sp}:${form}`, cx, fy, h, o);
     if (got) return got;
@@ -482,9 +511,9 @@ export class Renderer {
     else if (e.anim === 'move' && !fly) { const p = Math.abs(Math.sin(t * 8)); oy -= p * 5; sy = 1 + (p < 0.15 ? -0.06 : 0.02); }
     else { sy = 1 + Math.sin(t * 3) * 0.03; }
     if (e.role === 'boss' && e.rage >= 3) rot += Math.sin(t * 30) * 0.01;
-    const variant = e.flash > 0.06 ? 'white' : e.unit === 'gold' ? 'gold' : null;
-    const got = this.sprite(x, name + ':0', e.x, e.y + oy, h, { sx, sy, rot, alpha, flip: e.unit === 'thief' && e.facing < 0, variant });
-    if (!got) placeholderFoe(x, e, e.x, e.y + oy, h, { sx, sy, rot, white: variant === 'white' });
+    const variant = e.unit === 'gold' ? 'gold' : null, tint = (e.flash || 0) / 0.12 * (U.kind === 'boss' ? 0.3 : U.kind === 'elite' ? 0.4 : 0.55);
+    const got = this.sprite(x, name + ':0', e.x, e.y + oy, h, { sx, sy, rot, alpha, flip: e.unit === 'thief' && e.facing < 0, variant, tint });
+    if (!got) placeholderFoe(x, e, e.x, e.y + oy, h, { sx, sy, rot, white: tint > 0.4 });
     // 冻住：蓝色冰壳
     if ((e.iceUntil || 0) > g.clock) { x.save(); x.globalAlpha = 0.45; x.fillStyle = '#bfe9ff'; x.strokeStyle = '#ffffff'; x.lineWidth = 2; rr(x, e.x - h * 0.42, e.y + oy - h * 0.95, h * 0.84, h * 0.95, 12); x.fill(); x.stroke(); x.restore(); }
     else if ((e.slowUntil || 0) > g.clock && Math.random() < 0.05) this.burst('snow', e.x, e.y - h * 0.5, 1, { spread: 10, up: 10, size: 10, life: 0.6 });
@@ -571,6 +600,16 @@ export class Renderer {
       if (p.t >= p.life) continue;
       out.push(p);
       const k = p.t / p.life;
+      if (p.kind === 'glowimg') {
+        const a = this.assets.get(p.icon);
+        if (a) {
+          const sc = p.size * (1 + p.grow * k) / Math.max(a.w, a.h), fade = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85;
+          x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = Math.max(0, fade) * p.alpha * 0.8;
+          x.translate(p.x, p.y); x.rotate(p.rot + p.spin * p.t); x.scale(sc, sc * p.flat);
+          x.drawImage(a.img, -a.w / 2, -a.h / 2); x.restore();
+        }
+        continue;
+      }
       if (p.kind === 'ring') {
         x.save(); x.globalAlpha = 1 - k; x.strokeStyle = p.color || '#fff'; x.lineWidth = (p.w || 5) * (1 - k * 0.5);
         const r = p.size * (0.3 + k * 0.9); x.beginPath(); x.ellipse(p.x, p.y, r, r * (p.squash || 1), 0, 0, TAU); x.stroke(); x.restore();
@@ -665,6 +704,8 @@ export class Renderer {
 }
 
 // ───────── 小工具 ─────────
+const IDLE_PATTERN = [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 2, 0, 0, 1, 1, 0, 3, 3];
+const SEQ_K = { idle: 1, attack: 0.96, happy: 1.02, sleep: 0.62 };
 const PART_ICON = { heart: 'fx:heart', star: 'fx:star', note: 'fx:note', bubble: 'fx:bubble', petal: 'fx:petal', snow: 'fx:snow', drop: 'fx:drop', leaf: 'fx:leaf', rainbow: 'fx:rainbow', cloud: 'fx:cloud', spark: 'proj:foxfire', carrot: 'icon:carrot' };
 export function rr(x, l, t, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); x.beginPath(); x.moveTo(l + r, t); x.arcTo(l + w, t, l + w, t + h, r); x.arcTo(l + w, t + h, l, t + h, r); x.arcTo(l, t + h, l, t, r); x.arcTo(l, t, l + w, t, r); x.closePath(); }
 export function heart(x, cx, cy, s) { x.beginPath(); x.moveTo(cx, cy + s * 0.9); x.bezierCurveTo(cx - s * 1.6, cy - s * 0.2, cx - s * 0.6, cy - s * 1.3, cx, cy - s * 0.45); x.bezierCurveTo(cx + s * 0.6, cy - s * 1.3, cx + s * 1.6, cy - s * 0.2, cx, cy + s * 0.9); x.closePath(); }

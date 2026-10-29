@@ -29,7 +29,12 @@ export class Assets {
     const loadOne = src => new Promise(resolve => { const im = new Image(); im.decoding = 'async'; im.onload = () => resolve(im); im.onerror = () => resolve(null); im.src = this.base + src; });
     await Promise.all([
       ...list.map(async ([name, m]) => { const im = await loadOne(m.src); if (im) this.img.set(name, { ...m, img: im, w: im.naturalWidth, h: im.naturalHeight }); tick(); }),
-      ...seqs.map(async ([name, s]) => { const frames = []; for (const src of s.frames || []) { const im = await loadOne(src); if (im) frames.push(im); tick(); } if (frames.length) this.seq.set(name, { frames, fps: s.fps || 8 }); }),
+      // 序列帧每一帧也登记成一张普通图（名字后面加 #序号），这样闪光换色、受击闪白也能用
+      ...seqs.map(async ([name, s]) => {
+        const names = [];
+        for (const [i, src] of (s.frames || []).entries()) { const im = await loadOne(src); if (im) { this.img.set(`${name}#${i}`, { src, img: im, w: im.naturalWidth, h: im.naturalHeight }); names.push(`${name}#${i}`); } tick(); }
+        if (names.length) this.seq.set(name, { names, fps: s.fps || 8 });
+      }),
     ]);
     onProgress({ done: total, total });
     return this;

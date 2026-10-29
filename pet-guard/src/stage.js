@@ -220,7 +220,7 @@ function dodgeScore(game, z) {
 export function interceptZone(game, f, every = STAGE.intercept.every) {
   const z = game.zones.find(z => z.full);
   if (!z || !f.alive || f.egg || game.clock - (f.interceptT || 0) < every) return false;
-  f.interceptT = game.clock; f.umbrellaT = 1.2;
+  f.interceptT = game.clock; f.umbrellaT = 1.2; f.umbrellaZ = z.id;
   z.intercept = Math.min(STAGE.intercept.max, z.intercept + STAGE.intercept.per);
   game.emit('intercept', { uid: f.uid, x: f.x, y: f.y });
   return true;

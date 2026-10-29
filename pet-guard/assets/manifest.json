@@ -1,1 +1,680 @@
-{"images":{},"seqs":{},"audio":[]}
+{
+ "images": {
+  "bg:autumn": {
+   "src": "bg/autumn.webp"
+  },
+  "bg:night": {
+   "src": "bg/night.webp"
+  },
+  "bg:spring": {
+   "src": "bg/spring.webp"
+  },
+  "bg:summer": {
+   "src": "bg/summer.webp"
+  },
+  "bg:winter": {
+   "src": "bg/winter.webp"
+  },
+  "egg:bunny": {
+   "src": "misc/egg_bunny.webp"
+  },
+  "egg:cat": {
+   "src": "misc/egg_cat.webp"
+  },
+  "egg:dragon": {
+   "src": "misc/egg_dragon.webp"
+  },
+  "egg:fox": {
+   "src": "misc/egg_fox.webp"
+  },
+  "egg:hamster": {
+   "src": "misc/egg_hamster.webp"
+  },
+  "egg:panda": {
+   "src": "misc/egg_panda.webp"
+  },
+  "egg:penguin": {
+   "src": "misc/egg_penguin.webp"
+  },
+  "egg:shiba": {
+   "src": "misc/egg_shiba.webp"
+  },
+  "foe:bear:0": {
+   "src": "foes/foe_bear_0.webp"
+  },
+  "foe:bear:1": {
+   "src": "foes/foe_bear_1.webp"
+  },
+  "foe:burr:0": {
+   "src": "foes/foe_burr_0.webp"
+  },
+  "foe:burr:1": {
+   "src": "foes/foe_burr_1.webp"
+  },
+  "foe:clock:0": {
+   "src": "foes/foe_clock_0.webp"
+  },
+  "foe:clock:1": {
+   "src": "foes/foe_clock_1.webp"
+  },
+  "foe:cloud:0": {
+   "src": "foes/foe_cloud_0.webp"
+  },
+  "foe:cloud:1": {
+   "src": "foes/foe_cloud_1.webp"
+  },
+  "foe:crow:0": {
+   "src": "foes/foe_crow_0.webp"
+  },
+  "foe:crow:1": {
+   "src": "foes/foe_crow_1.webp"
+  },
+  "foe:dust:0": {
+   "src": "foes/foe_dust_0.webp"
+  },
+  "foe:dust:1": {
+   "src": "foes/foe_dust_1.webp"
+  },
+  "foe:king:0": {
+   "src": "foes/foe_king_0.webp"
+  },
+  "foe:king:1": {
+   "src": "foes/foe_king_1.webp"
+  },
+  "foe:owl:0": {
+   "src": "foes/foe_owl_0.webp"
+  },
+  "foe:owl:1": {
+   "src": "foes/foe_owl_1.webp"
+  },
+  "foe:puffer:0": {
+   "src": "foes/foe_puffer_0.webp"
+  },
+  "foe:puffer:1": {
+   "src": "foes/foe_puffer_1.webp"
+  },
+  "foe:storm:0": {
+   "src": "foes/foe_storm_0.webp"
+  },
+  "foe:storm:1": {
+   "src": "foes/foe_storm_1.webp"
+  },
+  "foe:tear:0": {
+   "src": "foes/foe_tear_0.webp"
+  },
+  "foe:tear:1": {
+   "src": "foes/foe_tear_1.webp"
+  },
+  "foe:thief:0": {
+   "src": "foes/foe_thief_0.webp"
+  },
+  "foe:thief:1": {
+   "src": "foes/foe_thief_1.webp"
+  },
+  "foe:yeti:0": {
+   "src": "foes/foe_yeti_0.webp"
+  },
+  "foe:yeti:1": {
+   "src": "foes/foe_yeti_1.webp"
+  },
+  "fx:bubble": {
+   "src": "fx/fx_bubble.webp"
+  },
+  "fx:cloud": {
+   "src": "fx/fx_cloud.webp"
+  },
+  "fx:drop": {
+   "src": "fx/fx_drop.webp"
+  },
+  "fx:heart": {
+   "src": "fx/fx_heart.webp"
+  },
+  "fx:leaf": {
+   "src": "fx/fx_leaf.webp"
+  },
+  "fx:note": {
+   "src": "fx/fx_note.webp"
+  },
+  "fx:petal": {
+   "src": "fx/fx_petal.webp"
+  },
+  "fx:rainbow": {
+   "src": "fx/fx_rainbow.webp"
+  },
+  "fx:snow": {
+   "src": "fx/fx_snow.webp"
+  },
+  "fx:star": {
+   "src": "fx/fx_star.webp"
+  },
+  "gear:collar:0": {
+   "src": "gear/gear_collar_0.webp"
+  },
+  "gear:collar:1": {
+   "src": "gear/gear_collar_1.webp"
+  },
+  "gear:collar:2": {
+   "src": "gear/gear_collar_2.webp"
+  },
+  "gear:collar:3": {
+   "src": "gear/gear_collar_3.webp"
+  },
+  "gear:collar:4": {
+   "src": "gear/gear_collar_4.webp"
+  },
+  "gear:collar:5": {
+   "src": "gear/gear_collar_5.webp"
+  },
+  "gear:hat:0": {
+   "src": "gear/gear_hat_0.webp"
+  },
+  "gear:hat:1": {
+   "src": "gear/gear_hat_1.webp"
+  },
+  "gear:hat:2": {
+   "src": "gear/gear_hat_2.webp"
+  },
+  "gear:hat:3": {
+   "src": "gear/gear_hat_3.webp"
+  },
+  "gear:hat:4": {
+   "src": "gear/gear_hat_4.webp"
+  },
+  "gear:hat:5": {
+   "src": "gear/gear_hat_5.webp"
+  },
+  "gear:scarf:0": {
+   "src": "gear/gear_scarf_0.webp"
+  },
+  "gear:scarf:1": {
+   "src": "gear/gear_scarf_1.webp"
+  },
+  "gear:scarf:2": {
+   "src": "gear/gear_scarf_2.webp"
+  },
+  "gear:scarf:3": {
+   "src": "gear/gear_scarf_3.webp"
+  },
+  "gear:scarf:4": {
+   "src": "gear/gear_scarf_4.webp"
+  },
+  "gear:scarf:5": {
+   "src": "gear/gear_scarf_5.webp"
+  },
+  "gear:toy:0": {
+   "src": "gear/gear_toy_0.webp"
+  },
+  "gear:toy:1": {
+   "src": "gear/gear_toy_1.webp"
+  },
+  "gear:toy:2": {
+   "src": "gear/gear_toy_2.webp"
+  },
+  "gear:toy:3": {
+   "src": "gear/gear_toy_3.webp"
+  },
+  "gear:toy:4": {
+   "src": "gear/gear_toy_4.webp"
+  },
+  "gear:toy:5": {
+   "src": "gear/gear_toy_5.webp"
+  },
+  "glow:bolt": {
+   "src": "fx/glow_bolt.webp"
+  },
+  "glow:circle": {
+   "src": "fx/glow_circle.webp"
+  },
+  "glow:frost": {
+   "src": "fx/glow_frost.webp"
+  },
+  "glow:glow": {
+   "src": "fx/glow_glow.webp"
+  },
+  "glow:pillar": {
+   "src": "fx/glow_pillar.webp"
+  },
+  "glow:ring": {
+   "src": "fx/glow_ring.webp"
+  },
+  "glow:sparkle": {
+   "src": "fx/glow_sparkle.webp"
+  },
+  "glow:wave": {
+   "src": "fx/glow_wave.webp"
+  },
+  "icon:bamboo": {
+   "src": "icons/icon_bamboo.webp"
+  },
+  "icon:bone": {
+   "src": "icons/icon_bone.webp"
+  },
+  "icon:cake": {
+   "src": "icons/icon_cake.webp"
+  },
+  "icon:candy": {
+   "src": "icons/icon_candy.webp"
+  },
+  "icon:carrot": {
+   "src": "icons/icon_carrot.webp"
+  },
+  "icon:fish": {
+   "src": "icons/icon_fish.webp"
+  },
+  "icon:fruit": {
+   "src": "icons/icon_fruit.webp"
+  },
+  "icon:milk": {
+   "src": "icons/icon_milk.webp"
+  },
+  "icon:seed": {
+   "src": "icons/icon_seed.webp"
+  },
+  "icon:star": {
+   "src": "icons/icon_star.webp"
+  },
+  "logo": {
+   "src": "misc/logo.webp"
+  },
+  "misc:balloon": {
+   "src": "icons/misc_balloon.webp"
+  },
+  "misc:giftbox": {
+   "src": "icons/misc_giftbox.webp"
+  },
+  "misc:medal": {
+   "src": "icons/misc_medal.webp"
+  },
+  "misc:sunglasses": {
+   "src": "icons/misc_sunglasses.webp"
+  },
+  "misc:trophy": {
+   "src": "icons/misc_trophy.webp"
+  },
+  "misc:umbrella": {
+   "src": "icons/misc_umbrella.webp"
+  },
+  "pet:bunny:0": {
+   "src": "pets/pet_bunny_0.webp"
+  },
+  "pet:bunny:1": {
+   "src": "pets/pet_bunny_1.webp"
+  },
+  "pet:bunny:2": {
+   "src": "pets/pet_bunny_2.webp"
+  },
+  "pet:cat:0": {
+   "src": "pets/pet_cat_0.webp"
+  },
+  "pet:cat:1": {
+   "src": "pets/pet_cat_1.webp"
+  },
+  "pet:cat:2": {
+   "src": "pets/pet_cat_2.webp"
+  },
+  "pet:dragon:0": {
+   "src": "pets/pet_dragon_0.webp"
+  },
+  "pet:dragon:1": {
+   "src": "pets/pet_dragon_1.webp"
+  },
+  "pet:dragon:2": {
+   "src": "pets/pet_dragon_2.webp"
+  },
+  "pet:fox:0": {
+   "src": "pets/pet_fox_0.webp"
+  },
+  "pet:fox:1": {
+   "src": "pets/pet_fox_1.webp"
+  },
+  "pet:fox:2": {
+   "src": "pets/pet_fox_2.webp"
+  },
+  "pet:hamster:0": {
+   "src": "pets/pet_hamster_0.webp"
+  },
+  "pet:hamster:1": {
+   "src": "pets/pet_hamster_1.webp"
+  },
+  "pet:hamster:2": {
+   "src": "pets/pet_hamster_2.webp"
+  },
+  "pet:panda:0": {
+   "src": "pets/pet_panda_0.webp"
+  },
+  "pet:panda:1": {
+   "src": "pets/pet_panda_1.webp"
+  },
+  "pet:panda:2": {
+   "src": "pets/pet_panda_2.webp"
+  },
+  "pet:penguin:0": {
+   "src": "pets/pet_penguin_0.webp"
+  },
+  "pet:penguin:1": {
+   "src": "pets/pet_penguin_1.webp"
+  },
+  "pet:penguin:2": {
+   "src": "pets/pet_penguin_2.webp"
+  },
+  "pet:shiba:0": {
+   "src": "pets/pet_shiba_0.webp"
+  },
+  "pet:shiba:1": {
+   "src": "pets/pet_shiba_1.webp"
+  },
+  "pet:shiba:2": {
+   "src": "pets/pet_shiba_2.webp"
+  },
+  "proj:bamboo": {
+   "src": "fx/proj_bamboo.webp"
+  },
+  "proj:claw": {
+   "src": "fx/proj_claw.webp"
+  },
+  "proj:foxfire": {
+   "src": "fx/proj_foxfire.webp"
+  },
+  "proj:heart": {
+   "src": "fx/proj_heart.webp"
+  },
+  "proj:poof": {
+   "src": "fx/proj_poof.webp"
+  },
+  "proj:rainbow": {
+   "src": "fx/proj_rainbow.webp"
+  },
+  "proj:seed": {
+   "src": "fx/proj_seed.webp"
+  },
+  "proj:snowball": {
+   "src": "fx/proj_snowball.webp"
+  },
+  "tree": {
+   "src": "misc/tree.webp"
+  },
+  "truck": {
+   "src": "misc/truck.webp"
+  }
+ },
+ "seqs": {
+  "seq:bunny:2:attack": {
+   "frames": [
+    "seq/seq_bunny_2_attack_0.webp",
+    "seq/seq_bunny_2_attack_1.webp",
+    "seq/seq_bunny_2_attack_2.webp",
+    "seq/seq_bunny_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:bunny:2:happy": {
+   "frames": [
+    "seq/seq_bunny_2_happy_0.webp",
+    "seq/seq_bunny_2_happy_1.webp",
+    "seq/seq_bunny_2_happy_2.webp",
+    "seq/seq_bunny_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:bunny:2:idle": {
+   "frames": [
+    "seq/seq_bunny_2_idle_0.webp",
+    "seq/seq_bunny_2_idle_1.webp",
+    "seq/seq_bunny_2_idle_2.webp",
+    "seq/seq_bunny_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:bunny:2:sleep": {
+   "frames": [
+    "seq/seq_bunny_2_sleep_0.webp",
+    "seq/seq_bunny_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:cat:2:attack": {
+   "frames": [
+    "seq/seq_cat_2_attack_0.webp",
+    "seq/seq_cat_2_attack_1.webp",
+    "seq/seq_cat_2_attack_2.webp",
+    "seq/seq_cat_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:happy": {
+   "frames": [
+    "seq/seq_cat_2_happy_0.webp",
+    "seq/seq_cat_2_happy_1.webp",
+    "seq/seq_cat_2_happy_2.webp",
+    "seq/seq_cat_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:idle": {
+   "frames": [
+    "seq/seq_cat_2_idle_0.webp",
+    "seq/seq_cat_2_idle_1.webp",
+    "seq/seq_cat_2_idle_2.webp",
+    "seq/seq_cat_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:sleep": {
+   "frames": [
+    "seq/seq_cat_2_sleep_0.webp",
+    "seq/seq_cat_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:dragon:2:attack": {
+   "frames": [
+    "seq/seq_dragon_2_attack_0.webp",
+    "seq/seq_dragon_2_attack_1.webp",
+    "seq/seq_dragon_2_attack_2.webp",
+    "seq/seq_dragon_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:dragon:2:happy": {
+   "frames": [
+    "seq/seq_dragon_2_happy_0.webp",
+    "seq/seq_dragon_2_happy_1.webp",
+    "seq/seq_dragon_2_happy_2.webp",
+    "seq/seq_dragon_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:dragon:2:idle": {
+   "frames": [
+    "seq/seq_dragon_2_idle_0.webp",
+    "seq/seq_dragon_2_idle_1.webp",
+    "seq/seq_dragon_2_idle_2.webp",
+    "seq/seq_dragon_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:dragon:2:sleep": {
+   "frames": [
+    "seq/seq_dragon_2_sleep_0.webp",
+    "seq/seq_dragon_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:fox:2:attack": {
+   "frames": [
+    "seq/seq_fox_2_attack_0.webp",
+    "seq/seq_fox_2_attack_1.webp",
+    "seq/seq_fox_2_attack_2.webp",
+    "seq/seq_fox_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:fox:2:happy": {
+   "frames": [
+    "seq/seq_fox_2_happy_0.webp",
+    "seq/seq_fox_2_happy_1.webp",
+    "seq/seq_fox_2_happy_2.webp",
+    "seq/seq_fox_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:fox:2:idle": {
+   "frames": [
+    "seq/seq_fox_2_idle_0.webp",
+    "seq/seq_fox_2_idle_1.webp",
+    "seq/seq_fox_2_idle_2.webp",
+    "seq/seq_fox_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:fox:2:sleep": {
+   "frames": [
+    "seq/seq_fox_2_sleep_0.webp",
+    "seq/seq_fox_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:hamster:2:attack": {
+   "frames": [
+    "seq/seq_hamster_2_attack_0.webp",
+    "seq/seq_hamster_2_attack_1.webp",
+    "seq/seq_hamster_2_attack_2.webp",
+    "seq/seq_hamster_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:hamster:2:happy": {
+   "frames": [
+    "seq/seq_hamster_2_happy_0.webp",
+    "seq/seq_hamster_2_happy_1.webp",
+    "seq/seq_hamster_2_happy_2.webp",
+    "seq/seq_hamster_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:hamster:2:idle": {
+   "frames": [
+    "seq/seq_hamster_2_idle_0.webp",
+    "seq/seq_hamster_2_idle_1.webp",
+    "seq/seq_hamster_2_idle_2.webp",
+    "seq/seq_hamster_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:hamster:2:sleep": {
+   "frames": [
+    "seq/seq_hamster_2_sleep_0.webp",
+    "seq/seq_hamster_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:panda:2:attack": {
+   "frames": [
+    "seq/seq_panda_2_attack_0.webp",
+    "seq/seq_panda_2_attack_1.webp",
+    "seq/seq_panda_2_attack_2.webp",
+    "seq/seq_panda_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:panda:2:happy": {
+   "frames": [
+    "seq/seq_panda_2_happy_0.webp",
+    "seq/seq_panda_2_happy_1.webp",
+    "seq/seq_panda_2_happy_2.webp",
+    "seq/seq_panda_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:panda:2:idle": {
+   "frames": [
+    "seq/seq_panda_2_idle_0.webp",
+    "seq/seq_panda_2_idle_1.webp",
+    "seq/seq_panda_2_idle_2.webp",
+    "seq/seq_panda_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:panda:2:sleep": {
+   "frames": [
+    "seq/seq_panda_2_sleep_0.webp",
+    "seq/seq_panda_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:penguin:2:attack": {
+   "frames": [
+    "seq/seq_penguin_2_attack_0.webp",
+    "seq/seq_penguin_2_attack_1.webp",
+    "seq/seq_penguin_2_attack_2.webp",
+    "seq/seq_penguin_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:penguin:2:happy": {
+   "frames": [
+    "seq/seq_penguin_2_happy_0.webp",
+    "seq/seq_penguin_2_happy_1.webp",
+    "seq/seq_penguin_2_happy_2.webp",
+    "seq/seq_penguin_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:penguin:2:idle": {
+   "frames": [
+    "seq/seq_penguin_2_idle_0.webp",
+    "seq/seq_penguin_2_idle_1.webp",
+    "seq/seq_penguin_2_idle_2.webp",
+    "seq/seq_penguin_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:penguin:2:sleep": {
+   "frames": [
+    "seq/seq_penguin_2_sleep_0.webp",
+    "seq/seq_penguin_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:shiba:2:attack": {
+   "frames": [
+    "seq/seq_shiba_2_attack_0.webp",
+    "seq/seq_shiba_2_attack_1.webp",
+    "seq/seq_shiba_2_attack_2.webp",
+    "seq/seq_shiba_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:shiba:2:happy": {
+   "frames": [
+    "seq/seq_shiba_2_happy_0.webp",
+    "seq/seq_shiba_2_happy_1.webp",
+    "seq/seq_shiba_2_happy_2.webp",
+    "seq/seq_shiba_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:shiba:2:idle": {
+   "frames": [
+    "seq/seq_shiba_2_idle_0.webp",
+    "seq/seq_shiba_2_idle_1.webp",
+    "seq/seq_shiba_2_idle_2.webp",
+    "seq/seq_shiba_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:shiba:2:sleep": {
+   "frames": [
+    "seq/seq_shiba_2_sleep_0.webp",
+    "seq/seq_shiba_2_sleep_1.webp"
+   ],
+   "fps": 2
+  }
+ },
+ "audio": [
+  "bgm_battle",
+  "bgm_boss",
+  "bgm_lobby",
+  "bgm_win"
+ ]
+}

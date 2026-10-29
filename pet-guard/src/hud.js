@@ -175,8 +175,9 @@ function bottomPanels(r, x) {
     r.rankRows.push({ uid: p.uid, online: p.online, l: l1, t: y - 18, w: w1, h: 26 });
   });
   if (!R.length && g.settings.rankPage !== false) text(x, '还没有人上榜，发「狗」「猫」领养一只吧', l1 + w1 / 2, t0 + 120, 13, C.mute, 'center', 'normal');
-  // 右：玩法轮播
+  // 右：玩法轮播（弹出萌宠卡时让给萌宠卡）
   const l2 = 364, w2 = 348;
+  if (r.cards.length) return;
   panel(x, l2, t0, w2, h, 0.9);
   const pages = PAGES.filter(p => g.settings.giftPages !== false || p.id !== 'gift');
   carousel.page = Math.max(0, Math.floor(r.t / 9)) % pages.length;
@@ -241,23 +242,37 @@ function blastPrompt(r, x) {
 // ───────── 横幅 / 提示 ─────────
 const TIER_BG = ['#7fdcb0', '#7fdcb0', '#7cc6ff', '#ff8fb8', '#b48cff', '#ffb84a'];
 export function drawBanners(r, x, dt) {
-  let y = 288;
+  // 横幅挂在首领血条下面、左右两块面板中间（宽280），不压战场中央；放不下折成两行
+  let y = 102;
+  const MAXW = 252;
   for (const b of r.banners) {
     b.t += dt;
     const k = b.t / b.life, a = k < 0.08 ? k / 0.08 : k > 0.85 ? (1 - k) / 0.15 : 1;
-    x.save(); x.globalAlpha = Math.max(0, a);
-    const size = b.small ? 15 : b.tier >= 4 ? 19 : 17;
+    x.save(); x.globalAlpha = Math.max(0, a) * 0.95;
+    const size = b.small ? 14 : b.tier >= 4 ? 16 : 15, lh = size + 5;
     x.font = `bold ${size}px ${FONT}`;
-    const s = clipText(x, b.text, 640), w = x.measureText(s).width + 40, h = size + 18;
+    const lines = wrapText(x, b.text, MAXW, 2);
+    const w = Math.max(...lines.map(l => x.measureText(l).width)) + 28, h = lines.length * lh + 13;
     const off = k < 0.08 ? (1 - k / 0.08) * -20 : 0;
-    x.fillStyle = TIER_BG[Math.min(5, b.tier)]; rr(x, 360 - w / 2, y + off, w, h, h / 2); x.fill();
+    x.fillStyle = TIER_BG[Math.min(5, b.tier)]; rr(x, 360 - w / 2, y + off, w, h, Math.min(h / 2, 17)); x.fill();
     x.strokeStyle = '#fff'; x.lineWidth = 2.5; x.stroke();
     x.fillStyle = '#fff'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.strokeStyle = 'rgba(90,40,60,.5)'; x.lineWidth = 3;
-    x.strokeText(s, 360, y + off + h / 2 + 1); x.fillText(s, 360, y + off + h / 2 + 1); x.textBaseline = 'alphabetic';
+    lines.forEach((l, i) => { const ty = y + off + 7 + lh * (i + 0.5) + 1; x.strokeText(l, 360, ty); x.fillText(l, 360, ty); });
+    x.textBaseline = 'alphabetic';
     x.restore();
-    y += h + 6;
+    y += h + 5;
   }
   r.banners = r.banners.filter(b => b.t < b.life);
+}
+function wrapText(x, s, maxW, maxLines) {
+  const lines = []; let cur = '';
+  for (const ch of String(s || '')) {
+    if (cur && x.measureText(cur + ch).width > maxW) { lines.push(cur); cur = ch === ' ' || ch === '　' ? '' : ch; }
+    else cur += ch;
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = clipText(x, lines[maxLines - 1] + '……', maxW); }
+  return lines.length ? lines : [''];
 }
 export function drawToasts(r, x, dt) {
   let y = BOTTOM_Y - 14;
@@ -401,16 +416,21 @@ function drawCards(r, x, dt) {
   x.restore();
 }
 
-// ───────── 天赋觉醒 / 长大 ─────────
+// ───────── 天赋觉醒（长大不弹窗，在萌宠身上就地发光，见 render.js）─────────
 function drawPopups(r, x, dt) {
+  r.popups = r.popups.filter(q => q.kind === 'awaken');
   const p = r.popups[0];
   if (!p) return;
+  if (r.popups.length > 1) p.life = Math.min(p.life, 2.4);   // 后面还有人在排队：快一点
   p.t += dt;
   const k = p.t / p.life, a = k < 0.06 ? k / 0.06 : k > 0.88 ? (1 - k) / 0.12 : 1;
   x.save(); x.globalAlpha = Math.max(0, a);
-  const cx = 360, cy = 560;
-  const bg = x.createRadialGradient(cx, cy, 40, cx, cy, 300); bg.addColorStop(0, 'rgba(255,248,252,0.92)'); bg.addColorStop(0.7, 'rgba(255,236,246,0.75)'); bg.addColorStop(1, 'rgba(255,236,246,0)');
-  x.fillStyle = bg; x.beginPath(); x.arc(cx, cy, 300, 0, TAU); x.fill();
+  const cx = 360, cy = 600;
+  x.translate(cx, cy); x.scale(0.78, 0.78); x.translate(-cx, -cy);   // 整体缩小一点，少挡战场
+  const bg = x.createRadialGradient(cx, cy, 40, cx, cy, 250); bg.addColorStop(0, 'rgba(255,248,252,0.85)'); bg.addColorStop(0.7, 'rgba(255,236,246,0.55)'); bg.addColorStop(1, 'rgba(255,236,246,0)');
+  x.fillStyle = bg; x.beginPath(); x.arc(cx, cy, 250, 0, TAU); x.fill();
+  const ga = r.assets.get('glow:circle');
+  if (ga) { x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha *= 0.8; x.translate(cx, cy + 70); x.rotate(p.t * 0.8); x.scale(1, 0.5); const s2 = 300 / Math.max(ga.w, ga.h); x.drawImage(ga.img, -ga.w * s2 / 2, -ga.h * s2 / 2, ga.w * s2, ga.h * s2); x.restore(); }
   if (p.kind === 'awaken') {
     const T = TALENT.tiers, roll = p.t < 1.6;
     const shown = roll ? Math.floor(p.t * 14) % T.length : p.best;
@@ -428,13 +448,6 @@ function drawPopups(r, x, dt) {
       if (p.shinyNew) outlined(x, '✦ 闪光了！✦', cx, cy + 172, 30, '#ffe36b', '#8a4a00', 'center', ROUND_FONT, 7);
       else if (p.pity > 0) text(x, `离保底神话还差 ${TALENT.pity - p.pity} 次`, cx, cy + 166, 13, '#fff', 'center', 'normal');
     }
-  } else if (p.kind === 'evolve') {
-    const pre = Math.max(0, p.form - 1), mid = p.t < 1.4;
-    x.fillStyle = 'rgba(255,248,210,0.5)'; x.beginPath(); x.arc(cx, cy, 160 + Math.sin(p.t * 6) * 6, 0, TAU); x.fill();
-    if (mid) { const blink = Math.sin(p.t * (8 + p.t * 20)) > 0; petIcon(r, x, p.sp, blink ? p.form : pre, cx, cy, 170); }
-    else petIcon(r, x, p.sp, p.form, cx, cy, 200);
-    outlined(x, `${p.nick || p.name}${p.nick ? '' : '的' + SPECIES[p.sp].name}长大了！`, cx, cy - 130, 28, '#fff', '#b04a7a', 'center', ROUND_FONT, 7);
-    outlined(x, `${FORMS[pre].name} → ${p.formName}`, cx, cy + 140, 26, '#ffd84a', '#8a4a00', 'center', ROUND_FONT, 6);
   }
   x.restore();
   if (p.t >= p.life) r.popups.shift();

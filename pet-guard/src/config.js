@@ -45,9 +45,9 @@ export const LEVEL = {
 };
 // 成长形态：幼崽 → 少年 → 成年（画面高度：逻辑像素）
 export const FORMS = [
-  { lv: 1,  name: '幼崽', h: 66 },
-  { lv: 8,  name: '少年', h: 82 },
-  { lv: 20, name: '成年', h: 100 },
+  { lv: 1,  name: '幼崽', h: 70 },
+  { lv: 8,  name: '少年', h: 88 },
+  { lv: 20, name: '成年', h: 108 },
 ];
 export const formOf = lv => (lv >= FORMS[2].lv ? 2 : lv >= FORMS[1].lv ? 1 : 0);
 

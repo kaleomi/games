@@ -34,7 +34,11 @@ export function pickSpecies(game) {
   return pool[Math.floor(game.random() * pool.length)];
 }
 
-export function home(f) { return { x: f.homeX + f.slotDx, y: FIELD.rows[SPECIES[f.sp].role] + f.slotDy }; }
+// 中间那一列站在心愿树前面（树冠上方），不站进树里
+export function home(f) {
+  const y = FIELD.rows[SPECIES[f.sp].role] + f.slotDy, mid = Math.abs(f.homeX - TREE.x) < 60;
+  return { x: f.homeX + f.slotDx, y: mid ? Math.min(y, TREE.y - TREE.h - 22 + f.slotDy * 0.5) : y };
+}
 export function refreshStats(f) {
   const ratio = f.maxHp ? f.hp / f.maxHp : 1;
   f.stats = petStats(f);

@@ -46,7 +46,7 @@ def spec_of(fid):
         'icons_misc':    dict(grid=(2, 3), names=[f'misc:{n}' for n in ['sunglasses', 'umbrella', 'giftbox', 'trophy', 'balloon', 'medal']], box=180, bg='white', dir='icons'),
         'fx_sticker':    dict(grid=(2, 5), names=[f'fx:{n}' for n in ['heart', 'star', 'note', 'bubble', 'petal', 'snow', 'drop', 'leaf', 'rainbow', 'cloud']], box=110, bg='white', dir='fx'),
         'fx_projectile': dict(grid=(2, 4), names=[f'proj:{n}' for n in ['foxfire', 'snowball', 'rainbow', 'heart', 'bamboo', 'seed', 'claw', 'poof']], box=140, bg='white', dir='fx'),
-        'fx_glow':       dict(grid=(2, 4), names=[f'glow:{n}' for n in ['glow', 'sparkle', 'ring', 'circle', 'pillar', 'wave', 'frost', 'bolt']], box=220, bg='black', dir='fx'),
+        'fx_glow':       dict(grid=(2, 4), names=[f'glow:{n}' for n in ['glow', 'sparkle', 'ring', 'circle', 'pillar', 'wave', 'frost', 'bolt']], box=240, bg='black', dir='fx', split='cells'),
         'gift_truck':    dict(grid=(1, 1), names=['truck'], h=320, bg='white', dir='misc'),
         'logo':          dict(grid=(1, 1), names=['logo'], w=760, bg='white', dir='misc'),
     }
@@ -59,27 +59,34 @@ def file_id(name):
     return base
 
 # ───────── 抠图 ─────────
-def matte_white(rgb, tol=22):
-    """白底：从图边缘往里灌，接近白色、灰度低的像素算背景；主体有描边，里面的白毛不会被灌到。"""
+def matte_white(rgb, tol=8, holes=0):
+    """白底：从图边缘往里灌，几乎纯白（≥255-tol、灰度低）的像素算背景；主体里面的白毛不连着边缘就不会被灌到。
+    holes>0 时，被主体围住、面积超过 holes 像素的纯白块（耳朵和头之间的空隙）也算背景。"""
     r, g, b = [rgb[..., i].astype(np.int16) for i in range(3)]
     mn = np.minimum(np.minimum(r, g), b); mx = np.maximum(np.maximum(r, g), b)
-    near = (mn > 255 - tol * 1.6) & ((mx - mn) < tol + 6)
+    near = (mn >= 255 - tol) & ((mx - mn) <= max(6, tol))
     lab, n = ndimage.label(near)
     border = np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))
     bg = np.isin(lab, border[border > 0])
+    if holes:
+        pure = (mn >= 251) & ((mx - mn) <= 4)
+        hl, hn = ndimage.label(pure & ~bg)
+        if hn:
+            sizes = ndimage.sum(np.ones_like(hl), hl, range(1, hn + 1))
+            big = np.zeros(hn + 1, bool); big[1:] = sizes >= holes
+            bg |= big[hl]
     fg = ~bg
     fg = ndimage.binary_opening(fg, iterations=1)
-    # 去掉很小的噪点
     lab2, n2 = ndimage.label(fg)
     if n2:
         sizes = ndimage.sum(fg, lab2, range(1, n2 + 1))
-        keep = np.zeros(n2 + 1, bool); keep[1:] = sizes >= max(40, fg.size * 0.00004)
+        keep = np.zeros(n2 + 1, bool); keep[1:] = sizes >= max(60, fg.size * 0.00005)
         fg = keep[lab2]
-    # 边缘柔化：主体边上 2 像素按「有多白」给半透明，并去掉白边
+    # 边缘柔化：贴着背景的 2 像素按「离白色多远」给透明度，并把白边去掉（反预乘）
     alpha = fg.astype(np.float32)
-    edge = fg & ~ndimage.binary_erosion(fg, iterations=2)
-    whiteness = np.clip((mn - 150) / 105.0, 0, 1)
-    alpha[edge] = np.clip(1 - whiteness[edge] * 0.9, 0.15, 1)
+    band = fg & ndimage.binary_dilation(~fg, iterations=2)
+    dist = (255 - mn).astype(np.float32)
+    alpha[band] = np.clip(dist[band] / 40.0, 0.2, 1)
     out = rgb.astype(np.float32)
     a3 = alpha[..., None]
     out = np.where(a3 > 0, (out - (1 - a3) * 255) / np.maximum(a3, 1e-3), out)
@@ -120,17 +127,60 @@ def segments(profile, want, min_gap):
         return [(lo + int((hi - lo) * k / want), lo + int((hi - lo) * (k + 1) / want)) for k in range(want)]
     return [tuple(s) for s in segs]
 
+def bbox_gap(a, b):
+    """两个 bbox（slice 元组）之间的距离，重叠为 0。"""
+    (ay, ax), (by, bx) = a, b
+    dy = max(0, max(ay.start, by.start) - min(ay.stop, by.stop))
+    dx = max(0, max(ax.start, bx.start) - min(ax.stop, bx.stop))
+    return (dx * dx + dy * dy) ** 0.5
+
 def cut(mask, rows, cols):
+    """按连通块切：最大的 rows×cols 块各是一个角色/物件，小碎块（火苗、星星、泡泡）归到离它最近的那个；
+    返回 [(x0, y0, x1, y1, 只属于这一个的掩码)]，按行、再按列排好。"""
+    K = rows * cols
     H, W = mask.shape
-    gap = max(6, int(min(H, W) * 0.012))
+    lab, n = ndimage.label(mask, structure=np.ones((3, 3)))
+    if n == 0: return [None] * K
+    sizes = ndimage.sum(mask, lab, range(1, n + 1))
+    objs = ndimage.find_objects(lab)
+    order = list(np.argsort(-sizes))
+    anchors = [int(i) for i in order[:K]]
+    groups = {a: [a] for a in anchors}
+    maxd = 0.18 * (H * H + W * W) ** 0.5
+    for i in order[K:]:
+        i = int(i)
+        if sizes[i] < 30: continue
+        best = min(anchors, key=lambda a: bbox_gap(objs[a], objs[i]))
+        if bbox_gap(objs[best], objs[i]) <= maxd: groups[best].append(i)
+    def box(a):
+        ys = [objs[i][0] for i in groups[a]]; xs = [objs[i][1] for i in groups[a]]
+        return (min(x.start for x in xs), min(y.start for y in ys), max(x.stop for x in xs), max(y.stop for y in ys))
+    cen = {a: ((objs[a][1].start + objs[a][1].stop) / 2, (objs[a][0].start + objs[a][0].stop) / 2) for a in anchors}
+    byy = sorted(anchors, key=lambda a: cen[a][1])
+    rows_list = [sorted(byy[r * cols:(r + 1) * cols], key=lambda a: cen[a][0]) for r in range(rows)]
     out = []
-    for (y0, y1) in segments(mask.sum(axis=1), rows, gap):
-        band = mask[y0:y1]
-        for (x0, x1) in segments(band.sum(axis=0), cols, gap):
-            sub = band[:, x0:x1]
+    for row in rows_list:
+        for a in row:
+            x0, y0, x1, y1 = box(a)
+            members = np.isin(lab[y0:y1, x0:x1], [i + 1 for i in groups[a]])
+            out.append((x0, y0, x1, y1, members))
+    while len(out) < K: out.append(None)
+    return out
+
+def cut_cells(mask, rows, cols):
+    """按等分网格切（黑底发光图：光效是一团散开的粒子，不适合按连通块）。"""
+    H, W = mask.shape
+    out = []
+    for r in range(rows):
+        for c in range(cols):
+            y0, y1, x0, x1 = H * r // rows, H * (r + 1) // rows, W * c // cols, W * (c + 1) // cols
+            sub = mask[y0:y1, x0:x1]
             ys, xs = np.nonzero(sub)
-            if len(xs) == 0: out.append(None); continue
-            out.append((x0 + xs.min(), y0 + ys.min(), x0 + xs.max() + 1, y0 + ys.max() + 1))
+            if len(xs) < 20: out.append(None); continue
+            # 去掉零星的远处小点：取 1%–99% 分位
+            bx0, bx1 = np.percentile(xs, [0.5, 99.5]).astype(int); by0, by1 = np.percentile(ys, [0.5, 99.5]).astype(int)
+            X0, Y0, X1, Y1 = x0 + bx0, y0 + by0, x0 + bx1 + 1, y0 + by1 + 1
+            out.append((X0, Y0, X1, Y1, np.ones((Y1 - Y0, X1 - X0), bool)))
     return out
 
 def save_webp(img, path, q=90):
@@ -160,18 +210,24 @@ def process(path, fid, spec, fix, manifest, preview):
         rgba = np.asarray(im); mask = rgba[..., 3] > 20
     else:
         rgb = np.asarray(im.convert('RGB'))
-        rgba, mask = (matte_black(rgb) if spec['bg'] == 'black' else matte_white(rgb, fix.get('bgTol', 22)))
+        rgba, mask = (matte_black(rgb) if spec['bg'] == 'black' else matte_white(rgb, fix.get('bgTol', 8), fix.get('holes', 0)))
     src = Image.fromarray(rgba, 'RGBA')
     if fix.get('flipAll'): src = src.transpose(Image.FLIP_LEFT_RIGHT); mask = mask[:, ::-1]
     rows, cols = spec['grid']
-    boxes = cut(mask, rows, cols)
+    boxes = cut_cells(mask, rows, cols) if spec.get('split') == 'cells' else cut(mask, rows, cols)
     if fix.get('order'): boxes = [boxes[i] for i in fix['order']]
     pad = 3
     parts = []
     for b in boxes:
         if not b: parts.append(None); continue
-        x0, y0, x1, y1 = b
-        parts.append(src.crop((max(0, x0 - pad), max(0, y0 - pad), min(src.width, x1 + pad), min(src.height, y1 + pad))))
+        x0, y0, x1, y1, members = b
+        crop = np.array(src.crop((x0, y0, x1, y1)))
+        # 只留这一个角色的像素（边缘柔化带往外扩 2 像素），旁边角色伸进来的尾巴、耳朵抠掉
+        keep = ndimage.binary_dilation(members, iterations=3)
+        crop[..., 3] = (crop[..., 3] * keep).astype(np.uint8)
+        c = Image.fromarray(crop, 'RGBA')
+        canvas = Image.new('RGBA', (c.width + pad * 2, c.height + pad * 2), (0, 0, 0, 0)); canvas.paste(c, (pad, pad))
+        parts.append(canvas)
     if fix.get('flip'): parts = [p.transpose(Image.FLIP_LEFT_RIGHT) if p else p for p in parts]
     outs = []
     if spec.get('kind') == 'seq':
