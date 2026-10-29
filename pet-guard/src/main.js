@@ -30,6 +30,7 @@ try { await assets.load(P => { if (P.total) { setBar(12 + 86 * P.done / P.total)
 setBar(100); setLoad('加载完成');
 const audio = new Audio();
 audio.setAvailable(assets.manifest?.audio || []);
+audio.preload();   // 音效文件先下载好，点一下页面就能出声
 audio.sfx = settings.sfx; audio.setBgm(settings.bgm, settings.bgmVol / 100); audio.setSfxVol(settings.sfxVol / 100);
 
 let ui = null;

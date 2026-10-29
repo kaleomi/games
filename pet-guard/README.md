@@ -125,6 +125,8 @@ python3 tools/import_art.py 原图文件夹 --preview 预览文件夹
 
 新玩法的图**也已导入**：`flowers`（4朵花，种花用）、`lantern`（心愿天灯）、`sad_storm / sad_puffer / sad_owl / sad_yeti / sad_king`（首领委屈大哭版，生成时把原来的首领图一起发给 GPT）。缺哪张就用简单图形 / 生气版加眼泪顶着，不影响玩。
 
+**音效**：全部换成真实录音（手鼓、铃铛、风铃、木琴、竖琴、小提琴、口哨、长号、收银机……），放在 `assets/sfx/`，来源和授权（CC0 / CC-BY 3.0）见 `assets/sfx/CREDITS.md`。木琴、竖琴、小提琴是一个个真实音符，升级、许愿、过关的小旋律用它们拼出来，不再有电子合成音。
+
 背景音乐：`bgm_lobby`（大厅）/ `bgm_battle`（战斗）/ `bgm_boss`（首领关）/ `bgm_win`（过关）已导入（wav 自动转 mp3 放进 `assets/audio/`）。换曲子把同名 wav/mp3 放进原图文件夹再导入；删掉就只放合成的小音效。设置里可以分别调音乐、音效音量。
 
 ## 数值
