@@ -19,7 +19,7 @@ let saveErrAt = 0;
 const store = await openStore({ onError: e => { if (Date.now() - saveErrAt > 30000) { saveErrAt = Date.now(); game?.emit('toast', { text: `存档写入失败：${e?.message || e}，请在设置里导出存档留底` }); } } });
 const save = new Save({ storage: store.storage });
 save.store = store;
-const gameSettings = () => ({ npcMin: settings.npcMin, giftByName: settings.giftByName, giftBox: settings.giftBox !== false, giftPages: settings.giftPages !== false, giftRank: settings.giftRank !== false, rankPage: settings.rankPage !== false, wishShow: settings.wishShow !== false, wishBlock: settings.wishBlock || '' });
+const gameSettings = () => ({ npcMin: settings.npcMin, giftByName: settings.giftByName, giftBox: settings.giftBox !== false, giftPages: settings.giftPages !== false, giftRank: settings.giftRank !== false, rankPage: settings.rankPage !== false, wishShow: settings.wishShow !== false, wishBlock: settings.wishBlock || '', homeSeconds: Number.isFinite(settings.homeSeconds) ? settings.homeSeconds : 90 });
 var game = new Game({ save, settings: gameSettings() });
 save.hotSource = () => [...game.pets.keys(), ...game.reserve.keys()].filter(u => !u.startsWith('npc:') && !u.startsWith('merc:'));
 save.onError = e => { if (Date.now() - saveErrAt > 30000) { saveErrAt = Date.now(); game.emit('toast', { text: `存档写入失败：${e?.message || e}` }); } };

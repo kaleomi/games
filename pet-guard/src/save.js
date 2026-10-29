@@ -1,6 +1,6 @@
 // 玩家存档：按抖音用户ID保存每只萌宠的等级、经验、名字、天赋、闪光、亲密度、装备，以及贡献、送礼累计。
 // 存在主播这台电脑这个浏览器的本地数据库（IndexedDB，见 idb-store.js）里；可导出/导入 JSON。
-import { GEAR, LEVEL, SPECIES_IDS, TALENT, FOES, WISH, FRIEND } from './config.js';
+import { GEAR, LEVEL, ALL_SPECIES as SPECIES_IDS, TALENT, FOES, WISH, FRIEND, FARM, CROPS, ADV_PETS } from './config.js';
 
 export const SAVE_KEY = 'pet-guard-save-v1';
 const MAX_PROFILES = 20000;
@@ -19,7 +19,7 @@ export function newPet(level = 1) {
 export function newProfile(uid, clearNo = 0) {
   return { uid, name: '小可爱', avatar: '', cur: null, pets: {}, merit: 0, weekMerit: 0, coins: 0, weekCoins: 0, games: 0, clears: 0, seen: 0,
     shards: [0, 0, 0, 0, 0], pity: { gold: 0, red: 0 }, auto: 0, seenClear: clearNo, buffs: null, checkinDay: '', patDay: '', patToday: 0,
-    friends: {}, sprites: {}, follow: null, wishTrue: 0 };
+    friends: {}, sprites: {}, follow: null, wishTrue: 0, farm: null };
 }
 // 这位观众最高的萌宠等级
 export function bestLevel(p) { let b = 1; for (const d of Object.values(p?.pets || {})) b = Math.max(b, d.lv || 1); return b; }
@@ -81,6 +81,7 @@ export class Save {
         patDay: typeof p.patDay === 'string' ? p.patDay.slice(0, 10) : '', patToday: clampInt(p.patToday, 0, 1e6, 0),
         buffs: validBuffs(p.buffs),
         friends: validFriends(p.friends), sprites: validSprites(p.sprites), follow: FOES[p.follow] ? p.follow : null, wishTrue: clampInt(p.wishTrue, 0, 1e9, 0),
+        farm: validFarm(p.farm),
       };
     }
     return {
@@ -193,6 +194,21 @@ function validFriends(o) {
     out[uid] = { n: String(v.n || '小可爱').slice(0, 24), v: clampInt(v.v, 0, 1e9, 0), day: typeof v.day === 'string' ? v.day.slice(0, 10) : '', dv: clampInt(v.dv, 0, 1e6, 0) };
   }
   return out;
+}
+// 农场：金币、等级、每块地种的什么、仓库、解锁的高级萌宠
+export function newFarm() { return { coins: FARM.startCoins, lv: 1, xp: 0, plots: Array(FARM.plotsStart).fill(null), barn: {}, pets: [], harvest: 0, sold: 0 }; }
+function validFarm(o) {
+  if (!o || typeof o !== 'object') return null;
+  const ids = new Set(CROPS.map(c => c.id)), n = clampInt(Array.isArray(o.plots) ? o.plots.length : FARM.plotsStart, FARM.plotsStart, FARM.plotsMax, FARM.plotsStart);
+  const plots = [];
+  for (let i = 0; i < n; i++) {
+    const p = o.plots?.[i];
+    plots.push(p && typeof p === 'object' && ids.has(p.c) ? { c: p.c, at: Number(p.at) || 0, ready: Number(p.ready) || 0, w: p.w ? 1 : 0, fw: p.fw ? 1 : 0 } : null);
+  }
+  const barn = {};
+  for (const id of ids) if (o.barn?.[id] > 0) barn[id] = clampInt(o.barn[id], 0, 1e9, 0);
+  return { coins: clampInt(o.coins, 0, 1e12, 0), lv: clampInt(o.lv, 1, 999, 1), xp: clampInt(o.xp, 0, 1e12, 0), plots, barn,
+    pets: Array.isArray(o.pets) ? o.pets.filter(sp => ADV_PETS[sp]).slice(0, 20) : [], harvest: clampInt(o.harvest, 0, 1e12, 0), sold: clampInt(o.sold, 0, 1e15, 0) };
 }
 function validSprites(o) {
   const out = {};

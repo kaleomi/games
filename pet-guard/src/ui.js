@@ -5,7 +5,7 @@ import { wishStore } from './wish.js';
 
 const SETTINGS_KEY = 'pet-guard-settings-v1';
 export function loadSettings() {
-  const d = { v: 1, port: 8765, autoConnect: true, npcMin: 4, sfx: true, bgm: true, bgmVol: 50, sfxVol: 70, giftByName: {}, giftBox: true, giftPages: true, giftRank: true, rankPage: true, wishShow: true, wishBlock: '' };
+  const d = { v: 1, port: 8765, autoConnect: true, npcMin: 4, sfx: true, bgm: true, bgmVol: 50, sfxVol: 70, giftByName: {}, giftBox: true, giftPages: true, giftRank: true, rankPage: true, wishShow: true, wishBlock: '', homeSeconds: 90 };
   try { return { ...d, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'), v: 1 }; } catch { return d; }
 }
 export function storeSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* 忽略 */ } }
@@ -44,6 +44,7 @@ export class UI {
         <div class="row wrap"><button data-act="stage-reset">回到第1章第1关</button><button data-act="chapter-prev">退回上一章</button><button data-act="chapter-next">跳到下一章</button></div>
         <h3>对局</h3>
         <div class="row">人少时补位流浪萌宠到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMin}"> 只</div>
+        <div class="row">打完首领回家种田 <input id="cfg-home" type="number" min="0" max="600" value="${s.homeSeconds ?? 90}"> 秒（填0不回家，直接打下一章）</div>
         <div class="note">真人不够这个数时自动补灰名的流浪萌宠凑数，填0不补。它们不进榜单、不掉装备。</div>
         <div class="row wrap audio"><label><input id="cfg-bgm" type="checkbox" ${s.bgm ? 'checked' : ''}> 背景音乐</label>
           <label>音量 <input id="cfg-bgmvol" type="range" min="0" max="100" value="${s.bgmVol}"></label>
@@ -75,6 +76,7 @@ export class UI {
           ${Object.keys(WORD).map(k => `<button data-act="test-gift" data-kind="${k}">${GIFT_TITLES[k][0]}</button>`).join('')}
           <button data-act="test-ult">全员大招</button><button data-act="test-like">点赞</button><button data-act="test-pat">全员摸摸</button><button data-act="test-name">起名</button>
           <button data-act="test-wish">全员许愿</button><button data-act="test-hugf">全员贴贴</button><button data-act="test-comfort">首领直接哭</button><button data-act="test-hug">全员抱抱</button>
+          <button data-act="go-home">立即回家</button><button data-act="test-farm">全员种田</button><button data-act="test-coins">测试萌宠+1000金币</button><button data-act="leave-home">离开家园</button>
           <button data-act="test-ring">放个躲雨区（轮换四种）</button><button data-act="test-full">放全屏大招</button><button data-act="test-ring-pick">全员发1/2/3</button>
           <button data-act="test-xp">测试萌宠+500经验</button>
           <button data-act="start-now">立即开打</button><button data-act="win-now">本关直接过</button><button data-act="end-now">本关判负</button>
@@ -109,6 +111,7 @@ export class UI {
     s.port = num('cfg-port', 1024, 65535, 8765);
     s.autoConnect = document.getElementById('cfg-auto').checked;
     s.npcMin = num('cfg-npc', 0, 30, 4);
+    s.homeSeconds = num('cfg-home', 0, 600, 90);
     s.sfx = document.getElementById('cfg-sfx').checked; s.bgm = document.getElementById('cfg-bgm').checked;
     s.giftBox = document.getElementById('cfg-giftbox').checked; s.giftPages = document.getElementById('cfg-giftpages').checked; s.giftRank = document.getElementById('cfg-giftrank').checked; s.rankPage = document.getElementById('cfg-rankpage').checked;
     s.bgmVol = num('cfg-bgmvol', 0, 100, 50); s.sfxVol = num('cfg-sfxvol', 0, 100, 70);
@@ -154,6 +157,10 @@ export class UI {
       case 'test-xp': if (!this.testAllowed()) break; for (const f of tests()) g.grantXp(f, 500); break;
       case 'test-wish': if (!this.testAllowed()) break; { const ws = ['考试顺利', '家人健康', '天天开心', '暴富', '找到对象', '升职加薪', '猫猫长胖', '旅行去海边', '早点下班', '一夜好梦']; tests().forEach((f, i) => { f.wishAt = -99; g.chat({ id: f.uid, name: f.name }, '许愿' + ws[i % ws.length]); }); } break;
       case 'test-hugf': if (!this.testAllowed()) break; for (const f of tests()) { f.hugFAt = -99; g.chat({ id: f.uid, name: f.name }, '贴贴'); } break;
+      case 'go-home': if (g.phase !== 'home') g.startHome(); break;
+      case 'leave-home': if (g.phase === 'home') g.phaseT = 0.01; break;
+      case 'test-farm': if (!this.testAllowed()) break; for (const f of tests()) g.chat({ id: f.uid, name: f.name }, '种田'); break;
+      case 'test-coins': if (!this.testAllowed()) break; import('./farm.js').then(m => { for (const f of tests()) { const fm = m.farmOf(g, f); fm.coins += 1000; fm.lv = Math.max(fm.lv, 15); } }); break;
       case 'test-hug': if (!this.testAllowed()) break; for (const f of tests()) g.chat({ id: f.uid, name: f.name }, '抱抱'); break;
       case 'test-comfort': if (g.phase === 'battle' && g.boss?.alive) { g.boss.hp = 1; g.purify(g.boss, null); } else this.note('首领关打到首领出来再按'); break;
       case 'wish-clear': { const S = wishStore(g); S.slots.length = 0; S.queue.length = 0; if (g.save) g.save.dirty = true; this.note('心愿树清空了'); } break;

@@ -32,6 +32,7 @@ export class Audio {
   pick(game) {
     let t = 'bgm_battle';
     if (game.phase === 'lobby') t = 'bgm_lobby';
+    else if (game.phase === 'home') t = this.has('bgm_home') ? 'bgm_home' : 'bgm_lobby';
     else if (game.phase === 'result') t = game.result?.clear ? 'bgm_win' : 'bgm_lobby';
     else if (game.stage?.kind === 'boss') t = 'bgm_boss';
     if (t === 'bgm_win' && !this.has('bgm_win')) t = 'bgm_lobby';

@@ -6,6 +6,8 @@ import { stepFoe } from './foes.js';
 import { startStage, stepStage, stageKind, chapterOf, failTarget, stageLabel, stageTitle, interceptZone, likeShield } from './stage.js';
 import { makeWish, returnWish, startComfort, hugBoss, comforting, initTreeSlots, wishStore } from './wish.js';
 import { addFriendship, hugFriend, stepDuo, tame, maybeTame, loadSprites, stepGarden, bestFriend, friendsOf, friendLevel, SPRITE_UNITS } from './friends.js';
+import { plant, water, harvest, sell, expand, farmAll, unlockPet, giftFarm, battleCoins, startHome, stepHome, assignTile, parseCrop, petUnlocked } from './farm.js';
+import { FARM, ADV_PETS } from './config.js';
 import { stepProjs, LANES, score, healTree } from './combat.js';
 import { giftKind, applyGift, stepGifts, moraleLike, dailyCheckin, loadBuffs, pauseSummons, resumeSummons, xpMul, goldPurified, addBond } from './gifts.js';
 import { rollDrops, smallPurify, giveItem, profileOf, petRecord, lootFloor, dropTimes, grantProfileItem } from './loot.js';
@@ -25,6 +27,17 @@ export function parseCommand(text) {
   if (m) return { type: 'ring', ring: '1１一'.includes(m[1]) ? 0 : '2２二'.includes(m[1]) ? 1 : 2 };
   if (/^(闪|闪避|闪开|躲|躲开|快跑|shan)$/.test(s)) return { type: 'dodge' };
   if (has('撑伞', '打伞', 'cs') || /^(伞|挡|挡住|拦截|拦)$/.test(s)) return { type: 'umbrella' };
+  // 回家种田
+  if (/^(种田|干活|干农活|农活|忙农活|一键种田|收菜卖菜)$/.test(s)) return { type: 'farmAll' };
+  const pl = raw.match(/^(?:种|种植|播种|种下|种点)\s*(.{0,8})$/);
+  if (pl && !/^(花|树|蛋)/.test(pl[1])) return { type: 'plant', crop: parseCrop(pl[1]) };
+  if (/^(浇水|浇|浇浇|浇花|浇菜|js)$/.test(s)) return { type: 'water' };
+  if (/^(收|收获|收菜|收割|摘|摘菜|收成)$/.test(s)) return { type: 'harvest' };
+  if (/^(卖|卖菜|卖掉|出售|卖货|卖了|全卖)$/.test(s)) return { type: 'sell' };
+  if (/^(扩地|开垦|买地|加地|开荒)$/.test(s)) return { type: 'expand' };
+  const ul = raw.match(/^(?:解锁|买|购买|兑换)\s*(.{1,8})$/);
+  if (ul && parseSpecies(ul[1])) return { type: 'unlock', sp: parseSpecies(ul[1]) };
+  if (/^(农场|我的农场|仓库|金币|我的金币|菜地)$/.test(s)) return { type: 'farm' };
   if (/抱抱|不哭|别哭|安慰|摸摸头|^hug$|^bb$/.test(s)) return { type: 'comfort', hug: /抱抱|hug|bb/.test(s) };
   if (/^(贴贴|贴一贴|蹭蹭|抱一个|tt)/.test(s)) return { type: 'hugf' };
   if (/^(摸摸|摸|rua|撸|撸撸|亲亲|mm)$/.test(s) || /^摸摸/.test(s)) return { type: 'pat' };
@@ -91,6 +104,16 @@ export class Game {
     this.syncNpcs();
     this.emit('phase', { phase: 'lobby', n: this.stageN });
   }
+  // 打完首领回家种田（时长在设置里改，0 = 不回家）
+  homeSeconds() { const v = this.settings.homeSeconds; return Number.isFinite(v) ? Math.max(0, Math.min(600, v)) : FARM.homeSeconds; }
+  startHome() {
+    this.phase = 'home'; this.phaseT = this.homeSeconds(); this.result = null;
+    this.foes.length = 0; this.projs.length = 0; this.zones.length = 0; this.areas.length = 0; this.boss = null;
+    for (const f of this.pets.values()) if (!f.egg) { if (!f.alive) setupPet(this, f, { keepCd: false }); f.act = null; }
+    startHome(this);
+    this.emit('phase', { phase: 'home', n: this.stageN });
+    this.emit('banner', { text: '回家啦！发「种田」一键收菜、卖菜、种菜、浇水', tier: 4 });
+  }
   startBattle() {
     const n = this.stageN;
     this.phase = 'battle'; this.phaseT = 0; this.result = null;
@@ -116,6 +139,7 @@ export class Game {
     const reserve = this.clearReward(n);
     for (const f of this.humans()) { this.grantXp(f, Math.round((10 + 4 * chapterOf(n)) * xpMul(this, f)), null, true); f.giftRound = 0; const p = profileOf(this, f); if (p) p.clears++; }
     this.liveXp();
+    battleCoins(this, n, kind === 'boss');
     const fruits = Math.ceil(this.tree.hp / (this.tree.maxHp / TREE.fruits) - 1e-6);
     this.emit('clear', { n, kind, label: stageLabel(n), title: stageTitle(n), drops: drops.length, fruits });
     if (kind === 'wave') {
@@ -190,7 +214,19 @@ export class Game {
       this.stepFoes(dt);
       stepProjs(this, dt);
       stepGifts(this, dt, false);
-      if (this.phaseT <= 0) { if (this.phase === 'result' && !this.result?.clear) this.startLobby('fail'); else this.startBattle(); }
+      if (this.phaseT <= 0) {
+        if (this.phase === 'result' && !this.result?.clear) this.startLobby('fail');
+        else if (this.phase === 'result' && this.result?.kind === 'boss' && this.homeSeconds() > 0) this.startHome();
+        else this.startBattle();
+      }
+      return;
+    }
+    if (this.phase === 'home') {
+      this.phaseT -= dt;
+      for (const f of [...this.pets.values()]) stepPet(this, f, dt, false);
+      stepGifts(this, dt, false);
+      stepHome(this, dt);
+      if (this.phaseT <= 0) this.startLobby('home');
       return;
     }
     this.engaged.clear();
@@ -233,6 +269,7 @@ export class Game {
       if (sp) this.setSpecies(f, sp);
       return f;
     }
+    if (sp && ADV_PETS[sp]) { const pr = this.save && !uid.startsWith('test:') ? this.save.peek(uid) : null; if (!pr?.farm?.pets?.includes(sp)) { this.emit('toast', { uid, text: `${user.name || '小可爱'}：${SPECIES[sp].kind}是高级萌宠，农场 Lv${ADV_PETS[sp].lv} + ${ADV_PETS[sp].cost}金币解锁（发「解锁${SPECIES[sp].kind}」）` }); sp = null; } }
     const test = uid.startsWith('test:');
     const prof = this.save && !test ? this.save.get(uid, user.name, user.avatar) : null;
     const chosen = sp || prof?.cur || pickSpecies(this);
@@ -248,6 +285,7 @@ export class Game {
     if (fresh) this.layEgg(f);
     this.emit('join', { uid, name: f.name, sp: chosen, fresh });
     if (prof) { this.catchUp(f, prof); loadBuffs(this, f, prof); }
+    if (this.phase === 'home') assignTile(this, f);
     this.syncNpcs();
     return f;
   }
@@ -269,6 +307,7 @@ export class Game {
   }
   setSpecies(f, sp) {
     if (!SPECIES[sp] || f.npc) return false;
+    if (ADV_PETS[sp] && !petUnlocked(this, f, sp)) { this.emit('toast', { uid: f.uid, text: `${f.name}：${SPECIES[sp].kind}是高级萌宠，农场 Lv${ADV_PETS[sp].lv} + ${ADV_PETS[sp].cost}金币解锁（发「解锁${SPECIES[sp].kind}」）` }); return false; }
     const prof = this.save && !f.test ? this.save.peek(f.uid) : null;
     if (prof && prof.cur !== sp) { prof.cur = sp; this.save.dirty = true; }
     if (f.sp === sp) return true;
@@ -447,7 +486,7 @@ export class Game {
   chat(user, text) {
     this.stats.chats++;
     const pre = parseCommand(text);
-    const early = pre && (pre.type === 'wish' || pre.type === 'name' || pre.type === 'comfort');
+    const early = pre && ['wish', 'name', 'comfort', 'unlock', 'plant', 'farmAll'].includes(pre.type);
     const sk = early ? null : parseSkill(text);
     if (sk) { const f = this.join(user); if (!f) return false; f.lastActive = this.now(); if (sk === 'ult' && this.phase === 'battle') requestUlt(this, f); return true; }
     const sp = early ? null : parseSpecies(text);
@@ -466,6 +505,14 @@ export class Game {
       case 'hugf': if (comforting(this)) hugBoss(this, f); else hugFriend(this, f); break;
       case 'wish': makeWish(this, f, cmd.text); break;
       case 'friends': this.friendToast(f); break;
+      case 'farmAll': farmAll(this, f); break;
+      case 'plant': plant(this, f, cmd.crop); break;
+      case 'water': water(this, f); break;
+      case 'harvest': harvest(this, f); break;
+      case 'sell': sell(this, f); break;
+      case 'expand': expand(this, f); break;
+      case 'unlock': unlockPet(this, f, cmd.sp); break;
+      case 'farm': this.emit('farmCard', { uid: f.uid }); break;
       case 'sprites': this.spriteToast(f); break;
       case 'name': this.rename(f, cmd.nick); break;
       case 'card': this.emit('card', { uid: f.uid }); break;
@@ -513,6 +560,7 @@ export class Game {
     this.emit('toast', { uid: f.uid, text: `${f.name} ${had ? '自动守护延长到' : '开启自动守护！'} ${fmtDuration(f.auto)}（自动闪、自动躲雨、自动撑伞、自动放大招）` });
     const kind = giftKind(gift, this.settings.giftByName);
     this.emit('gift', { uid: f.uid, name: f.name, gift: gift.name || '礼物', count: amount, kind });
+    giftFarm(this, f, value);   // 送礼也给农场金币；在家送还会施肥
     if (this.phase !== 'battle') {
       this.pendingGifts.push({ uid: f.uid, kind, amount });
       if (this.pendingGifts.length > 500) this.pendingGifts.shift();

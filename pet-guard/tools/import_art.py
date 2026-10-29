@@ -16,7 +16,9 @@ from scipy import ndimage
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, 'assets')
-SP = ['shiba', 'cat', 'bunny', 'panda', 'fox', 'hamster', 'penguin', 'dragon']
+SP = ['shiba', 'cat', 'bunny', 'panda', 'fox', 'hamster', 'penguin', 'dragon', 'sheep', 'deer', 'unicorn', 'phoenix']
+SP_BASE = SP[:8]
+CROP_IDS = ['carrot', 'cabbage', 'strawberry', 'corn', 'tomato', 'pumpkin', 'sunflower', 'watermelon', 'grape', 'starfruit']
 FOE_H = {'dust': 220, 'cloud': 220, 'thief': 220, 'burr': 220, 'tear': 220, 'bear': 320, 'clock': 320, 'crow': 320,
          'storm': 560, 'puffer': 560, 'owl': 560, 'yeti': 560, 'king': 560}
 
@@ -29,6 +31,10 @@ def spec_of(fid):
     if m and m.group(1) in FOE_H:
         u = m.group(1)
         return dict(grid=(1, 2), names=[f'foe:{u}:0', f'foe:{u}:1'], h=FOE_H[u], bg='white', dir='foes')
+    m = re.fullmatch(r'crops_([1-5])', fid)        # 作物：一张两种，每种三个阶段（发芽 / 长大 / 成熟）
+    if m:
+        a, b = CROP_IDS[(int(m.group(1)) - 1) * 2:(int(m.group(1)) - 1) * 2 + 2]
+        return dict(grid=(2, 3), names=[f'crop:{a}:{i}' for i in range(3)] + [f'crop:{b}:{i}' for i in range(3)], h=180, bg='white', dir='farm')
     m = re.fullmatch(r'sad_(\w+)', fid)          # 首领委屈大哭版（抱抱首领）
     if m and m.group(1) in FOE_H:
         return dict(grid=(1, 1), names=[f'foe:{m.group(1)}:2'], h=FOE_H[m.group(1)], bg='white', dir='foes')
@@ -40,7 +46,14 @@ def spec_of(fid):
         return dict(kind='seq', grid=(1, n), seq=f'seq:{m.group(1)}:{m.group(3) or 2}:{m.group(2)}', h=320, bg='white', dir='seq', fps=8 if m.group(2) != 'sleep' else 2)
     table = {
         'tree':          dict(grid=(1, 1), names=['tree'], h=560, bg='white', dir='misc'),
-        'eggs':          dict(grid=(2, 4), names=[f'egg:{s}' for s in SP], h=170, bg='white', dir='misc'),
+        'eggs':          dict(grid=(2, 4), names=[f'egg:{s}' for s in SP_BASE], h=170, bg='white', dir='misc'),
+        'eggs_adv':      dict(grid=(1, 4), names=[f'egg:{s}' for s in SP[8:]], h=170, bg='white', dir='misc'),
+        'proj_adv':      dict(grid=(1, 3), names=['proj:wool', 'proj:leaf', 'proj:feather'], box=140, bg='white', dir='fx'),
+        # 回家种田
+        'farm_tiles':    dict(grid=(1, 2), names=['farm:soil', 'farm:wet'], box=280, bg='white', dir='farm'),
+        'produce':       dict(grid=(2, 5), names=[f'produce:{c}' for c in CROP_IDS], box=140, bg='white', dir='farm'),
+        'icons_farm':    dict(grid=(2, 4), names=[f'farm:{n}' for n in ['can', 'seed', 'basket', 'coin', 'coins', 'fertilizer', 'hoe', 'lock']], box=140, bg='white', dir='farm'),
+        'market':        dict(grid=(1, 1), names=['farm:market'], h=320, bg='white', dir='farm'),
         'icons_food':    dict(grid=(2, 5), names=[f'icon:{n}' for n in ['fish', 'bone', 'carrot', 'bamboo', 'seed', 'cake', 'milk', 'star', 'fruit', 'candy']], box=140, bg='white', dir='icons'),
         'gear_hat':      dict(grid=(2, 3), names=[f'gear:hat:{i}' for i in range(6)], box=160, bg='white', dir='gear'),
         'gear_collar':   dict(grid=(2, 3), names=[f'gear:collar:{i}' for i in range(6)], box=140, bg='white', dir='gear'),
@@ -299,7 +312,7 @@ def main():
         fid = file_id(name)
         ext = os.path.splitext(name)[1].lower()
         if ext in ('.mp3', '.ogg', '.wav', '.m4a'):
-            m = re.fullmatch(r'bgm_(lobby|battle|boss|win)', fid)
+            m = re.fullmatch(r'bgm_(lobby|battle|boss|win|home)', fid)
             if not m: skipped.append(name); continue
             os.makedirs(os.path.join(ASSETS, 'audio'), exist_ok=True)
             if ext == '.mp3': shutil.copy(path, os.path.join(ASSETS, 'audio', fid + '.mp3'))

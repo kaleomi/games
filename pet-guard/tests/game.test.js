@@ -270,3 +270,105 @@ test('收服小精灵、鲜花种花', () => {
   g.gift({ id: 's1', name: '收服的' }, { name: '鲜花', price: 10, count: 2 });
   assert.equal(g.flowers.length, 2, '种了两朵花');
 });
+
+// ───────── 回家种田 ─────────
+import { farmOf, plotStage } from '../src/farm.js';
+import { FARM, CROPS, ADV_PETS } from '../src/config.js';
+
+test('打完首领回家：结算后进家园，待够时间再出发去下一章', () => {
+  const { g, run } = setup(41);
+  g.chat({ id: 'k1', name: '回家的' }, '柴犬');
+  g.setStageN(5); g.startLobby('jump'); g.phaseT = 0.01; run(3);
+  g.purify(g.boss, null);
+  for (let i = 0; i < 20 && g.phase === 'battle'; i++) { g.chat({ id: 'k1', name: '回家的' }, '抱抱'); run(1); }
+  run(COMFORT.ceremony + 0.5);
+  assert.equal(g.phase, 'result');
+  run(9);
+  assert.equal(g.phase, 'home', '结算完回家');
+  assert.equal(g.homeTiles[0], 'k1', '分到一块菜地');
+  run(FARM.homeSeconds + 1);
+  assert.equal(g.phase, 'lobby');
+  assert.equal(g.stageN, 6);
+  g.settings.homeSeconds = 0;
+  assert.equal(g.homeSeconds(), 0, '设置成0就不回家');
+});
+
+test('种田：种 → 浇水更快 → 收 → 卖；升级解锁新作物；扩地', () => {
+  const { g, save, run } = setup(43);
+  g.chat({ id: 'm1', name: '农夫' }, '兔'); g.chat({ id: 'm2', name: '邻居' }, '猫');
+  run(3);
+  g.chat({ id: 'm1', name: '农夫' }, '种萝卜');
+  assert.ok(g.drainEvents().some(e => e.type === 'toast' && /回家/.test(e.text)), '不在家不能种');
+  g.startHome();
+  const fm = farmOf(g, g.pets.get('m1'));
+  assert.equal(fm.coins, FARM.startCoins);
+  g.chat({ id: 'm1', name: '农夫' }, '种萝卜');
+  assert.equal(fm.plots.filter(Boolean).length, 2, '两块地都种上');
+  assert.equal(fm.coins, FARM.startCoins - 2 * CROPS[0].seed);
+  const left0 = plotStage(fm.plots[0], g.now()).left;
+  g.chat({ id: 'm1', name: '农夫' }, '浇水');
+  const left1 = plotStage(fm.plots[0], g.now()).left;
+  assert.ok(Math.abs(left1 - left0 * FARM.water) < 0.1, `浇水快了 ${left0}→${left1}`);
+  g.chat({ id: 'm1', name: '农夫' }, '收');
+  assert.equal(fm.plots.filter(Boolean).length, 2, '没熟收不了');
+  run(left1 + 0.5);
+  g.chat({ id: 'm1', name: '农夫' }, '收');
+  assert.equal(fm.barn.carrot, 2);
+  assert.equal(fm.xp, 2 * CROPS[0].xp);
+  g.chat({ id: 'm1', name: '农夫' }, '卖');
+  const price = Math.round(2 * CROPS[0].sell * (g.market.hot === 'carrot' ? 2 : g.market.cold === 'carrot' ? 0.7 : 1));
+  assert.equal(fm.coins, FARM.startCoins - 2 * CROPS[0].seed + price);
+  assert.equal(save.data.players.m1.farm.coins, fm.coins, '存进存档');
+  fm.xp = 1000; fm.coins = 5000;
+  g.chat({ id: 'm1', name: '农夫' }, '种田');   // 一键
+  assert.ok(fm.lv >= 2 || fm.plots.some(Boolean));
+  fm.plots = [null, null]; fm.lv = 3; fm.coins = 5000;
+  g.chat({ id: 'm1', name: '农夫' }, '种草莓');
+  assert.equal(fm.plots[0].c, 'strawberry', '升级后能种草莓');
+  g.chat({ id: 'm1', name: '农夫' }, '扩地');
+  assert.equal(fm.plots.length, 3);
+  assert.equal(fm.coins, 5000 - 2 * CROPS[2].seed - FARM.plotCost[0]);
+});
+
+test('好朋友顺手浇水；在家送礼施肥、给金币', () => {
+  const { g, run } = setup(45);
+  g.chat({ id: 'p1', name: '甲' }, '狗'); g.chat({ id: 'p2', name: '乙' }, '猫');
+  run(3); g.startHome();
+  g.addFriendship({ uid: 'p1', name: '甲' }, { uid: 'p2', name: '乙' }, 5);
+  g.chat({ id: 'p2', name: '乙' }, '种萝卜');
+  const f2 = farmOf(g, g.pets.get('p2')), before = f2.plots[0].ready;
+  g.chat({ id: 'p1', name: '甲' }, '浇水');
+  assert.ok(f2.plots[0].ready < before && f2.plots[0].fw === 1, '好朋友的菜也浇了');
+  const coins = f2.coins;
+  g.gift({ id: 'p2', name: '乙' }, { name: '小心心', price: 1, count: 3 });
+  assert.equal(f2.coins, coins + 3 * FARM.giftCoins);
+  assert.ok(f2.plots[0].ready <= g.now(), '施肥马上熟');
+});
+
+test('高级萌宠：没解锁领不了；农场等级和金币够了解锁，会放技能', () => {
+  const { g, run } = setup(47);
+  g.chat({ id: 'a1', name: '想要独角兽' }, '独角兽');
+  const f = g.pets.get('a1');
+  assert.notEqual(f.sp, 'unicorn', '没解锁');
+  g.startHome();
+  const fm = farmOf(g, f);
+  g.chat({ id: 'a1', name: '想要独角兽' }, '解锁独角兽');
+  assert.ok(!fm.pets.includes('unicorn'), '等级不够');
+  fm.lv = ADV_PETS.unicorn.lv; fm.coins = ADV_PETS.unicorn.cost + 10;
+  g.chat({ id: 'a1', name: '想要独角兽' }, '解锁独角兽');
+  assert.ok(fm.pets.includes('unicorn'));
+  assert.equal(f.sp, 'unicorn', '解锁后直接换上');
+  assert.equal(fm.coins, 10);
+  // 四只高级萌宠打一会儿不报错
+  for (const [i, sp] of ['sheep', 'deer', 'unicorn', 'phoenix'].entries()) {
+    g.chat({ id: 'b' + i, name: '高级' + i }, '狗');
+    const o = g.pets.get('b' + i), of = farmOf(g, o); of.pets.push(sp);
+    assert.ok(g.setSpecies(o, sp));
+  }
+  g.startLobby('test'); run(2);
+  for (const f2 of g.pets.values()) { f2.egg = false; }
+  g.phaseT = 0.01; run(40);
+  for (const id of ['b0', 'b1', 'b2', 'b3']) { const o = g.pets.get(id); o.ultCd = 0; o.ultReq = g.clock + 2; }
+  run(5);
+  assert.ok(g.phase === 'battle' || g.phase === 'clear' || g.phase === 'result');
+});

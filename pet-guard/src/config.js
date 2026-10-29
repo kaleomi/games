@@ -95,8 +95,25 @@ export const SPECIES = {
   dragon:  { name: '糖豆', kind: '小奶龙', color: '#c77dff', role: 'ranged', hp: 148, atk: 10.5, armor: 0.1,  interval: 1.1,  range: 400, food: 'candy',
     skill: { name: '彩虹吐息', cd: 10 }, ult: { name: '流星糖果雨' }, words: ['龙', '小龙', '奶龙', '糖豆', '恐龙', '小奶龙'],
     desc: '远程范围：彩虹弹炸开一小片；彩虹吐息扇形连喷；流星糖果雨砸满全场', passive: '甜甜：范围伤害提升' },
+  // ───── 高级萌宠：回家种田，农场等级够了花金币解锁（ADV_PETS） ─────
+  sheep:   { name: '绵绵', kind: '小绵羊', color: '#f3e6d0', role: 'back',  hp: 210, atk: 9,    armor: 0.15, interval: 1.0,  range: 400, food: 'milk', heal: 1.35, adv: true,
+    skill: { name: '棉花云护盾', cd: 9 }, ult: { name: '云朵摇篮' }, words: ['羊', '绵羊', '小羊', '小绵羊', '绵绵', '咩咩', '羊羊'],
+    desc: '高级治疗：羊毛球能打能奶；棉花云护盾给最累的三只套护盾；云朵摇篮全队护盾、叫醒打盹的伙伴', passive: '软绵绵：治疗和护盾提升' },
+  deer:    { name: '鹿鹿', kind: '小鹿', color: '#d9a066', role: 'ranged', hp: 195, atk: 13.5, armor: 0.1,  interval: 1.0,  range: 420, food: 'fruit', heal: 0.5, adv: true,
+    skill: { name: '森林之歌', cd: 9 }, ult: { name: '生命之树' }, words: ['鹿', '小鹿', '鹿鹿', '梅花鹿', '麋鹿'],
+    desc: '高级控场：叶子魔法穿透；森林之歌让坏心情被藤蔓缠住、给身边伙伴回血；生命之树长出一大片森林，一边打一边奶', passive: '森林：技能冷却缩短' },
+  unicorn: { name: '星星', kind: '独角兽', color: '#f6b8e8', role: 'melee', hp: 320, atk: 16,   armor: 0.25, interval: 0.85, range: 0,   food: 'star', crit: 0.12, critDmg: 0.3, adv: true,
+    skill: { name: '彩虹冲锋', cd: 9 }, ult: { name: '星光陨落' }, words: ['独角兽', '星星', '小马', '彩虹马', '天马'],
+    desc: '高级近战：独角一顶；彩虹冲锋一路撞穿；星光陨落满天星星砸下来，全队攻击提升', passive: '星光：暴击伤害提升' },
+  phoenix: { name: '火火', kind: '小凤凰', color: '#ff8a3d', role: 'ranged', hp: 205, atk: 16,   armor: 0.1,  interval: 0.9,  range: 440, food: 'cake', adv: true,
+    skill: { name: '凤羽连射', cd: 9 }, ult: { name: '浴火重生' }, words: ['凤凰', '小凤凰', '火火', '火鸟', '朱雀'],
+    desc: '高级远程：火羽毛灼烧；凤羽连射七根追踪羽毛；浴火重生让所有打盹的伙伴满血复活、敌群里炸开火焰', passive: '涅槃：灼烧伤害提升' },
 };
-export const SPECIES_IDS = Object.keys(SPECIES);
+export const ALL_SPECIES = Object.keys(SPECIES);
+export const SPECIES_IDS = ALL_SPECIES.filter(id => !SPECIES[id].adv);   // 基础八种（开场页、轮播、随机分配用）
+export const ADV_IDS = ALL_SPECIES.filter(id => SPECIES[id].adv);
+// 高级萌宠解锁条件：农场等级 + 金币
+export const ADV_PETS = { sheep: { lv: 3, cost: 600 }, deer: { lv: 6, cost: 2000 }, unicorn: { lv: 10, cost: 6000 }, phoenix: { lv: 14, cost: 15000 } };
 export const ROLE_NAMES = { front: '前排', melee: '近战', ranged: '远程', back: '治疗' };
 
 // 各萌宠招式参数（伤害 = 攻击力 × 倍数）
@@ -109,12 +126,17 @@ export const KIT = {
   hamster: { proj: 'seed', speed: 820, mul: 1.15, skill: { n: 18, mul: 1.4, range: 320 }, ult: { n: 32, mul: 2.4, xpSec: 20, xp: 0.3 } },
   penguin: { proj: 'snowball', speed: 600, mul: 1.6, slow: 0.35, slowSec: 2, freeze: 0.08, skill: { n: 3, mul: 2.6, r: 70, slow: 0.45 }, ult: { freeze: 2.4, mul: 7 } },
   dragon:  { proj: 'rainbow', speed: 560, mul: 1.8, splash: 56, skill: { arc: 0.55, len: 300, tick: 0.2, n: 8, mul: 0.9 }, ult: { n: 18, r: 80, mul: 4.2, every: 0.18 } },
+  sheep:   { proj: 'wool', speed: 500, mul: 1.4, healMul: 0.14, skill: { n: 3, shield: 0.3, frac: 0.15 }, ult: { shield: 0.35, wake: 0.6, heal: 0.3, r: 200, slow: 0.4 } },
+  deer:    { proj: 'leaf', speed: 700, mul: 1.6, pierce: 2, skill: { r: 130, mul: 3, root: 1.2, heal: 0.12 }, ult: { r: 220, sec: 6, tick: 0.5, mul: 1.5, heal: 0.04, slow: 0.45 } },
+  unicorn: { reach: 54, r: 70, mul: 2.8, skill: { dist: 280, mul: 5, r: 66 }, ult: { n: 22, r: 90, mul: 4.6, every: 0.12, atk: 0.2, atkSec: 8 } },
+  phoenix: { proj: 'feather', speed: 760, mul: 1.6, burn: 0.4, burnSec: 3, skill: { n: 7, arc: 0.9, mul: 2.3 }, ult: { revive: 0.6, r: 200, mul: 14 } },
 };
 
 // 天生被动（随天赋档位加强：档位 1–6）
 export const PASSIVE = {
   shiba: { dr: 0.03 }, cat: { critDmg: 0.08 }, bunny: { heal: 0.08 }, panda: { haste: 0.04 },
   fox: { burn: 0.15 }, hamster: { xp: 0.03 }, penguin: { freeze: 0.02 }, dragon: { splash: 0.06 },
+  sheep: { heal: 0.08 }, deer: { haste: 0.04 }, unicorn: { critDmg: 0.1 }, phoenix: { burn: 0.15 },
 };
 
 // ───────── 天赋（礼物「加油鸭」觉醒一次，随机一档、取最好）：每只萌宠各自的天赋，全属性倍率 ─────────
@@ -315,3 +337,30 @@ export const SPRITES = {
 };
 // 鲜花种花：送鲜花在场上种花，花开给旁边萌宠回血、让坏心情走慢（整章都在，换季清空）
 export const GARDEN = { max: 36, perGift: 3, grow: 2.2, healR: 80, heal: 0.012, slowR: 72, slow: 0.35 };
+
+// ───────── 回家种田：打完首领回家，种菜、浇水、收获、卖菜赚金币，解锁新作物和高级萌宠 ─────────
+// 作物按真实时间长（在家种下，打一章回来就熟了）；浇水剩下的时间 ×0.6，好朋友顺手浇再 ×0.8
+export const CROPS = [
+  { id: 'carrot',     name: '小萝卜', words: ['萝卜', '胡萝卜', '小萝卜'],       seed: 5,   grow: 45,   sell: 12,   xp: 3,  lv: 1 },
+  { id: 'cabbage',    name: '小白菜', words: ['白菜', '小白菜', '青菜', '菜'],     seed: 10,  grow: 120,  sell: 28,   xp: 5,  lv: 2 },
+  { id: 'strawberry', name: '草莓',   words: ['草莓', '莓'],                     seed: 20,  grow: 240,  sell: 60,   xp: 8,  lv: 3 },
+  { id: 'corn',       name: '玉米',   words: ['玉米', '苞米'],                   seed: 35,  grow: 360,  sell: 100,  xp: 12, lv: 4 },
+  { id: 'tomato',     name: '番茄',   words: ['番茄', '西红柿'],                 seed: 50,  grow: 480,  sell: 145,  xp: 16, lv: 6 },
+  { id: 'pumpkin',    name: '南瓜',   words: ['南瓜', '倭瓜'],                   seed: 80,  grow: 720,  sell: 240,  xp: 24, lv: 8 },
+  { id: 'sunflower',  name: '向日葵', words: ['向日葵', '葵花', '瓜子花'],       seed: 120, grow: 900,  sell: 340,  xp: 32, lv: 10 },
+  { id: 'watermelon', name: '西瓜',   words: ['西瓜'],                           seed: 180, grow: 1200, sell: 520,  xp: 44, lv: 12 },
+  { id: 'grape',      name: '葡萄',   words: ['葡萄', '提子'],                   seed: 260, grow: 1800, sell: 780,  xp: 60, lv: 15 },
+  { id: 'starfruit',  name: '星星果', words: ['星星果', '杨桃', '星果'],         seed: 400, grow: 2700, sell: 1300, xp: 90, lv: 18 },
+];
+export const FARM = {
+  homeSeconds: 90,          // 在家待多久（设置里能改，填0不回家）
+  startCoins: 30,
+  plotsStart: 2, plotsMax: 6, plotCost: [150, 500, 1500, 4000],   // 第3~6块地的价钱
+  water: 0.6, friendWater: 0.8,
+  level: lv => Math.round(15 * lv ** 1.5),    // 农场升到下一级要的经验
+  giftCoins: 8,             // 送礼：每1抖币给8金币（在家送还会「施肥」：自己的菜马上熟）
+  stageCoins: ch => 6 + 3 * ch, bossCoins: ch => 40 + 20 * ch,   // 打怪也给金币
+  market: { hot: 2, cold: 0.7 },   // 今日行情：一种菜 ×2，一种 ×0.7
+  autoEvery: 8,             // 自动守护的萌宠在家每8秒自动干一轮农活
+  tiles: { cols: 4, rows: 7, x0: 66, y0: 400, w: 106, h: 62, gx: 172, gy: 84 },   // 菜地格子（每位观众一块，萌宠站在地的左边）
+};

@@ -1,5 +1,5 @@
 // 萌宠：领养、属性、站位、普攻、技能、大招、闪、躲雨、打盹、孵化、摸摸
-import { W, FIELD, PET, SPECIES, SPECIES_IDS, KIT, SCORE, GIFTS, TREE, FORMS, formOf } from './config.js';
+import { W, FIELD, PET, SPECIES, ALL_SPECIES, KIT, SCORE, GIFTS, TREE, FORMS, formOf } from './config.js';
 import { petStats } from './gear.js';
 import {
   clamp, LANES, foesIn, petsIn, liveFoes, livePets, densest, rollCrit, damageFoe, healPet, score, addProj, aimAt,
@@ -7,16 +7,17 @@ import {
 } from './combat.js';
 import { stepHug } from './friends.js';
 import { comfortSpot } from './wish.js';
+import { farmSpot } from './farm.js';
 
 // ───────── 弹幕解析 ─────────
-const SP_WORDS = SPECIES_IDS.flatMap(id => SPECIES[id].words.map(w => [w, id])).sort((a, b) => b[0].length - a[0].length);
+const SP_WORDS = ALL_SPECIES.flatMap(id => SPECIES[id].words.map(w => [w, id])).sort((a, b) => b[0].length - a[0].length);
 export function parseSpecies(text) {
   const s = String(text || '').trim().replace(/[!！。~～.]+$/, '').replace(/^(我要|我想养|领养|养|换成|换|选|要|来只|来个|来一只|抱一只|抱)/, '');
   if (!s || s.length > 5) return null;
   for (const [w, id] of SP_WORDS) if (s === w || s === w + '宝' || s === w + '酱') return id;
   return null;
 }
-const ULT_WORDS = SPECIES_IDS.map(id => SPECIES[id].ult.name);
+const ULT_WORDS = ALL_SPECIES.map(id => SPECIES[id].ult.name);
 export function parseSkill(text) {
   const s = String(text || '').trim().toLowerCase();
   if (!s || s.length > 12) return null;
@@ -47,7 +48,7 @@ export function refreshStats(f) {
   f.maxHp = f.stats.maxHp; f.hp = Math.max(f.alive === false ? 0 : 1, Math.round(f.maxHp * ratio));
   f.form = formOf(f.level || 1); f.h = FORMS[f.form].h * (f.mini ? 0.72 : 1);
 }
-const HIT_FX = { shiba: 'paw', cat: 'claw', panda: 'paw', bunny: 'heart', fox: 'fire', hamster: 'pop', penguin: 'ice', dragon: 'star' };
+const HIT_FX = { shiba: 'paw', cat: 'claw', panda: 'paw', bunny: 'heart', fox: 'fire', hamster: 'pop', penguin: 'ice', dragon: 'star', sheep: 'heart', deer: 'leaf', unicorn: 'star', phoenix: 'fire' };
 export function setupPet(game, f, { keepCd = true } = {}) {
   f.isPet = true;
   if (f.homeX == null) f.homeX = LANES[Math.floor(game.random() * 3)];
@@ -103,7 +104,8 @@ export function stepPet(game, f, dt, combat) {
   if (!combat) {
     if (f.act && f.act.kind !== 'ult') f.act = null;
     if (stepHug(game, f, dt, walkTo)) return;
-    if (!f.act) walkTo(game, f, homeWander(game, f, dt), dt, 0.6); else stepAct(game, f, dt);
+    const fs = farmSpot(game, f);   // 在家：站到自己那块菜地边上
+    if (!f.act) { if (fs) { if (walkTo(game, f, fs, dt, 0.8)) faceTo(game, f, 1, 0); } else walkTo(game, f, game.phase === 'home' ? homeYard(game, f, dt) : homeWander(game, f, dt), dt, 0.6); } else stepAct(game, f, dt);
     return;
   }
   f.atkCd -= dt; f.skillCd -= dt; f.ultCd -= dt;
@@ -224,6 +226,11 @@ function homeWander(game, f, dt) {
   f.slotDx += clamp(f.wanderX - f.slotDx, -ws, ws); f.slotDy += clamp(f.wanderY - f.slotDy, -ws, ws);
   return home(f);
 }
+// 在家没有菜地的（流浪萌宠、小伙伴）：在院子边上溜达
+function homeYard(game, f, dt) {
+  if ((f.yardT = (f.yardT || 0) - dt) <= 0) { f.yardT = 3 + game.random() * 4; const side = game.random() < 0.5; f.yard = { x: side ? 30 + game.random() * 60 : W - 30 - game.random() * 60, y: 900 + game.random() * 60 }; }
+  return f.yard || { x: f.x, y: f.y };
+}
 function faceTo(game, f, dir, hold = 0.25) {
   if (dir === f.facing) return;
   if (game.clock - (f.faceT ?? -9) < hold) return;
@@ -284,7 +291,7 @@ function basicAI(game, f, dt) {
   if (ranged) {
     const sp = rangedSpot(game, f, dt), o = f.rOff || { x: 0, y: 0 };
     walkTo(game, f, { x: clamp(sp.x + o.x, 30, W - 30), y: sp.y + o.y }, dt, 0.9);
-    const healOnly = !tgt && f.sp === 'bunny' && f.atkCd <= 0 && lowestAlly(game, f, 0.85, 420);
+    const healOnly = !tgt && (f.sp === 'bunny' || f.sp === 'sheep') && f.atkCd <= 0 && lowestAlly(game, f, 0.85, 420);
     if ((tgt || healOnly) && f.atkCd <= 0) startBasic(game, f, tgt);
     else if (tgt && f.anim === 'idle' && Math.abs(tgt.x - f.x) > 6) faceTo(game, f, tgt.x >= f.x ? 1 : -1);
     return;
@@ -367,7 +374,7 @@ function basicHit(game, f, tgt) {
   const K = KIT[f.sp], st = f.stats;
   game.emit('sfx', { name: 'atk', sp: f.sp });
   switch (f.sp) {
-    case 'shiba': case 'cat': meleeHit(game, f, K.reach, K.r, K.mul); break;
+    case 'shiba': case 'cat': case 'unicorn': meleeHit(game, f, K.reach, K.r, K.mul); break;
     case 'panda': meleeHit(game, f, K.reach, K.r, K.mul, { knock: K.knock }); break;
     case 'bunny': {
       const ally = lowestAlly(game, f, 0.9, 420);
@@ -384,6 +391,18 @@ function basicHit(game, f, tgt) {
     case 'penguin': {
       const [d, crit] = rollCrit(game, f, st.atk * K.mul);
       shoot(game, f, tgt, 'snowball', K.speed, d, { crit, onHit: (g, e) => { slowE(e, K.slow, K.slowSec, g.clock); if (g.random() < K.freeze + st.freeze) stunE(e, 1, g.clock, 'freeze'); } });
+      break;
+    }
+    case 'sheep': {   // 羊毛球：先给最累的伙伴补一下，再打坏心情
+      const ally = lowestAlly(game, f, 0.9, 420);
+      if (ally) addProj(game, { team: 'p', owner: f.uid, kind: 'wool', heal: (ally.maxHp * 0.04 + st.atk * 1.4) * K.healMul * 8 * st.heal, fixed: ally, homing: 12, x: f.x, y: f.y - f.h * 0.6, vx: 0, vy: -300, r: 11, life: 2 });
+      if (tgt) { const [d, crit] = rollCrit(game, f, st.atk * K.mul); shoot(game, f, tgt, 'wool', K.speed, d, { crit, homing: 4, fixed: tgt }); }
+      break;
+    }
+    case 'deer': { const [d, crit] = rollCrit(game, f, st.atk * K.mul); shoot(game, f, tgt, 'leaf', K.speed, d, { crit, pierce: K.pierce, spin: 10 }); break; }
+    case 'phoenix': {
+      const [d, crit] = rollCrit(game, f, st.atk * K.mul);
+      shoot(game, f, tgt, 'feather', K.speed, d, { crit, onHit: (g, e) => burnE(e, st.atk * K.burn * st.burn, K.burnSec, g.clock, f.uid) });
       break;
     }
     case 'dragon': {
@@ -523,6 +542,59 @@ export function castSkill(game, f) {
       emit({ fx: 'breath', ang, len: K.skill.len, arc: K.skill.arc, dur: K.skill.n * K.skill.tick });
       return true;
     }
+    case 'sheep': {   // 棉花云护盾：最累的三只套上护盾、回一点血
+      const list = [...game.pets.values()].filter(a => a.alive && !a.egg).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp).slice(0, K.skill.n);
+      if (!list.length || list[0].hp >= list[0].maxHp * 0.95 && !liveFoes(game).length) return false;
+      startAct(f, 'skill', 0.5, [{ at: 0.25, fn: g => {
+        for (const a of list) {
+          a.shieldHp = Math.max(a.shieldHp || 0, a.maxHp * K.skill.shield * sm * st.heal); a.shieldUntil = g.clock + 6; a.shieldBy = f.uid;
+          const amt = healPet(g, a, a.maxHp * K.skill.frac * sm * st.heal, f);
+          g.emit('heal', { uid: a.uid, x: a.x, y: a.y, amount: Math.round(amt), small: amt < 1 });
+        }
+        emit({ fx: 'wool', targets: list.map(a => a.uid) });
+      } }]);
+      return true;
+    }
+    case 'deer': {    // 森林之歌：藤蔓缠住一片坏心情，顺便给身边伙伴回血
+      const spot = densest(game, f.x, f.y, K.skill.r);
+      if (!spot || Math.hypot(spot.x - f.x, spot.y - f.y) > 520) return false;
+      startAct(f, 'skill', 0.55, [{ at: 0.3, fn: g => {
+        for (const e of foesIn(g, spot.x, spot.y, K.skill.r)) { damageFoe(g, e, atk * K.skill.mul * sm, f, { fx: 'leaf' }); stunE(e, K.skill.root, g.clock); }
+        for (const a of petsIn(g, f.x, f.y, 200)) { const amt = healPet(g, a, a.maxHp * K.skill.heal * sm * st.heal, f); if (amt > 1) g.emit('heal', { uid: a.uid, x: a.x, y: a.y, amount: Math.round(amt), small: true }); }
+        g.emit('burst', { kind: 'bamboo', x: spot.x, y: spot.y, r: K.skill.r });
+      } }]);
+      emit({ fx: 'forest' });
+      return true;
+    }
+    case 'unicorn': { // 彩虹冲锋：朝坏心情一路撞穿
+      const tgt = pickTarget(game, f, false) || nearestE(game, f, 340);
+      if (!tgt) return false;
+      const sx = f.x, sy = f.y, dx = tgt.x - sx, dy = tgt.y - sy, d = Math.hypot(dx, dy) || 1;
+      const tx = clamp(sx + dx / d * K.skill.dist, 20, W - 20), ty = clamp(sy + dy / d * K.skill.dist, FIELD.top, FIELD.bottom);
+      f.facing = dx >= 0 ? 1 : -1; f.invuln = Math.max(f.invuln || 0, 0.5);
+      const hitSet = new Set();
+      startAct(f, 'skill', 0.5, [], { move: (g, h, dt, a) => {
+        const k = Math.min(1, a.t / 0.42); h.x = sx + (tx - sx) * k; h.y = sy + (ty - sy) * k;
+        for (const e of foesIn(g, h.x, h.y, K.skill.r)) if (!hitSet.has(e.id)) { hitSet.add(e.id); const [dd, crit] = rollCrit(g, f, atk * K.skill.mul * sm); damageFoe(g, e, dd, f, { crit, fx: 'star', melee: true, knock: [dx / d * 40, dy / d * 24] }); }
+        if (Math.random() < 0.5) g.emit('burst', { kind: 'rainbow', x: h.x, y: h.y - 20, r: 40 });
+      } });
+      emit({ fx: 'charge', x1: tx, y1: ty });
+      return true;
+    }
+    case 'phoenix': { // 凤羽连射：七根追踪火羽毛
+      const tgt = pickTarget(game, f, true);
+      if (!tgt) return false;
+      startAct(f, 'skill', 0.5, [{ at: 0.25, fn: g => {
+        const base = Math.atan2(tgt.y - tgt.h * 0.5 - (f.y - f.h * 0.55), tgt.x - f.x);
+        for (let i = 0; i < K.skill.n; i++) {
+          const a = base + (i - (K.skill.n - 1) / 2) * (K.skill.arc / (K.skill.n - 1));
+          addProj(g, { team: 'p', owner: f.uid, kind: 'feather', x: f.x, y: f.y - f.h * 0.55, vx: Math.cos(a) * K.speed, vy: Math.sin(a) * K.speed, dmg: atk * K.skill.mul * sm, r: 14, life: 1.4, homing: 5, big: true,
+            onHit: (gg, e) => burnE(e, atk * K.burn * st.burn * 1.5, K.burnSec, gg.clock, f.uid) });
+        }
+        emit({ fx: 'feathers' });
+      } }]);
+      return true;
+    }
     default: return false;
   }
 }
@@ -540,14 +612,14 @@ export function requestUlt(game, f) {
 }
 function npcWantsUlt(game, f) {
   const n = liveFoes(game).length, boss = game.boss && game.boss.alive && !game.boss.purified;
-  if (f.sp === 'bunny') return [...game.pets.values()].filter(a => !a.alive || a.hp < a.maxHp * 0.45).length >= 2;
+  if (f.sp === 'bunny' || f.sp === 'sheep' || f.sp === 'phoenix') return [...game.pets.values()].filter(a => !a.alive || a.hp < a.maxHp * 0.45).length >= 2 || (f.sp === 'phoenix' && (boss || n >= 8));
   return boss || n >= 6;
 }
 export function castUlt(game, f, { free = false } = {}) {
   if (!f.alive || f.egg) return false;
   const K = KIT[f.sp], st = f.stats, um = ultMul(f), atk = st.atk, c = game.clock;
   const spot = densest(game, f.x, f.y, 160);
-  if (!spot && f.sp !== 'bunny' && f.sp !== 'shiba') return false;
+  if (!spot && !['bunny', 'shiba', 'sheep', 'phoenix'].includes(f.sp)) return false;
   if (!free) f.ultCd = ultCdOf(f);
   f.ultReq = 0;
   const name = SPECIES[f.sp].ult.name;
@@ -646,6 +718,55 @@ export function castUlt(game, f, { free = false } = {}) {
           onEnd: gg => { for (const o of foesIn(gg, tx, ty, K.ult.r)) damageFoe(gg, o, atk * K.ult.mul * um * st.splash, f, { fx: 'star' }); gg.emit('burst', { kind: 'candy', x: tx, y: ty, r: K.ult.r }); } });
       } });
       startAct(f, 'ult', 0.3 + K.ult.n * K.ult.every + 0.3, hits);
+      return true;
+    }
+    case 'sheep': {   // 云朵摇篮：全队护盾、叫醒打盹的、回血，身边的坏心情变慢
+      startAct(f, 'ult', 0.9, [{ at: 0.5, fn: g => {
+        for (const a of g.pets.values()) {
+          if (a.egg) continue;
+          if (!a.alive) wakePet(g, a, K.ult.wake);
+          a.shieldHp = Math.max(a.shieldHp || 0, a.maxHp * K.ult.shield * um * st.heal); a.shieldUntil = g.clock + 8; a.shieldBy = f.uid;
+          const amt = healPet(g, a, a.maxHp * K.ult.heal * um * st.heal, f);
+          if (amt > 0) g.emit('heal', { uid: a.uid, x: a.x, y: a.y, amount: Math.round(amt) });
+        }
+        for (const e of foesIn(g, f.x, f.y, K.ult.r)) slowE(e, K.ult.slow, 3, g.clock);
+        g.emit('burst', { kind: 'candyrain', x: 360, y: 640, r: 400 });
+      } }]);
+      return true;
+    }
+    case 'deer': {    // 生命之树：一大片森林，坏心情走不动还掉血，伙伴在里面回血
+      const at = { x: clamp((f.x + spot.x) / 2, 110, W - 110), y: clamp((f.y + spot.y) / 2, FIELD.top + 60, FIELD.bottom - 40) };
+      startAct(f, 'ult', 0.7, [{ at: 0.4, fn: g => {
+        g.areas.push({ kind: 'bamboo', owner: f.uid, x: at.x, y: at.y, r: K.ult.r, t: 0, life: K.ult.sec, tickT: 0, every: K.ult.tick,
+          tick: gg => {
+            for (const e of foesIn(gg, at.x, at.y, K.ult.r)) { damageFoe(gg, e, atk * K.ult.mul * um, f, { fx: false }); slowE(e, K.ult.slow, 0.7, gg.clock); }
+            for (const a of petsIn(gg, at.x, at.y, K.ult.r)) healPet(gg, a, a.maxHp * K.ult.heal * st.heal, f);
+          } });
+        g.emit('burst', { kind: 'bamboo', x: at.x, y: at.y, r: K.ult.r });
+      } }]);
+      return true;
+    }
+    case 'unicorn': { // 星光陨落：满天星星砸下来，全队攻击提升
+      game.partyUntil = Math.max(game.partyUntil || 0, c + K.ult.atkSec);
+      const hits = [];
+      for (let i = 0; i < K.ult.n; i++) hits.push({ at: 0.3 + i * K.ult.every, fn: g => {
+        const list = liveFoes(g).filter(e => !(e.enter > 0));
+        const e = list.length ? list[Math.floor(g.random() * list.length)] : null;
+        const tx = e ? e.x + (g.random() - 0.5) * 40 : 120 + g.random() * 480, ty = e ? e.y : FIELD.top + g.random() * 400;
+        addProj(g, { team: 'p', owner: f.uid, kind: 'meteor', x: tx - 120, y: ty - 520, vx: 240, vy: 1040, dmg: 0, r: 1, life: 0.5, noHit: true,
+          onEnd: gg => { for (const o of foesIn(gg, tx, ty, K.ult.r)) { const [dd, crit] = rollCrit(gg, f, atk * K.ult.mul * um); damageFoe(gg, o, dd, f, { crit, fx: 'star' }); } gg.emit('burst', { kind: 'candy', x: tx, y: ty, r: K.ult.r }); } });
+      } });
+      startAct(f, 'ult', 0.3 + K.ult.n * K.ult.every + 0.3, hits);
+      game.emit('banner', { text: `${f.nick || f.name}的星光陨落！全队攻击提升 ${K.ult.atkSec}秒`, tier: 3 });
+      return true;
+    }
+    case 'phoenix': { // 浴火重生：打盹的伙伴全部复活，敌群里炸开火焰
+      startAct(f, 'ult', 0.9, [{ at: 0.5, fn: g => {
+        let n = 0;
+        for (const a of g.pets.values()) if (!a.egg && !a.alive) { wakePet(g, a, K.ult.revive); n++; }
+        if (spot) { for (const e of foesIn(g, spot.x, spot.y, K.ult.r)) { damageFoe(g, e, atk * K.ult.mul * um, f, { fx: 'fire' }); burnE(e, atk * K.burn * st.burn * 2, 4, g.clock, f.uid); } g.emit('burst', { kind: 'fireburst', x: spot.x, y: spot.y, r: K.ult.r }); }
+        if (n) g.emit('banner', { text: `${f.nick || f.name}浴火重生！${n}只打盹的伙伴醒过来了`, tier: 3 });
+      } }]);
       return true;
     }
     default: return false;
