@@ -54,6 +54,70 @@ function shinyIconFront(r, x, cx, cy, size, lv = 1) {
   if (size >= 60 && lv >= 3 && !r.glowImg(x, 'shiny:twinkle', cx - size * 0.34, cy + size * 0.1, big * 1.6 * s2, 1, k2, 1, 'source-over')) twinkle(x, cx - size * 0.34, cy + size * 0.1, big * 0.7 * s2, '#ffd6f0', k2);
   x.restore();
 }
+// ───────── 天赋觉醒：萌宠动起来 ─────────
+// 0~1.6秒 蓄力：闭眼浮起来、越抖越快，光点往身上聚；1.6秒 爆发：白光一闪、跳起来；之后落地摆姿势、轻轻晃
+// 有序列帧 seq_<物种>_awaken（4帧：蓄力 / 下蹲 / 跳起 / 摆姿势）就按帧放；没有就用开心蹦跳帧；都没有用程序做的动作
+const AWAKEN_AT = 1.6;
+function drawAwakenPet(r, x, p, form, cx, cy, size, roll) {
+  const t = p.t, T = TALENT.tiers, tier = roll ? 1 : Math.max(1, p.best || 1), col = T[roll ? 1 + Math.floor(t * 14) % (T.length - 1) : tier].color;
+  const seqA = r.assets.frames(`seq:${p.sp}:${form}:awaken`), seqH = r.assets.frames(`seq:${p.sp}:${form}:happy`);
+  let name = `pet:${p.sp}:${form}`, ox = 0, oy = 0, sx = 1, sy = 1, rot = 0;
+  const q = Math.max(0, t - AWAKEN_AT);
+  if (roll) {
+    const k = t / AWAKEN_AT;
+    oy = -k * 22 + Math.sin(t * 3) * 3;
+    ox = Math.sin(t * 46) * k * k * 5;
+    sy = 1 + Math.sin(t * 10) * 0.03 * (1 + k); sx = 2 - sy;
+    if (seqA) name = seqA.names[k < 0.75 ? 0 : 1];
+    else if (k > 0.75) { sy *= 0.9; sx *= 1.08; oy += 10; }   // 爆发前一下蹲
+  } else if (q < 0.55) {
+    const j = q / 0.55;
+    oy = -22 * (1 - j) - Math.sin(j * Math.PI) * (34 + tier * 5);
+    const pop = Math.max(0, 1 - q / 0.3); sx = sy = 1 + 0.28 * pop;
+    rot = tier >= 5 ? Math.sin(j * Math.PI) * 0.25 * (Math.sin(t * 3) > 0 ? 1 : -1) : 0;
+    if (seqA) name = seqA.names[2];
+    else if (seqH) name = seqH.names[Math.min(seqH.names.length - 1, 1 + Math.floor(j * 2))];
+  } else {
+    const j = q - 0.55, land = Math.max(0, 1 - j / 0.18);
+    sy = 1 - 0.12 * land + Math.sin(j * 3.2) * 0.015; sx = 1 + 0.1 * land - Math.sin(j * 3.2) * 0.01;
+    oy = -Math.abs(Math.sin(j * 4.2)) * 6 * Math.max(0, 1 - j / 1.2);
+    if (seqA) name = seqA.names[3];
+    else if (seqH) name = seqH.names[seqH.names.length - 1];
+  }
+  // 蓄力：彩色光点从四周旋进来；爆发：一圈白光 + 星星炸开（档位越高越多）
+  x.save(); x.globalCompositeOperation = 'lighter';
+  if (roll) {
+    for (let i = 0; i < 14; i++) {
+      const ph = (t * 0.9 + i / 14) % 1, an = i * 2.4 + t * 2.2, rad = 190 * (1 - ph);
+      x.globalAlpha = Math.sin(ph * Math.PI) * 0.85; x.fillStyle = i % 3 ? col : '#ffffff';
+      x.beginPath(); x.arc(cx + Math.cos(an) * rad, cy + oy + Math.sin(an) * rad * 0.8, 3 + 4 * ph, 0, TAU); x.fill();
+    }
+  } else if (q < 0.9) {
+    const k = q / 0.9;
+    x.globalAlpha = (1 - k) * 0.9; x.strokeStyle = '#ffffff'; x.lineWidth = 10 * (1 - k) + 2;
+    x.beginPath(); x.arc(cx, cy, 30 + k * 230, 0, TAU); x.stroke();
+    x.globalAlpha = (1 - k) * 0.6; x.strokeStyle = col; x.lineWidth = 6 * (1 - k) + 2; x.beginPath(); x.arc(cx, cy, 20 + k * 170, 0, TAU); x.stroke();
+    if (q < 0.18) { x.globalAlpha = (1 - q / 0.18) * 0.8; const fl = x.createRadialGradient(cx, cy, 0, cx, cy, 200); fl.addColorStop(0, '#ffffff'); fl.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = fl; x.beginPath(); x.arc(cx, cy, 200, 0, TAU); x.fill(); }
+    const n = 8 + tier * 4;
+    for (let i = 0; i < n; i++) {
+      const an = i / n * TAU + i * 0.7, d = 40 + (q / 0.9) ** 0.6 * (150 + (i % 4) * 30);
+      x.globalAlpha = 1 - k; x.fillStyle = i % 2 ? col : '#fff6c8';
+      star(x, cx + Math.cos(an) * d, cy - 10 + Math.sin(an) * d * 0.85, 7 + (i % 3) * 3); x.fill();
+    }
+  }
+  x.restore();
+  // 萌宠本身（高度对齐：脚底贴在同一条线上，换帧不跳）
+  const slv = p.shiny && !roll ? Math.max(1, p.star || 1) : 0;
+  if (slv) shinyIconBack(r, x, cx + ox, cy + oy, size, slv);
+  const a = r.assets.get(name);
+  if (a) {
+    const H = size * 0.98, s = H / a.h, w = a.w * s, foot = cy + size * 0.49;
+    x.save(); x.translate(cx + ox, foot + oy); x.rotate(rot); x.scale(sx, sy);
+    if (roll && t / AWAKEN_AT > 0.5) { x.shadowColor = col; x.shadowBlur = 18 * (t / AWAKEN_AT); }
+    x.drawImage(a.img, -w / 2, -H, w, H); x.restore();
+  } else petIcon(r, x, p.sp, form, cx + ox, cy + oy, size);
+  if (slv) shinyIconFront(r, x, cx + ox, cy + oy, size, slv);
+}
 // 小号萌宠头像（取图里的成年形态，没有就色块）
 function petIcon(r, x, sp, form, cx, cy, size, shiny = false) {
   const name = `pet:${sp}:${form}`, a = r.assets.get(name);
@@ -659,10 +723,10 @@ function drawPopups(r, x, dt) {
     for (let i = 0; i < 12; i++) { x.rotate(TAU / 12 + dt * 0); x.fillStyle = col; x.globalAlpha = a * 0.18; x.beginPath(); x.moveTo(0, 0); x.lineTo(-18, -230); x.lineTo(18, -230); x.closePath(); x.fill(); }
     x.restore();
     const f = r.game.pets.get(p.uid), form = FORMS.findLastIndex(fm => (p.level || f?.level || 1) >= fm.lv);
-    petIcon(r, x, p.sp, form, cx, cy - 20, 170, p.shiny && !roll ? Math.max(1, p.star || 1) : 0);
+    drawAwakenPet(r, x, p, form, cx, cy - 20, 170, roll);
     outlined(x, '天赋觉醒', cx, cy - 140, 30, '#fff', '#b04a7a', 'center', ROUND_FONT, 7);
     outlined(x, `${p.nick || p.name}`, cx, cy - 108, 18, '#fff', 'rgba(90,40,60,.85)');
-    outlined(x, roll ? T[shown].name : (p.star ? `${T[T.length - 1].name}${p.star}★` : T[p.to].name), cx, cy + 100, 44, col === '#e8edf5' ? '#ffffff' : col, '#4a2a3a', 'center', ROUND_FONT, 8);
+    outlined(x, roll ? T[shown].name : (p.star > 1 ? `${T[T.length - 1].name}${p.star}★` : T[p.to].name), cx, cy + 100, 44, col === '#e8edf5' ? '#ffffff' : col, '#4a2a3a', 'center', ROUND_FONT, 8);
     if (!roll) {
       text(x, p.up ? `全属性 ×${p.mulFrom} → ×${p.mulTo}` : `这次是${T[p.best].name}，没超过现在的，下次一定！`, cx, cy + 136, 16, '#fff', 'center');
       if (p.shinyNew) outlined(x, '✦ 闪光了！✦', cx, cy + 172, 30, '#ffe36b', '#8a4a00', 'center', ROUND_FONT, 7);

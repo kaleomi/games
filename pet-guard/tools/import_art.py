@@ -41,7 +41,7 @@ def spec_of(fid):
         return dict(grid=(1, 1), names=[f'foe:{m.group(1)}:2'], h=FOE_H[m.group(1)], bg='white', dir='foes')
     m = re.fullmatch(r'bg_(\w+)', fid)
     if m: return dict(kind='bg', names=[f'bg:{m.group(1)}'], dir='bg')
-    m = re.fullmatch(r'seq_(\w+?)_(idle|attack|happy|sleep)(?:_(\d))?', fid)
+    m = re.fullmatch(r'seq_(\w+?)_(idle|attack|happy|sleep|awaken)(?:_(\d))?', fid)
     if m and m.group(1) in SP:
         n = 2 if m.group(2) == 'sleep' else 4
         return dict(kind='seq', grid=(1, n), seq=f'seq:{m.group(1)}:{m.group(3) or 2}:{m.group(2)}', h=320, bg='white', dir='seq', fps=8 if m.group(2) != 'sleep' else 2)
