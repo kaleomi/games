@@ -924,6 +924,114 @@
     "seq/seq_cat_2_sleep_1.webp"
    ],
    "fps": 2
+  },
+  "seq:bunny:2:awaken": {
+   "frames": [
+    "seq/seq_bunny_2_awaken_0.webp",
+    "seq/seq_bunny_2_awaken_1.webp",
+    "seq/seq_bunny_2_awaken_2.webp",
+    "seq/seq_bunny_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:awaken": {
+   "frames": [
+    "seq/seq_cat_2_awaken_0.webp",
+    "seq/seq_cat_2_awaken_1.webp",
+    "seq/seq_cat_2_awaken_2.webp",
+    "seq/seq_cat_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:deer:2:awaken": {
+   "frames": [
+    "seq/seq_deer_2_awaken_0.webp",
+    "seq/seq_deer_2_awaken_1.webp",
+    "seq/seq_deer_2_awaken_2.webp",
+    "seq/seq_deer_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:dragon:2:awaken": {
+   "frames": [
+    "seq/seq_dragon_2_awaken_0.webp",
+    "seq/seq_dragon_2_awaken_1.webp",
+    "seq/seq_dragon_2_awaken_2.webp",
+    "seq/seq_dragon_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:fox:2:awaken": {
+   "frames": [
+    "seq/seq_fox_2_awaken_0.webp",
+    "seq/seq_fox_2_awaken_1.webp",
+    "seq/seq_fox_2_awaken_2.webp",
+    "seq/seq_fox_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:hamster:2:awaken": {
+   "frames": [
+    "seq/seq_hamster_2_awaken_0.webp",
+    "seq/seq_hamster_2_awaken_1.webp",
+    "seq/seq_hamster_2_awaken_2.webp",
+    "seq/seq_hamster_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:panda:2:awaken": {
+   "frames": [
+    "seq/seq_panda_2_awaken_0.webp",
+    "seq/seq_panda_2_awaken_1.webp",
+    "seq/seq_panda_2_awaken_2.webp",
+    "seq/seq_panda_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:penguin:2:awaken": {
+   "frames": [
+    "seq/seq_penguin_2_awaken_0.webp",
+    "seq/seq_penguin_2_awaken_1.webp",
+    "seq/seq_penguin_2_awaken_2.webp",
+    "seq/seq_penguin_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:phoenix:2:awaken": {
+   "frames": [
+    "seq/seq_phoenix_2_awaken_0.webp",
+    "seq/seq_phoenix_2_awaken_1.webp",
+    "seq/seq_phoenix_2_awaken_2.webp",
+    "seq/seq_phoenix_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:sheep:2:awaken": {
+   "frames": [
+    "seq/seq_sheep_2_awaken_0.webp",
+    "seq/seq_sheep_2_awaken_1.webp",
+    "seq/seq_sheep_2_awaken_2.webp",
+    "seq/seq_sheep_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:shiba:2:awaken": {
+   "frames": [
+    "seq/seq_shiba_2_awaken_0.webp",
+    "seq/seq_shiba_2_awaken_1.webp",
+    "seq/seq_shiba_2_awaken_2.webp",
+    "seq/seq_shiba_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:unicorn:2:awaken": {
+   "frames": [
+    "seq/seq_unicorn_2_awaken_0.webp",
+    "seq/seq_unicorn_2_awaken_1.webp",
+    "seq/seq_unicorn_2_awaken_2.webp",
+    "seq/seq_unicorn_2_awaken_3.webp"
+   ],
+   "fps": 8
   }
  },
  "audio": [
