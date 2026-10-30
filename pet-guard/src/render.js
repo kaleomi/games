@@ -773,7 +773,8 @@ export class Renderer {
       const lv = `Lv${f.level || 1}`, lw = x.measureText(lv).width + 8;
       x.font = `bold 14px ${FONT}`;
       const nw = Math.min(110, x.measureText(nm).width);
-      const total = lw + 4 + nw, left = f.x - total / 2;
+      const autoOn = (f.auto || 0) > 0 && !f.npc, aw = autoOn ? 30 : 0;   // 自动守护：名字后面一个「自动」小牌
+      const total = lw + 4 + nw + (aw ? aw + 4 : 0), left = f.x - total / 2;
       // 等级小胶囊
       const tier = TALENT.tiers[Math.min(TALENT.tiers.length - 1, tal)];
       x.fillStyle = f.npc ? 'rgba(120,120,140,.8)' : tier.flow ? flowFill(x, left, lw) : tier.color; rr(x, left, top - 13, lw, 16, 8); x.fill();
@@ -782,6 +783,7 @@ export class Renderer {
       x.textAlign = 'left';
       const shown = clipText(x, nm, 110);
       x.strokeText(shown, left + lw + 4, top + 1); x.fillText(shown, left + lw + 4, top + 1);
+      if (autoOn) { const ax = left + lw + 4 + Math.min(nw, x.measureText(shown).width) + 4; x.fillStyle = '#ff7fae'; rr(x, ax, top - 13, aw, 16, 8); x.fill(); x.font = `bold 11px ${FONT}`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('自动', ax + aw / 2, top - 1); }
       x.textAlign = 'center';
       if (focus && f.nick && !f.npc) { x.font = `11px ${FONT}`; x.fillStyle = '#fff'; x.strokeText(clipText(x, f.name, 120), f.x, top - 18); x.fillText(clipText(x, f.name, 120), f.x, top - 18); }
       // 体力条
@@ -1019,10 +1021,12 @@ export class Renderer {
       const ripe = plots.filter(p => p && p.ready <= now).length;
       // 名字 + 熟了几个
       x.save(); x.font = `bold 12px ${FONT}`; x.textAlign = 'center';
-      const label = clipText(x, f.nick || f.name, 84) + (ripe ? ` 熟${ripe}` : '');
-      const lw = x.measureText(label).width + 14;
-      x.fillStyle = ripe ? 'rgba(255,176,32,0.92)' : 'rgba(90,60,40,0.72)'; rr(x, r.cx - lw / 2, r.y + r.h - 4, lw, 17, 8); x.fill();
-      x.fillStyle = '#fff'; x.fillText(label, r.cx, r.y + r.h + 9); x.restore();
+      const autoOn = (f.auto || 0) > 0, label = clipText(x, f.nick || f.name, autoOn ? 60 : 84) + (ripe ? ` 熟${ripe}` : '');
+      const lw = x.measureText(label).width + 14, aw = autoOn ? 30 : 0, lx = r.cx - (lw + aw) / 2;
+      x.fillStyle = ripe ? 'rgba(255,176,32,0.92)' : 'rgba(90,60,40,0.72)'; rr(x, lx + aw, r.y + r.h - 4, lw, 17, 8); x.fill();
+      x.fillStyle = '#fff'; x.fillText(label, lx + aw + lw / 2, r.y + r.h + 9);
+      if (autoOn) { x.fillStyle = '#ff7fae'; rr(x, lx - 2, r.y + r.h - 4, aw, 17, 8); x.fill(); x.font = `bold 11px ${FONT}`; x.fillStyle = '#fff'; x.fillText('自动', lx - 2 + aw / 2, r.y + r.h + 8); }
+      x.restore();
     });
   }
 

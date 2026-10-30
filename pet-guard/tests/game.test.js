@@ -395,6 +395,20 @@ test('今日行情：每天每种菜一个价（×0.5~×2），同一天都一�
   assert.ok(seen.has(0.5) && seen.has(2), [...seen].sort().join(','));
 });
 
+test('自动守护的萌宠在家自己种田：收、卖、种、浇', () => {
+  const { g, run } = setup(48);
+  g.chat({ id: 'z1', name: '挂机的' }, '兔');
+  run(3); g.startHome();
+  const f = g.pets.get('z1'), fm = farmOf(g, f);
+  f.auto = 600;
+  fm.plots = [{ c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0 }, null];
+  const coins = fm.coins;
+  run(FARM.autoEvery + 6);
+  assert.ok(fm.harvest >= 1 && fm.coins !== coins, '自己收了卖了');
+  assert.ok(fm.plots.every(p => p && p.w), '自己种上还浇了水');
+  assert.equal(g.homeSeconds(), 180, '默认在家3分钟');
+});
+
 test('好朋友顺手浇水；在家送礼施肥、给金币', () => {
   const { g, run } = setup(45);
   g.chat({ id: 'p1', name: '甲' }, '狗'); g.chat({ id: 'p2', name: '乙' }, '猫');

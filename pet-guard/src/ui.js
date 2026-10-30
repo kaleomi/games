@@ -5,8 +5,12 @@ import { wishStore } from './wish.js';
 
 const SETTINGS_KEY = 'pet-guard-settings-v1';
 export function loadSettings() {
-  const d = { v: 1, port: 8765, autoConnect: true, npcMin: 4, sfx: true, bgm: true, bgmVol: 50, sfxVol: 70, giftByName: {}, giftBox: true, giftPages: true, giftRank: true, rankPage: true, wishShow: true, wishBlock: '', homeSeconds: 90 };
-  try { return { ...d, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'), v: 1 }; } catch { return d; }
+  const d = { v: 1, port: 8765, autoConnect: true, npcMin: 4, sfx: true, bgm: true, bgmVol: 50, sfxVol: 70, giftByName: {}, giftBox: true, giftPages: true, giftRank: true, rankPage: true, wishShow: true, wishBlock: '', homeSeconds: 180, homeV: 2 };
+  try {
+    const s = { ...d, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'), v: 1 };
+    if ((s.homeV | 0) < 2) { if (s.homeSeconds === 90) s.homeSeconds = 180; s.homeV = 2; }   // 旧默认 90 秒 → 新默认 3 分钟（自己改过的不动）
+    return s;
+  } catch { return d; }
 }
 export function storeSettings(s) { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); } catch { /* 忽略 */ } }
 
@@ -44,7 +48,7 @@ export class UI {
         <div class="row wrap"><button data-act="stage-reset">回到第1章第1关</button><button data-act="chapter-prev">退回上一章</button><button data-act="chapter-next">跳到下一章</button></div>
         <h3>对局</h3>
         <div class="row">人少时补位流浪萌宠到 <input id="cfg-npc" type="number" min="0" max="30" value="${s.npcMin}"> 只</div>
-        <div class="row">打完首领回家种田 <input id="cfg-home" type="number" min="0" max="600" value="${s.homeSeconds ?? 90}"> 秒（填0不回家，直接打下一章）</div>
+        <div class="row">打完首领回家种田 <input id="cfg-home" type="number" min="0" max="600" value="${s.homeSeconds ?? 180}"> 秒（默认180秒=3分钟，最多600秒；填0不回家，直接打下一章；在家时改了马上生效）</div>
         <div class="note">真人不够这个数时自动补灰名的流浪萌宠凑数，填0不补。它们不进榜单、不掉装备。</div>
         <div class="row wrap audio"><label><input id="cfg-bgm" type="checkbox" ${s.bgm ? 'checked' : ''}> 背景音乐</label>
           <label>音量 <input id="cfg-bgmvol" type="range" min="0" max="100" value="${s.bgmVol}"></label>
@@ -111,7 +115,7 @@ export class UI {
     s.port = num('cfg-port', 1024, 65535, 8765);
     s.autoConnect = document.getElementById('cfg-auto').checked;
     s.npcMin = num('cfg-npc', 0, 30, 4);
-    s.homeSeconds = num('cfg-home', 0, 600, 90);
+    s.homeSeconds = num('cfg-home', 0, 600, 180);
     s.sfx = document.getElementById('cfg-sfx').checked; s.bgm = document.getElementById('cfg-bgm').checked;
     s.giftBox = document.getElementById('cfg-giftbox').checked; s.giftPages = document.getElementById('cfg-giftpages').checked; s.giftRank = document.getElementById('cfg-giftrank').checked; s.rankPage = document.getElementById('cfg-rankpage').checked;
     s.bgmVol = num('cfg-bgmvol', 0, 100, 50); s.sfxVol = num('cfg-sfxvol', 0, 100, 70);

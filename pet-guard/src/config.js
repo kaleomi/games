@@ -365,7 +365,7 @@ export const CROPS = [
   { id: 'starfruit',  name: '星星果', words: ['星星果', '杨桃', '星果'],         seed: 400, grow: 2700, sell: 1300, xp: 90, lv: 18 },
 ];
 export const FARM = {
-  homeSeconds: 90,          // 在家待多久（设置里能改，填0不回家）
+  homeSeconds: 180,         // 在家待多久（秒；F2 设置里能改，填0不回家）
   startCoins: 30,
   plotsStart: 2, plotsMax: 6, plotCost: [150, 500, 1500, 4000],   // 第3~6块地的价钱
   water: 0.6, friendWater: 0.8,
