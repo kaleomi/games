@@ -765,8 +765,10 @@ export class Renderer {
     const home = g.phase === 'home';
     for (const f of g.pets.values()) {
       if (f.mini) continue;
-      if (home && g.homeTiles?.includes(f.uid)) continue;   // 在家：名字写在菜地上
       const h = (f.egg ? 52 : f.h || 66) * (home ? 0.78 : 1), top = f.y - h - 8;
+      const tiled = home && g.homeTiles?.includes(f.uid);
+      this.buffChips(x, f, f.x, tiled ? top + 8 : top - 20 - (this.hoverUid === f.uid || (f.labelUntil || 0) > g.clock ? 14 : 0));
+      if (tiled) continue;   // 在家：名字写在菜地上
       const nm = f.nick || f.name, focus = this.hoverUid === f.uid || (f.labelUntil || 0) > g.clock;
       const tal = f.star > 0 ? TALENT.tiers.length - 1 : f.talent || 0;
       x.font = `bold 13px ${FONT}`;
@@ -798,6 +800,23 @@ export class Renderer {
       x.font = `bold 14px ${FONT}`; x.strokeStyle = 'rgba(60,30,60,.85)'; x.lineWidth = 4; x.fillStyle = e.role === 'treasure' ? '#ffd84a' : '#ffd0e0';
       if (e.role !== 'boss') { x.strokeText(e.name, e.x, top - 8); x.fillText(e.name, e.x, top - 8); const bw = 70; x.fillStyle = 'rgba(60,40,60,.6)'; rr(x, e.x - bw / 2, top - 2, bw, 6, 3); x.fill(); x.fillStyle = '#c38bff'; rr(x, e.x - bw / 2, top - 2, bw * Math.max(0, e.hp / e.maxHp), 6, 3); x.fill(); }
     }
+    x.restore();
+  }
+  // 头顶的加成倒计时：墨镜、庆典双倍、吃饱饱（经验）、掉落保底（自动守护写在名字后面）
+  buffChips(x, f, cx, y) {
+    if (f.npc || f.egg) return;
+    const c = this.game.clock, chips = [];
+    if ((f.spiritUntil || 0) > c) chips.push(['墨镜', f.spiritUntil - c, '#4a4a6a']);
+    if ((f.doubleUntil || 0) > c) chips.push(['双倍', f.doubleUntil - c, '#e0a020']);
+    if ((f.xpUntil || 0) > c) chips.push(['吃饱饱', f.xpUntil - c, '#ff7fae']);
+    let fl = null; for (const q of f.floors || []) if (q.until > c && (!fl || q.tier > fl.tier || (q.tier === fl.tier && q.until > fl.until))) fl = q;
+    if (fl) chips.push([`保底${GEAR.tiers[fl.tier].name}`, fl.until - c, GEAR.tiers[fl.tier].color === '#e8edf5' ? '#9aa3b2' : GEAR.tiers[fl.tier].color]);
+    if (!chips.length) return;
+    x.save(); x.font = `bold 10px ${FONT}`; x.textAlign = 'center';
+    const items = chips.map(([n, s, col]) => { const t = `${n} ${autoLeft(s)}`; return { t, col, w: x.measureText(t).width + 10 }; });
+    const total = items.reduce((a, b) => a + b.w, 0) + (items.length - 1) * 3;
+    let lx = cx - total / 2;
+    for (const it of items) { x.globalAlpha = 0.92; x.fillStyle = it.col; rr(x, lx, y - 11, it.w, 14, 7); x.fill(); x.globalAlpha = 1; x.fillStyle = '#fff'; x.fillText(it.t, lx + it.w / 2, y); lx += it.w + 3; }
     x.restore();
   }
   drawFloaters(x, dt) {
