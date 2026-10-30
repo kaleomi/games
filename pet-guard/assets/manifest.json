@@ -1086,6 +1086,178 @@
     "seq/seq_unicorn_2_awaken_3.webp"
    ],
    "fps": 8
+  },
+  "seq:elephant:2:attack": {
+   "frames": [
+    "seq/seq_elephant_2_attack_0.webp",
+    "seq/seq_elephant_2_attack_1.webp",
+    "seq/seq_elephant_2_attack_2.webp",
+    "seq/seq_elephant_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:awaken": {
+   "frames": [
+    "seq/seq_elephant_2_awaken_0.webp",
+    "seq/seq_elephant_2_awaken_1.webp",
+    "seq/seq_elephant_2_awaken_2.webp",
+    "seq/seq_elephant_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:happy": {
+   "frames": [
+    "seq/seq_elephant_2_happy_0.webp",
+    "seq/seq_elephant_2_happy_1.webp",
+    "seq/seq_elephant_2_happy_2.webp",
+    "seq/seq_elephant_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:idle": {
+   "frames": [
+    "seq/seq_elephant_2_idle_0.webp",
+    "seq/seq_elephant_2_idle_1.webp",
+    "seq/seq_elephant_2_idle_2.webp",
+    "seq/seq_elephant_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:sleep": {
+   "frames": [
+    "seq/seq_elephant_2_sleep_0.webp",
+    "seq/seq_elephant_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:koi:2:attack": {
+   "frames": [
+    "seq/seq_koi_2_attack_0.webp",
+    "seq/seq_koi_2_attack_1.webp",
+    "seq/seq_koi_2_attack_2.webp",
+    "seq/seq_koi_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:koi:2:awaken": {
+   "frames": [
+    "seq/seq_koi_2_awaken_0.webp",
+    "seq/seq_koi_2_awaken_1.webp",
+    "seq/seq_koi_2_awaken_2.webp",
+    "seq/seq_koi_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:koi:2:happy": {
+   "frames": [
+    "seq/seq_koi_2_happy_0.webp",
+    "seq/seq_koi_2_happy_1.webp",
+    "seq/seq_koi_2_happy_2.webp",
+    "seq/seq_koi_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:koi:2:idle": {
+   "frames": [
+    "seq/seq_koi_2_idle_0.webp",
+    "seq/seq_koi_2_idle_1.webp",
+    "seq/seq_koi_2_idle_2.webp",
+    "seq/seq_koi_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:koi:2:sleep": {
+   "frames": [
+    "seq/seq_koi_2_sleep_0.webp",
+    "seq/seq_koi_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:qilin:2:attack": {
+   "frames": [
+    "seq/seq_qilin_2_attack_0.webp",
+    "seq/seq_qilin_2_attack_1.webp",
+    "seq/seq_qilin_2_attack_2.webp",
+    "seq/seq_qilin_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:qilin:2:awaken": {
+   "frames": [
+    "seq/seq_qilin_2_awaken_0.webp",
+    "seq/seq_qilin_2_awaken_1.webp",
+    "seq/seq_qilin_2_awaken_2.webp",
+    "seq/seq_qilin_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:qilin:2:happy": {
+   "frames": [
+    "seq/seq_qilin_2_happy_0.webp",
+    "seq/seq_qilin_2_happy_1.webp",
+    "seq/seq_qilin_2_happy_2.webp",
+    "seq/seq_qilin_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:qilin:2:idle": {
+   "frames": [
+    "seq/seq_qilin_2_idle_0.webp",
+    "seq/seq_qilin_2_idle_1.webp",
+    "seq/seq_qilin_2_idle_2.webp",
+    "seq/seq_qilin_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:qilin:2:sleep": {
+   "frames": [
+    "seq/seq_qilin_2_sleep_0.webp",
+    "seq/seq_qilin_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:tiger:2:attack": {
+   "frames": [
+    "seq/seq_tiger_2_attack_0.webp",
+    "seq/seq_tiger_2_attack_1.webp",
+    "seq/seq_tiger_2_attack_2.webp",
+    "seq/seq_tiger_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:tiger:2:awaken": {
+   "frames": [
+    "seq/seq_tiger_2_awaken_0.webp",
+    "seq/seq_tiger_2_awaken_1.webp",
+    "seq/seq_tiger_2_awaken_2.webp",
+    "seq/seq_tiger_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:tiger:2:happy": {
+   "frames": [
+    "seq/seq_tiger_2_happy_0.webp",
+    "seq/seq_tiger_2_happy_1.webp",
+    "seq/seq_tiger_2_happy_2.webp",
+    "seq/seq_tiger_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:tiger:2:idle": {
+   "frames": [
+    "seq/seq_tiger_2_idle_0.webp",
+    "seq/seq_tiger_2_idle_1.webp",
+    "seq/seq_tiger_2_idle_2.webp",
+    "seq/seq_tiger_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:tiger:2:sleep": {
+   "frames": [
+    "seq/seq_tiger_2_sleep_0.webp",
+    "seq/seq_tiger_2_sleep_1.webp"
+   ],
+   "fps": 2
   }
  },
  "audio": [
