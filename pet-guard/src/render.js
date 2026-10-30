@@ -775,7 +775,8 @@ export class Renderer {
       const nw = Math.min(110, x.measureText(nm).width);
       const total = lw + 4 + nw, left = f.x - total / 2;
       // 等级小胶囊
-      x.fillStyle = f.npc ? 'rgba(120,120,140,.8)' : TALENT.tiers[Math.min(TALENT.tiers.length - 1, tal)].color; rr(x, left, top - 13, lw, 16, 8); x.fill();
+      const tier = TALENT.tiers[Math.min(TALENT.tiers.length - 1, tal)];
+      x.fillStyle = f.npc ? 'rgba(120,120,140,.8)' : tier.flow ? flowFill(x, left, lw) : tier.color; rr(x, left, top - 13, lw, 16, 8); x.fill();
       x.fillStyle = tal >= 1 && tal <= 4 && !f.npc ? '#fff' : '#4a3540'; x.font = `bold 12px ${FONT}`; x.fillText(lv, left + lw / 2, top);
       x.font = `bold 14px ${FONT}`; x.strokeStyle = 'rgba(70,40,50,.85)'; x.lineWidth = 4; x.fillStyle = f.npc ? '#d6d6e0' : f.shiny ? '#ffe36b' : '#fff';
       x.textAlign = 'left';
@@ -1238,6 +1239,14 @@ export function rainbowHalo(x, cx, cy, r, alpha, rot = 0) {
   const c = haloCanvas();
   if (!c) return;
   x.save(); x.globalAlpha *= alpha; x.translate(cx, cy); x.rotate(rot); x.drawImage(c, -r, -r, r * 2, r * 2); x.restore();
+}
+// 彩色流光：一条马卡龙彩虹渐变，随时间往右流（闪光的字、标签用）
+const FLOW = ['#ff5fa2', '#ff9a3c', '#ffd93d', '#ff7ae0', '#5ec8ff', '#a77bff', '#ff5fa2'];
+export function flowFill(x, x0, w, speed = 0.5) {
+  const t = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000, off = (t * speed) % 1, span = Math.max(40, w);
+  const g = x.createLinearGradient(x0 - off * span, 0, x0 + (2 - off) * span, 0);
+  for (let k = 0; k < 2; k++) FLOW.forEach((c, i) => { if (k && !i) return; g.addColorStop(Math.min(1, (k * (FLOW.length - 1) + i) / (2 * (FLOW.length - 1))), c); });
+  return g;
 }
 export function star(x, cx, cy, r) { x.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr2 = i % 2 ? r * 0.45 : r; x.lineTo(cx + Math.cos(a) * rr2, cy + Math.sin(a) * rr2); } x.closePath(); }
 export function clipText(x, s, maxW) { s = String(s || ''); if (x.measureText(s).width <= maxW) return s; while (s.length > 1 && x.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; }

@@ -149,7 +149,7 @@ export const TALENT = {
     { name: '非凡',   mul: 2.2, w: 18,  color: '#ff8a2a' },
     { name: '传奇',   mul: 2.6, w: 5,   color: '#ffd23a' },
     { name: '神话',   mul: 3,   w: 1.5, color: '#ff4f9a' },
-    { name: '闪光',   mul: 3.4, w: 0.5, color: '#29c5f6' },
+    { name: '闪光',   mul: 3.4, w: 0.5, color: '#ff8fd0', flow: true },   // 闪光的字是彩色流光（flowFill），color 只给光环、底色用
   ],
   maxPerGift: 99,
   pity: 200,                      // 连续 200 次没出闪光，第 200 次必出闪光

@@ -5,7 +5,7 @@ import { wishStore } from './wish.js';
 import { bestFriend, friendLevel, SPRITE_UNITS } from './friends.js';
 import { farmOf, plotStage, CROP, levelNeed, plotCost, marketMul, fmtSec, petUnlocked } from './farm.js';
 import { CROPS, FARM, ADV_PETS, ADV_IDS } from './config.js';
-import { rr, heart, star, clipText, twinkle, rainbowHalo } from './render.js';
+import { rr, heart, star, clipText, twinkle, rainbowHalo, flowFill } from './render.js';
 import { talentParts, combatPower, setBonus, itemName, bondLevel, bondNext, SLOT_IDS, talentMul, starOf } from './gear.js';
 import { stageLabel, stageTitle, stageKind, KIND_NAMES, chapterOf, chapterDef } from './stage.js';
 import { fmtDuration } from './game.js';
@@ -132,7 +132,7 @@ function partsText(x, parts, px, py, size, align = 'left') {
   let w = 0; for (const p of parts) w += x.measureText(p.text).width;
   let cx = align === 'center' ? px - w / 2 : align === 'right' ? px - w : px;
   x.textAlign = 'left';
-  for (const p of parts) { x.fillStyle = p.color; x.fillText(p.text, cx, py); cx += x.measureText(p.text).width; }
+  for (const p of parts) { const pw = x.measureText(p.text).width; x.fillStyle = p.flow ? flowFill(x, cx, pw) : p.color; x.fillText(p.text, cx, py); cx += pw; }
   return w;
 }
 const fruitsOf = g => (g.tree ? Math.max(0, Math.ceil(g.tree.hp / (g.tree.maxHp / TREE.fruits) - 1e-6)) : TREE.fruits);
@@ -270,7 +270,7 @@ function bottomPanels(r, x) {
     petIcon(r, x, p.sp, FORMS.findLastIndex(fm => p.level >= fm.lv), l1 + 176, y - 6, 24, p.shiny);
     x.font = `bold 12px ${FONT}`;
     text(x, clipText(x, `${p.nick || SPECIES[p.sp]?.name} Lv${p.level}`, 82), l1 + 192, y, 12, C.ink, 'left', 'normal');
-    partsText(x, talentParts(p).slice(0, 1), l1 + 280, y, 12);
+    partsText(x, talentParts(p).slice(0, 1).map(q => ({ ...q, text: q.text.replace(/\d+★$/, '') })), l1 + 280, y, 12);   // 榜上地方小，星数不写
     text(x, String(p.cp), l1 + w1 - 10, y, 12, '#e08a2a', 'right');
     r.rankRows.push({ uid: p.uid, online: p.online, l: l1, t: y - 18, w: w1, h: 26 });
   });
@@ -417,7 +417,7 @@ const PAGES = [
   { id: 'grow', title: '养成', draw(r, x, l, t, w) {
     text(x, `长大：幼崽 → Lv${FORMS[1].lv} 少年 → Lv${FORMS[2].lv} 成年`, l + 14, t + 18, 13, C.ink, 'left', 'normal');
     text(x, '天赋（加油鸭觉醒，取最好）：', l + 14, t + 46, 13, C.ink, 'left', 'normal');
-    TALENT.tiers.filter(tt => tt.w > 0).forEach((tt, i) => { text(x, `${tt.name}×${tt.mul} ${tt.w}%`, l + 14 + (i % 3) * 108, t + 70 + Math.floor(i / 3) * 22, 13, tt.color); });
+    TALENT.tiers.filter(tt => tt.w > 0).forEach((tt, i) => { const px = l + 14 + (i % 3) * 108; text(x, `${tt.name}×${tt.mul} ${tt.w}%`, px, t + 70 + Math.floor(i / 3) * 22, 13, tt.flow ? flowFill(x, px, 90) : tt.color); });
     text(x, `最高「闪光」带闪光特效，${TALENT.pity}次保底 · 再出闪光还能升星`, l + 14, t + 128, 12, C.mute, 'left', 'normal');
     text(x, '亲密度：摸摸、投喂涨，每一级全属性+2%', l + 14, t + 154, 13, C.ink, 'left', 'normal');
     text(x, '小精灵：净化坏心情有机会收服，图鉴每种+1%', l + 14, t + 180, 13, C.ink, 'left', 'normal');
@@ -634,7 +634,7 @@ function drawCards(r, x, dt) {
   if (pa) { const s = Math.min(112 / pa.h, 110 / pa.w); x.drawImage(pa.img, l + 70 - pa.w * s / 2, t + 152 - pa.h * s, pa.w * s, pa.h * s); if (slv) shinyIconFront(r, x, l + 70, t + 98, 110, slv); }
   else petIcon(r, x, f.sp, form, l + 70, t + 95, 90);
   if (f.gear?.hat) r.icon(x, `gear:hat:${f.gear.hat.tier}`, l + 70, t + 40, 40);
-  if (f.shiny) pill(x, slv > 1 ? `✦闪光${slv}★✦` : '✦闪光✦', l + 70, t + 22, '#ffd84a', '#7a4a00', 11);
+  if (f.shiny) pill(x, slv > 1 ? `✦闪光${slv}★✦` : '✦闪光✦', l + 70, t + 22, flowFill(x, l + 30, 80), '#5a2a50', 11);
   const rx = l + 140;
   text(x, clipText(x, f.nick || SPECIES[f.sp].name, 130), rx, t + 30, 20, C.ink);
   text(x, clipText(x, `${f.name}的${SPECIES[f.sp].kind}·${FORMS[form].name}`, 196), rx, t + 50, 12, C.mute, 'left', 'normal');
@@ -726,10 +726,12 @@ function drawPopups(r, x, dt) {
     drawAwakenPet(r, x, p, form, cx, cy - 20, 170, roll);
     outlined(x, '天赋觉醒', cx, cy - 140, 30, '#fff', '#b04a7a', 'center', ROUND_FONT, 7);
     outlined(x, `${p.nick || p.name}`, cx, cy - 108, 18, '#fff', 'rgba(90,40,60,.85)');
-    outlined(x, roll ? T[shown].name : (p.star > 1 ? `${T[T.length - 1].name}${p.star}★` : T[p.to].name), cx, cy + 100, 44, col === '#e8edf5' ? '#ffffff' : col, '#4a2a3a', 'center', ROUND_FONT, 8);
+    { const lab = roll ? T[shown].name : (p.star > 1 ? `${T[T.length - 1].name}${p.star}★` : T[p.to].name), tt = roll ? T[shown] : p.star ? T[T.length - 1] : T[p.to];
+      x.font = `900 44px ${ROUND_FONT}`; const lw2 = x.measureText(lab).width;
+      outlined(x, lab, cx, cy + 100, 44, tt.flow ? flowFill(x, cx - lw2 / 2, lw2, 0.8) : col, '#4a2a3a', 'center', ROUND_FONT, 8); }
     if (!roll) {
       text(x, p.up ? `全属性 ×${p.mulFrom} → ×${p.mulTo}` : `这次是${T[p.best].name}，没超过现在的，下次一定！`, cx, cy + 136, 16, '#fff', 'center');
-      if (p.shinyNew) outlined(x, '✦ 闪光了！✦', cx, cy + 172, 30, '#ffe36b', '#8a4a00', 'center', ROUND_FONT, 7);
+      if (p.shinyNew) outlined(x, '✦ 闪光了！✦', cx, cy + 172, 30, flowFill(x, cx - 90, 180, 0.8), '#5a2a50', 'center', ROUND_FONT, 7);
       else if (p.pity > 0) text(x, `离保底闪光还差 ${TALENT.pity - p.pity} 次`, cx, cy + 166, 13, '#fff', 'center', 'normal');
     }
   }

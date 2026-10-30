@@ -85,7 +85,7 @@ export function talentMul(o) {
 export function talentParts(o) {
   const T = TALENT.tiers, st = starOf(o), sub = o?.sub | 0, t = Math.max(0, Math.min(T.length - 1, o?.talent | 0));
   if (!st) return [{ text: T[t].name, color: t === 0 ? '#a3abb8' : T[t].color }];   // 未觉醒的浅灰太淡，文字用深一点的灰
-  const out = [{ text: st > 1 ? `${T[T.length - 1].name}${st}★` : T[T.length - 1].name, color: T[T.length - 1].color }];
+  const out = [{ text: st > 1 ? `${T[T.length - 1].name}${st}★` : T[T.length - 1].name, color: T[T.length - 1].color, flow: !!T[T.length - 1].flow }];
   if (sub > 0) out.push({ text: `·副:${T[sub].name}`, color: T[sub].color });
   return out;
 }
