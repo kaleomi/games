@@ -134,7 +134,7 @@
 
 ## 美术素材（GPT 生成）
 
-所有角色、道具、背景、序列帧都用 GPT 生成，**已经全部导入**（`assets/`，78张原图 → 140张贴图 + 32组序列帧，约14MB）。提示词在 `art/PROMPTS.md`（`art/prompts.json` 是源，改完跑 `node tools/build_prompts.mjs` 重新生成）。想换哪张，重新生成后单独导入就行：`python3 tools/import_art.py 原图文件夹 --only pet_cat`。
+所有角色、道具、背景、序列帧都用 GPT 生成，**已经全部导入**（`assets/`，94张原图 → 200多张贴图 + 32组序列帧，约19MB）。提示词在 `art/PROMPTS.md`（`art/prompts.json` 是源，改完跑 `node tools/build_prompts.mjs` 重新生成）。想换哪张，重新生成后单独导入就行：`python3 tools/import_art.py 原图文件夹 --only pet_cat`。
 
 生成好的原图按清单里的文件名命名（`pet_shiba.png`、`foe_dust.png`、`bg_spring.png`……），放进一个文件夹，然后：
 
@@ -152,7 +152,7 @@ python3 tools/import_art.py 原图文件夹 --preview 预览文件夹
 
 萌宠的动作（呼吸、蹦跳、扑击、受击压扁、翻滚、打盹、孵化、长大闪光、净化飘走）是程序做的；有序列帧的会叠上序列帧（`seq_<物种>_<idle|attack|happy|sleep>[_<形态>].png`，一排4帧，睡觉2帧），待机按「眨眼—摆动」节奏播放，攻击按出招进度播放。头饰、墨镜戴的位置在 `src/render.js` 的 `WEAR` 表里按物种微调。
 
-回家种田的图（**还没生成，先用简单图形顶着**）：`bg_home`（家园小院背景）、`farm_tiles`（干土 / 湿土菜地）、`crops_1`~`crops_5`（十种作物各三个阶段）、`produce`（十种收获的菜）、`icons_farm`（浇水壶、金币等8个道具）、`market`（卖菜小摊）；高级萌宠 `pet_sheep / pet_deer / pet_unicorn / pet_phoenix`、`eggs_adv`、`proj_adv`；家园音乐 `bgm_home`。提示词都在 `art/PROMPTS.md`。
+回家种田的图**已导入**：`bg_home`（家园小院背景）、`farm_tiles`（干土 / 湿土菜地）、`crops_1`~`crops_5`（十种作物各三个阶段）、`produce`（十种收获的菜）、`icons_farm`（浇水壶、金币等8个道具）、`market`（卖菜小摊）；高级萌宠 `pet_sheep / pet_deer / pet_unicorn / pet_phoenix`、`eggs_adv`、`proj_adv`；家园音乐 `bgm_home`（家园音乐还没有，在家先放大厅的曲子）。提示词都在 `art/PROMPTS.md`。
 
 新玩法的图**也已导入**：`flowers`（4朵花，种花用）、`lantern`（心愿天灯）、`sad_storm / sad_puffer / sad_owl / sad_yeti / sad_king`（首领委屈大哭版，生成时把原来的首领图一起发给 GPT）。缺哪张就用简单图形 / 生气版加眼泪顶着，不影响玩。
 

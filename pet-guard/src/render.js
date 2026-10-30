@@ -777,9 +777,9 @@ export class Renderer {
     }
     if (g.market) {
       const hot = CROP[g.market.hot], cold = CROP[g.market.cold];
-      x.save(); x.fillStyle = 'rgba(255,250,240,0.92)'; rr(x, m.x - 92, m.y - 92, 184, 46, 12); x.fill(); x.strokeStyle = '#e0b070'; x.lineWidth = 2; x.stroke();
-      x.font = `bold 13px ${FONT}`; x.textAlign = 'center'; x.fillStyle = '#c0573d'; x.fillText(`今日行情 ${hot.name} ×${FARM.market.hot}`, m.x, m.y - 72);
-      x.fillStyle = '#7a8aa0'; x.fillText(`${cold.name} ×${FARM.market.cold}`, m.x, m.y - 54); x.restore();
+      x.save(); x.fillStyle = 'rgba(255,250,240,0.92)'; rr(x, m.x - 92, m.y - 128, 184, 46, 12); x.fill(); x.strokeStyle = '#e0b070'; x.lineWidth = 2; x.stroke();
+      x.font = `bold 13px ${FONT}`; x.textAlign = 'center'; x.fillStyle = '#c0573d'; x.fillText(`今日行情 ${hot.name} ×${FARM.market.hot}`, m.x, m.y - 108);
+      x.fillStyle = '#7a8aa0'; x.fillText(`${cold.name} ×${FARM.market.cold}`, m.x, m.y - 90); x.restore();
     }
     // 每位观众一块菜地
     (g.homeTiles || []).forEach((uid, i) => {
