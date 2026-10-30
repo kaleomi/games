@@ -108,12 +108,25 @@ export const SPECIES = {
   phoenix: { name: '火火', kind: '小凤凰', color: '#ff8a3d', role: 'ranged', hp: 205, atk: 16,   armor: 0.1,  interval: 0.9,  range: 440, food: 'cake', adv: true,
     skill: { name: '凤羽连射', cd: 9 }, ult: { name: '浴火重生' }, words: ['凤凰', '小凤凰', '火火', '火鸟', '朱雀'],
     desc: '高级远程：火羽毛灼烧；凤羽连射七根追踪羽毛；浴火重生让所有打盹的伙伴满血复活、敌群里炸开火焰', passive: '涅槃：灼烧伤害提升' },
+  qilin:   { name: '祥祥', kind: '小麒麟', color: '#5fd0b8', role: 'front', hp: 420, atk: 12,   armor: 0.38, interval: 0.95, range: 0,   food: 'fruit', adv: true,
+    skill: { name: '瑞云护体', cd: 10 }, ult: { name: '麒麟踏祥云' }, words: ['麒麟', '小麒麟', '祥祥', '麒麟兽'],
+    desc: '高级前排：蹄子一踏震退坏心情；瑞云护体把身边坏心情都吸过来、给身边伙伴套护盾；麒麟踏祥云全场震晕、全队减伤', passive: '祥瑞：受到伤害降低' },
+  tiger:   { name: '虎虎', kind: '小白虎', color: '#c9d6ff', role: 'melee', hp: 290, atk: 18,   armor: 0.2,  interval: 0.8,  range: 0,   food: 'fish', crit: 0.18, critDmg: 0.35, adv: true,
+    skill: { name: '猛虎扑', cd: 9 }, ult: { name: '白虎啸月' }, words: ['白虎', '小白虎', '老虎', '虎虎', '小老虎', '虎'],
+    desc: '高级近战：虎爪连挠；猛虎扑一跃扑到坏心情堆里、落地一圈爪击；白虎啸月一声长啸，在敌群里来回闪身扑击', passive: '虎威：暴击伤害提升' },
+  elephant:{ name: '嘟嘟', kind: '小飞象', color: '#9ec9f0', role: 'back',  hp: 240, atk: 9,    armor: 0.15, interval: 1.0,  range: 400, food: 'fruit', heal: 1.25, adv: true,
+    skill: { name: '喷泉淋淋', cd: 9 }, ult: { name: '彩虹大喷泉' }, words: ['大象', '小象', '小飞象', '嘟嘟', '飞象', '象'],
+    desc: '高级治疗：鼻子喷水弹能打能奶；喷泉淋淋给一片伙伴回血、把坏心情冲开；彩虹大喷泉一大片水雾，伙伴在里面一直回血、坏心情走不动', passive: '清凉：治疗量提升' },
+  koi:     { name: '福福', kind: '小锦鲤', color: '#ff8f6b', role: 'ranged', hp: 200, atk: 15,  armor: 0.1,  interval: 0.9,  range: 430, food: 'seed', adv: true,
+    skill: { name: '好运泡泡', cd: 9 }, ult: { name: '锦鲤转运' }, words: ['锦鲤', '小锦鲤', '福福', '鲤鱼', '锦鲤鱼'],
+    desc: '高级辅助：金泡泡追着坏心情打；好运泡泡一口吐出六个追踪泡泡；锦鲤转运让全队技能和大招马上转好、天上下一场金币雨', passive: '好运：技能冷却缩短' },
 };
 export const ALL_SPECIES = Object.keys(SPECIES);
 export const SPECIES_IDS = ALL_SPECIES.filter(id => !SPECIES[id].adv);   // 基础八种（开场页、轮播、随机分配用）
 export const ADV_IDS = ALL_SPECIES.filter(id => SPECIES[id].adv);
 // 高级萌宠解锁条件：农场等级 + 金币
-export const ADV_PETS = { dragon: { lv: 3, cost: 600 }, deer: { lv: 6, cost: 2000 }, unicorn: { lv: 10, cost: 6000 }, phoenix: { lv: 14, cost: 15000 } };
+export const ADV_PETS = { dragon: { lv: 3, cost: 600 }, deer: { lv: 6, cost: 2000 }, unicorn: { lv: 10, cost: 6000 }, phoenix: { lv: 14, cost: 15000 },
+  qilin: { lv: 16, cost: 25000 }, tiger: { lv: 19, cost: 40000 }, elephant: { lv: 22, cost: 60000 }, koi: { lv: 25, cost: 90000 } };
 export const ROLE_NAMES = { front: '前排', melee: '近战', ranged: '远程', back: '治疗' };
 
 // 各萌宠招式参数（伤害 = 攻击力 × 倍数）
@@ -130,6 +143,10 @@ export const KIT = {
   deer:    { proj: 'leaf', speed: 700, mul: 1.6, pierce: 2, skill: { r: 130, mul: 3, root: 1.2, heal: 0.12 }, ult: { r: 220, sec: 6, tick: 0.5, mul: 1.5, heal: 0.04, slow: 0.45 } },
   unicorn: { reach: 54, r: 70, mul: 2.8, skill: { dist: 280, mul: 5, r: 66 }, ult: { n: 22, r: 90, mul: 4.6, every: 0.12, atk: 0.2, atkSec: 8 } },
   phoenix: { proj: 'feather', speed: 760, mul: 1.6, burn: 0.4, burnSec: 3, skill: { n: 7, arc: 0.9, mul: 2.3 }, ult: { revive: 0.6, r: 200, mul: 14 } },
+  qilin:   { reach: 50, r: 74, mul: 2.6, knock: 22, skill: { r: 160, taunt: 4, mul: 3.2, shield: 0.2, allyR: 220, allyShield: 0.12 }, ult: { r: 260, stun: 1.6, mul: 16, dr: 0.35, drSec: 8 } },
+  tiger:   { reach: 54, r: 70, mul: 2.7, skill: { dist: 300, mul: 5.5, r: 90 }, ult: { hops: 7, r: 110, mul: 3.8, fin: 14 } },
+  elephant:{ proj: 'water', speed: 540, mul: 1.35, healMul: 0.13, skill: { r: 170, heal: 0.18, mul: 2.4, knock: 60 }, ult: { r: 230, sec: 6, tick: 0.5, heal: 0.05, mul: 1.2, slow: 0.5 } },
+  koi:     { proj: 'goldbubble', speed: 620, mul: 1.7, skill: { n: 6, mul: 2.4 }, ult: { cut: 1, n: 18, r: 80, mul: 3.6, every: 0.12 } },
 };
 
 // 天生被动（随天赋档位加强：档位 1–6）
@@ -137,6 +154,7 @@ export const PASSIVE = {
   shiba: { dr: 0.03 }, cat: { critDmg: 0.08 }, bunny: { heal: 0.08 }, panda: { haste: 0.04 },
   fox: { burn: 0.15 }, hamster: { xp: 0.03 }, penguin: { freeze: 0.02 }, dragon: { splash: 0.06 },
   sheep: { heal: 0.08 }, deer: { haste: 0.04 }, unicorn: { critDmg: 0.1 }, phoenix: { burn: 0.15 },
+  qilin: { dr: 0.04 }, tiger: { critDmg: 0.1 }, elephant: { heal: 0.08 }, koi: { haste: 0.05 },
 };
 
 // ───────── 天赋（礼物「加油鸭」觉醒一次，随机一档、取最好）：每只萌宠各自的天赋，全属性倍率 ─────────

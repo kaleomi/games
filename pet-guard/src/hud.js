@@ -151,29 +151,34 @@ function drawProfile(r, x) {
 }
 const ALL_IDS = Object.keys(SPECIES);
 function pfPets(r, x, p, f, l, t, w) {
-  const cw = w / 3, chh = 158;
+  const cols = 4, cw = w / cols, chh = 168;
   ALL_IDS.forEach((sp, i) => {
-    const d = p.pets?.[sp], S = SPECIES[sp], cx = l + (i % 3) * cw, cy = t + Math.floor(i / 3) * chh;
-    x.fillStyle = (f?.sp || p.cur) === sp ? '#fff0f6' : 'rgba(255,255,255,0.6)'; rr(x, cx + 4, cy + 4, cw - 8, chh - 10, 12); x.fill();
-    if ((f?.sp || p.cur) === sp) { x.strokeStyle = C.pink; x.lineWidth = 2; x.stroke(); }
+    const d = p.pets?.[sp], S = SPECIES[sp], cx = l + (i % cols) * cw, cy = t + Math.floor(i / cols) * chh, cur = (f?.sp || p.cur) === sp;
+    x.fillStyle = cur ? '#fff0f6' : 'rgba(255,255,255,0.6)'; rr(x, cx + 3, cy + 3, cw - 6, chh - 8, 12); x.fill();
+    if (cur) { x.strokeStyle = C.pink; x.lineWidth = 2; x.stroke(); }
     const form = d ? FORMS.findLastIndex(fm => (d.lv || 1) >= fm.lv) : 2;
-    if (d) petIcon(r, x, sp, form, cx + 46, cy + 56, 76, d.shiny ? Math.max(1, starOf(d)) : 0);
-    else { const a = r.assets.gray(`pet:${sp}:2`); if (a) { const s2 = 70 / Math.max(a.w, a.h); x.save(); x.globalAlpha = 0.45; x.drawImage(a.img, cx + 46 - a.w * s2 / 2, cy + 56 - a.h * s2 / 2, a.w * s2, a.h * s2); x.restore(); } }
-    text(x, clipText(x, d?.nick || S.name, 110), cx + 90, cy + 28, 15, d ? C.ink : C.mute);
-    text(x, S.kind + (S.adv ? ' · 高级' : ''), cx + 90, cy + 46, 11, C.mute, 'left', 'normal');
-    if (!d) { text(x, S.adv ? `农场Lv${ADV_PETS[sp].lv}解锁` : '还没领养', cx + 90, cy + 70, 12, C.mute, 'left', 'normal'); if (S.adv) text(x, `${ADV_PETS[sp].cost}金币`, cx + 90, cy + 88, 12, '#e08a2a', 'left', 'normal'); return; }
-    text(x, `Lv${d.lv || 1} · ${FORMS[form].name}`, cx + 90, cy + 68, 13, '#e08a2a');
-    if ((d.talent || 0) > 0 || (d.star || 0) > 0) partsText(x, talentParts(d), cx + 90, cy + 88, 13); else text(x, '天赋未觉醒', cx + 90, cy + 88, 12, C.mute, 'left', 'normal');
-    text(x, `亲密 ${bondLevel(d.bond)}档 · 战力 ${combatPower({ level: d.lv, gear: d.gear, talent: d.talent, star: d.star, sub: d.sub, bond: d.bond })}`, cx + 90, cy + 107, 11, C.mute, 'left', 'normal');
+    if (d) petIcon(r, x, sp, form, cx + 38, cy + 44, 62, d.shiny ? Math.max(1, starOf(d)) : 0);
+    else { const a = r.assets.gray(`pet:${sp}:2`); if (a) { const s2 = 58 / Math.max(a.w, a.h); x.save(); x.globalAlpha = 0.45; x.drawImage(a.img, cx + 38 - a.w * s2 / 2, cy + 44 - a.h * s2 / 2, a.w * s2, a.h * s2); x.restore(); } }
+    text(x, clipText(x, d?.nick || S.name, 76), cx + 74, cy + 26, 14, d ? C.ink : C.mute);
+    text(x, S.kind + (S.adv ? '·高级' : ''), cx + 74, cy + 43, 10, C.mute, 'left', 'normal');
+    if (!d) {
+      text(x, S.adv ? `农场Lv${ADV_PETS[sp].lv}解锁` : '还没领养', cx + 74, cy + 62, 11, C.mute, 'left', 'normal');
+      if (S.adv) text(x, `${ADV_PETS[sp].cost}金币`, cx + 74, cy + 78, 11, '#e08a2a', 'left', 'normal');
+      return;
+    }
+    text(x, `Lv${d.lv || 1}·${FORMS[form].name}`, cx + 74, cy + 62, 12, '#e08a2a');
+    if ((d.talent || 0) > 0 || (d.star || 0) > 0) partsText(x, talentParts(d).slice(0, 1), cx + 10, cy + 98, 12); else text(x, '未觉醒', cx + 10, cy + 98, 11, C.mute, 'left', 'normal');
+    text(x, `亲密${bondLevel(d.bond)}档`, cx + cw - 10, cy + 98, 11, C.mute, 'right', 'normal');
+    text(x, `战力 ${combatPower({ level: d.lv, gear: d.gear, talent: d.talent, star: d.star, sub: d.sub, bond: d.bond })}`, cx + 10, cy + 116, 11, C.mute, 'left', 'normal');
     SLOT_IDS.forEach((sl, k) => {
-      const it = d.gear?.[sl], gx = cx + 16 + k * 50, gy = cy + 118;
-      x.fillStyle = '#fff'; rr(x, gx, gy, 42, 28, 8); x.fill(); x.strokeStyle = it ? GEAR.tiers[it.tier].color : '#eadbd6'; x.lineWidth = 2; x.stroke();
-      if (it && !r.icon(x, `gear:${sl}:${it.tier}`, gx + 21, gy + 14, 24)) { x.fillStyle = GEAR.tiers[it.tier].color; star(x, gx + 21, gy + 14, 8); x.fill(); }
-      if (it?.plus) text(x, `+${it.plus}`, gx + 40, gy + 26, 10, '#e08a2a', 'right');
+      const it = d.gear?.[sl], gx = cx + 8 + k * ((cw - 16) / 4), gw = (cw - 16) / 4 - 4, gy = cy + 126;
+      x.fillStyle = '#fff'; rr(x, gx, gy, gw, 28, 7); x.fill(); x.strokeStyle = it ? GEAR.tiers[it.tier].color : '#eadbd6'; x.lineWidth = 2; x.stroke();
+      if (it && !r.icon(x, `gear:${sl}:${it.tier}`, gx + gw / 2, gy + 14, 22)) { x.fillStyle = GEAR.tiers[it.tier].color; star(x, gx + gw / 2, gy + 14, 7); x.fill(); }
+      if (it?.plus) text(x, `+${it.plus}`, gx + gw - 2, gy + 26, 9, '#e08a2a', 'right');
     });
   });
-  const sh = p.shards || [];
-  text(x, `装扮碎片：${GEAR.tiers.slice(0, 5).map((tt, i) => `${tt.name}${sh[i] || 0}`).join('  ')}`, l + 8, t + 4 * chh + 14, 12, C.mute, 'left', 'normal');
+  const sh = p.shards || [], rows = Math.ceil(ALL_IDS.length / cols);
+  text(x, `装扮碎片：${GEAR.tiers.slice(0, 5).map((tt, i) => `${tt.name}${sh[i] || 0}`).join('  ')}`, l + 8, t + rows * chh + 14, 12, C.mute, 'left', 'normal');
 }
 function pfDex(r, x, p, f, l, t, w) {
   const map = p.sprites || {}, got = SPRITE_UNITS.filter(u => map[u] > 0).length;
@@ -229,14 +234,14 @@ function pfFarm(r, x, p, f, l, t, w) {
     text(x, c.name, cx + 38, cy + 16, 12, C.ink); text(x, ok ? '已解锁' : `Lv${c.lv}`, cx + 38, cy + 32, 10, C.mute, 'left', 'normal');
     x.restore();
   });
-  const y3 = y2 + 130;
+  const y3 = y2 + 116;
   text(x, '高级萌宠', l + 8, y3, 15, C.ink);
   ADV_IDS.forEach((sp, i) => {
-    const cx = l + 8 + i * 158, cy = y3 + 14, has = (fm.pets || []).includes(sp) || !!p.pets?.[sp];
-    x.fillStyle = has ? '#fff0f6' : 'rgba(255,255,255,0.6)'; rr(x, cx, cy, 150, 92, 12); x.fill();
-    if (has) petIcon(r, x, sp, 2, cx + 38, cy + 46, 64); else { const a = r.assets.gray(`pet:${sp}:2`); if (a) { const s2 = 60 / Math.max(a.w, a.h); x.save(); x.globalAlpha = 0.45; x.drawImage(a.img, cx + 38 - a.w * s2 / 2, cy + 46 - a.h * s2 / 2, a.w * s2, a.h * s2); x.restore(); } }
-    text(x, SPECIES[sp].kind, cx + 74, cy + 40, 13, has ? C.ink : C.mute);
-    text(x, has ? '已解锁' : `Lv${ADV_PETS[sp].lv} · ${ADV_PETS[sp].cost}`, cx + 74, cy + 60, 10, has ? '#3fcf8e' : C.mute, 'left', 'normal');
+    const cx = l + 8 + (i % 4) * 158, cy = y3 + 12 + Math.floor(i / 4) * 86, has = (fm.pets || []).includes(sp) || !!p.pets?.[sp];
+    x.fillStyle = has ? '#fff0f6' : 'rgba(255,255,255,0.6)'; rr(x, cx, cy, 150, 80, 12); x.fill();
+    if (has) petIcon(r, x, sp, 2, cx + 36, cy + 40, 58); else { const a = r.assets.gray(`pet:${sp}:2`); if (a) { const s2 = 54 / Math.max(a.w, a.h); x.save(); x.globalAlpha = 0.45; x.drawImage(a.img, cx + 36 - a.w * s2 / 2, cy + 40 - a.h * s2 / 2, a.w * s2, a.h * s2); x.restore(); } }
+    text(x, SPECIES[sp].kind, cx + 70, cy + 34, 13, has ? C.ink : C.mute);
+    text(x, has ? '已解锁' : `Lv${ADV_PETS[sp].lv} · ${ADV_PETS[sp].cost}`, cx + 70, cy + 54, 10, has ? '#3fcf8e' : C.mute, 'left', 'normal');
   });
 }
 function pfFriends(r, x, p, f, l, t, w) {
@@ -497,13 +502,11 @@ const HOME_PAGES = [
     });
   } },
   { title: '高级萌宠', draw(r, x, l, t, w) {
-    ADV_IDS.forEach((sp, i) => {
-      const A = ADV_PETS[sp], S = SPECIES[sp], y = t + 26 + i * 48;
-      petIcon(r, x, sp, 2, l + 34, y - 6, 42);
-      text(x, `${S.name} · ${S.kind}`, l + 64, y - 8, 14, C.ink, 'left', 'bold');
-      text(x, clipText(x, S.desc.split('：')[1] || S.desc, 200), l + 64, y + 10, 11, C.mute, 'left', 'normal');
-      text(x, `农场Lv${A.lv}`, l + w - 12, y - 8, 12, '#5a9a3a', 'right');
-      text(x, `${A.cost}金币`, l + w - 12, y + 10, 12, '#e08a2a', 'right');
+    ADV_IDS.forEach((sp, i) => {   // 两列：农场等级 + 金币解锁
+      const A = ADV_PETS[sp], S = SPECIES[sp], cx = l + (i % 2) * (w / 2), y = t + 20 + Math.floor(i / 2) * 46;
+      petIcon(r, x, sp, 2, cx + 26, y - 4, 38);
+      text(x, S.kind, cx + 50, y - 6, 13, C.ink, 'left', 'bold');
+      text(x, `农场Lv${A.lv} · ${A.cost >= 10000 ? A.cost / 10000 + '万' : A.cost}金币`, cx + 50, y + 11, 11, '#5a9a3a', 'left', 'normal');
     });
   } },
 ];

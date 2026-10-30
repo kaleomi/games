@@ -17,7 +17,7 @@ from scipy import ndimage
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ASSETS = os.path.join(ROOT, 'assets')
-SP = ['shiba', 'cat', 'bunny', 'panda', 'fox', 'hamster', 'penguin', 'dragon', 'sheep', 'deer', 'unicorn', 'phoenix']
+SP = ['shiba', 'cat', 'bunny', 'panda', 'fox', 'hamster', 'penguin', 'dragon', 'sheep', 'deer', 'unicorn', 'phoenix', 'qilin', 'tiger', 'elephant', 'koi']
 SP_BASE = SP[:8]
 CROP_IDS = ['carrot', 'cabbage', 'strawberry', 'corn', 'tomato', 'pumpkin', 'sunflower', 'watermelon', 'grape', 'starfruit']
 FOE_H = {'dust': 220, 'cloud': 220, 'thief': 220, 'burr': 220, 'tear': 220, 'bear': 320, 'clock': 320, 'crow': 320,
@@ -48,8 +48,10 @@ def spec_of(fid):
     table = {
         'tree':          dict(grid=(1, 1), names=['tree'], h=560, bg='white', dir='misc'),
         'eggs':          dict(grid=(2, 4), names=[f'egg:{s}' for s in SP_BASE], h=170, bg='white', dir='misc'),
-        'eggs_adv':      dict(grid=(1, 4), names=[f'egg:{s}' for s in SP[8:]], h=170, bg='white', dir='misc'),
+        'eggs_adv':      dict(grid=(1, 4), names=[f'egg:{s}' for s in SP[8:12]], h=170, bg='white', dir='misc'),
+        'eggs_adv2':     dict(grid=(1, 4), names=[f'egg:{s}' for s in SP[12:16]], h=170, bg='white', dir='misc'),
         'proj_adv':      dict(grid=(1, 3), names=['proj:wool', 'proj:leaf', 'proj:feather'], box=140, bg='white', dir='fx'),
+        'proj_adv2':     dict(grid=(1, 2), names=['proj:water', 'proj:goldbubble'], box=140, bg='white', dir='fx'),
         # 回家种田
         'farm_tiles':    dict(grid=(1, 2), names=['farm:soil', 'farm:wet'], box=280, bg='white', dir='farm'),
         'produce':       dict(grid=(2, 5), names=[f'produce:{c}' for c in CROP_IDS], box=140, bg='white', dir='farm'),

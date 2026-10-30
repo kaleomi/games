@@ -439,7 +439,7 @@ test('高级萌宠：没解锁领不了；农场等级和金币够了解锁，�
   assert.equal(f.sp, 'unicorn', '解锁后直接换上');
   assert.equal(fm.coins, 10);
   // 四只高级萌宠打一会儿不报错
-  for (const [i, sp] of ['dragon', 'deer', 'unicorn', 'phoenix'].entries()) {
+  for (const [i, sp] of ['dragon', 'deer', 'unicorn', 'phoenix', 'qilin', 'tiger', 'elephant', 'koi'].entries()) {
     g.chat({ id: 'b' + i, name: '高级' + i }, '狗');
     const o = g.pets.get('b' + i), of = farmOf(g, o); of.pets.push(sp);
     assert.ok(g.setSpecies(o, sp));
@@ -447,7 +447,7 @@ test('高级萌宠：没解锁领不了；农场等级和金币够了解锁，�
   g.startLobby('test'); run(2);
   for (const f2 of g.pets.values()) { f2.egg = false; }
   g.phaseT = 0.01; run(40);
-  for (const id of ['b0', 'b1', 'b2', 'b3']) { const o = g.pets.get(id); o.ultCd = 0; o.ultReq = g.clock + 2; }
+  for (let i = 0; i < 8; i++) { const o = g.pets.get('b' + i); o.ultCd = 0; o.ultReq = g.clock + 2; }
   run(5);
   assert.ok(g.phase === 'battle' || g.phase === 'clear' || g.phase === 'result');
 });

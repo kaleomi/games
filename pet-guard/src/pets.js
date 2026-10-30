@@ -291,7 +291,7 @@ function basicAI(game, f, dt) {
   if (ranged) {
     const sp = rangedSpot(game, f, dt), o = f.rOff || { x: 0, y: 0 };
     walkTo(game, f, { x: clamp(sp.x + o.x, 30, W - 30), y: sp.y + o.y }, dt, 0.9);
-    const healOnly = !tgt && (f.sp === 'bunny' || f.sp === 'sheep') && f.atkCd <= 0 && lowestAlly(game, f, 0.85, 420);
+    const healOnly = !tgt && (f.sp === 'bunny' || f.sp === 'sheep' || f.sp === 'elephant') && f.atkCd <= 0 && lowestAlly(game, f, 0.85, 420);
     if ((tgt || healOnly) && f.atkCd <= 0) startBasic(game, f, tgt);
     else if (tgt && f.anim === 'idle' && Math.abs(tgt.x - f.x) > 6) faceTo(game, f, tgt.x >= f.x ? 1 : -1);
     return;
@@ -374,8 +374,8 @@ function basicHit(game, f, tgt) {
   const K = KIT[f.sp], st = f.stats;
   game.emit('sfx', { name: 'atk', sp: f.sp });
   switch (f.sp) {
-    case 'shiba': case 'cat': case 'unicorn': meleeHit(game, f, K.reach, K.r, K.mul); break;
-    case 'panda': meleeHit(game, f, K.reach, K.r, K.mul, { knock: K.knock }); break;
+    case 'shiba': case 'cat': case 'unicorn': case 'tiger': meleeHit(game, f, K.reach, K.r, K.mul); break;
+    case 'panda': case 'qilin': meleeHit(game, f, K.reach, K.r, K.mul, { knock: K.knock }); break;
     case 'bunny': {
       const ally = lowestAlly(game, f, 0.9, 420);
       if (ally) addProj(game, { team: 'p', owner: f.uid, kind: 'heart', heal: (ally.maxHp * 0.04 + st.atk * 1.4) * K.healMul * 8 * st.heal, fixed: ally, homing: 12, x: f.x, y: f.y - f.h * 0.6, vx: 0, vy: -300, r: 10, life: 2 });
@@ -393,12 +393,14 @@ function basicHit(game, f, tgt) {
       shoot(game, f, tgt, 'snowball', K.speed, d, { crit, onHit: (g, e) => { slowE(e, K.slow, K.slowSec, g.clock); if (g.random() < K.freeze + st.freeze) stunE(e, 1, g.clock, 'freeze'); } });
       break;
     }
+    case 'elephant':  // 喷水弹：跟羊一样，先给最累的伙伴补一下，再打坏心情
     case 'sheep': {   // 羊毛球：先给最累的伙伴补一下，再打坏心情
-      const ally = lowestAlly(game, f, 0.9, 420);
-      if (ally) addProj(game, { team: 'p', owner: f.uid, kind: 'wool', heal: (ally.maxHp * 0.04 + st.atk * 1.4) * K.healMul * 8 * st.heal, fixed: ally, homing: 12, x: f.x, y: f.y - f.h * 0.6, vx: 0, vy: -300, r: 11, life: 2 });
-      if (tgt) { const [d, crit] = rollCrit(game, f, st.atk * K.mul); shoot(game, f, tgt, 'wool', K.speed, d, { crit, homing: 4, fixed: tgt }); }
+      const ally = lowestAlly(game, f, 0.9, 420), pk = f.sp === 'sheep' ? 'wool' : 'water';
+      if (ally) addProj(game, { team: 'p', owner: f.uid, kind: pk, heal: (ally.maxHp * 0.04 + st.atk * 1.4) * K.healMul * 8 * st.heal, fixed: ally, homing: 12, x: f.x, y: f.y - f.h * 0.6, vx: 0, vy: -300, r: 11, life: 2 });
+      if (tgt) { const [d, crit] = rollCrit(game, f, st.atk * K.mul); shoot(game, f, tgt, pk, K.speed, d, { crit, homing: 4, fixed: tgt }); }
       break;
     }
+    case 'koi': { const [d, crit] = rollCrit(game, f, st.atk * K.mul); shoot(game, f, tgt, 'goldbubble', K.speed, d, { crit, homing: 3, fixed: tgt }); break; }
     case 'deer': { const [d, crit] = rollCrit(game, f, st.atk * K.mul); shoot(game, f, tgt, 'leaf', K.speed, d, { crit, pierce: K.pierce, spin: 10 }); break; }
     case 'phoenix': {
       const [d, crit] = rollCrit(game, f, st.atk * K.mul);
@@ -581,6 +583,57 @@ export function castSkill(game, f) {
       emit({ fx: 'charge', x1: tx, y1: ty });
       return true;
     }
+    case 'qilin': {   // 瑞云护体：把身边坏心情都吸过来，自己和身边伙伴套护盾
+      const near = foesIn(game, f.x, f.y, K.skill.r);
+      if (!near.length) return false;
+      startAct(f, 'skill', 0.55, [{ at: 0.2, fn: g => {
+        for (const e of foesIn(g, f.x, f.y, K.skill.r)) { e.tauntBy = f.uid; e.tauntUntil = c + K.skill.taunt; damageFoe(g, e, atk * K.skill.mul * sm, f, { fx: 'paw' }); }
+        f.shieldHp = Math.max(f.shieldHp || 0, f.maxHp * K.skill.shield * sm); f.shieldBy = f.uid; f.shieldUntil = c + 5;
+        for (const a of petsIn(g, f.x, f.y, K.skill.allyR)) if (a !== f) { a.shieldHp = Math.max(a.shieldHp || 0, a.maxHp * K.skill.allyShield * sm); a.shieldUntil = g.clock + 5; a.shieldBy = f.uid; }
+        emit({ fx: 'roar', r: K.skill.r });
+        g.emit('burst', { kind: 'rainbow', x: f.x, y: f.y - 20, r: K.skill.allyR * 0.6 });
+      } }]);
+      return true;
+    }
+    case 'tiger': {   // 猛虎扑：一跃扑到坏心情最多的地方，落地一圈爪击
+      const spot = densest(game, f.x, f.y, K.skill.r) || pickTarget(game, f, false);
+      if (!spot || Math.hypot(spot.x - f.x, spot.y - f.y) > 520) return false;
+      const sx = f.x, sy = f.y, dx = spot.x - sx, dy = spot.y - sy, d = Math.hypot(dx, dy) || 1, go = Math.min(K.skill.dist, d);
+      const tx = clamp(sx + dx / d * go, 20, W - 20), ty = clamp(sy + dy / d * go, FIELD.top, FIELD.bottom);
+      f.facing = dx >= 0 ? 1 : -1; f.invuln = Math.max(f.invuln || 0, 0.5);
+      startAct(f, 'skill', 0.6, [{ at: 0.38, fn: g => {
+        for (const e of foesIn(g, tx, ty, K.skill.r)) { const [dd, crit] = rollCrit(g, f, atk * K.skill.mul * sm); damageFoe(g, e, dd, f, { crit, fx: 'claw', melee: true }); }
+        g.emit('burst', { kind: 'bigclaw', x: tx, y: ty - 30, r: K.skill.r }); g.emit('shake', { k: 5 });
+      } }], { move: (g, h, dt, a) => { const k = Math.min(1, a.t / 0.36); h.x = sx + (tx - sx) * k; h.y = sy + (ty - sy) * k - Math.sin(k * Math.PI) * 70; } });
+      emit({ fx: 'claws' });
+      return true;
+    }
+    case 'elephant': {   // 喷泉淋淋：最累的那片伙伴回血，身边的坏心情被水冲开
+      const hurt = [...game.pets.values()].filter(a => a.alive && !a.egg && a.hp < a.maxHp * 0.9).sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0];
+      const near = foesIn(game, f.x, f.y, K.skill.r);
+      if (!hurt && !near.length) return false;
+      const at = hurt || f;
+      startAct(f, 'skill', 0.55, [{ at: 0.3, fn: g => {
+        for (const a of petsIn(g, at.x, at.y, K.skill.r)) { const amt = healPet(g, a, a.maxHp * K.skill.heal * sm * st.heal, f); if (amt > 1) g.emit('heal', { uid: a.uid, x: a.x, y: a.y, amount: Math.round(amt) }); }
+        for (const e of foesIn(g, f.x, f.y, K.skill.r)) { const dx = e.x - f.x, dy = e.y - f.y, d = Math.hypot(dx, dy) || 1; damageFoe(g, e, atk * K.skill.mul * sm, f, { fx: false, knock: [dx / d * K.skill.knock, dy / d * K.skill.knock * 0.5] }); }
+        g.emit('burst', { kind: 'snow', x: at.x, y: at.y - 20, r: K.skill.r });
+      } }]);
+      emit({ fx: 'carrot', targets: hurt ? [hurt.uid] : [] });
+      return true;
+    }
+    case 'koi': {   // 好运泡泡：一口吐出六个追踪金泡泡
+      const tgt = pickTarget(game, f, true);
+      if (!tgt) return false;
+      startAct(f, 'skill', 0.5, [{ at: 0.25, fn: g => {
+        const list = liveFoes(g).filter(e => !(e.enter > 0));
+        for (let i = 0; i < K.skill.n; i++) {
+          const e = i === 0 || !list.length ? tgt : list[Math.floor(g.random() * list.length)], a = -Math.PI / 2 + (i - (K.skill.n - 1) / 2) * 0.45;
+          addProj(g, { team: 'p', owner: f.uid, kind: 'goldbubble', x: f.x, y: f.y - f.h * 0.55, vx: Math.cos(a) * K.speed * 0.6, vy: Math.sin(a) * K.speed * 0.6, dmg: atk * K.skill.mul * sm, r: 14, life: 1.8, homing: 6, fixed: e, big: true });
+        }
+      } }]);
+      emit({ fx: 'feathers' });
+      return true;
+    }
     case 'phoenix': { // 凤羽连射：七根追踪火羽毛
       const tgt = pickTarget(game, f, true);
       if (!tgt) return false;
@@ -612,7 +665,7 @@ export function requestUlt(game, f) {
 }
 function npcWantsUlt(game, f) {
   const n = liveFoes(game).length, boss = game.boss && game.boss.alive && !game.boss.purified;
-  if (f.sp === 'bunny' || f.sp === 'sheep' || f.sp === 'phoenix') return [...game.pets.values()].filter(a => !a.alive || a.hp < a.maxHp * 0.45).length >= 2 || (f.sp === 'phoenix' && (boss || n >= 8));
+  if (f.sp === 'bunny' || f.sp === 'sheep' || f.sp === 'elephant' || f.sp === 'phoenix') return [...game.pets.values()].filter(a => !a.alive || a.hp < a.maxHp * 0.45).length >= 2 || (f.sp === 'phoenix' && (boss || n >= 8));
   return boss || n >= 6;
 }
 export function castUlt(game, f, { free = false } = {}) {
@@ -758,6 +811,68 @@ export function castUlt(game, f, { free = false } = {}) {
       } });
       startAct(f, 'ult', 0.3 + K.ult.n * K.ult.every + 0.3, hits);
       game.emit('banner', { text: `${f.nick || f.name}的星光陨落！全队攻击提升 ${K.ult.atkSec}秒`, tier: 3 });
+      return true;
+    }
+    case 'qilin': {   // 麒麟踏祥云：全场震晕，全队减伤
+      game.teamDr = K.ult.dr; game.teamDrUntil = c + K.ult.drSec;
+      startAct(f, 'ult', 0.9, [{ at: 0.55, fn: g => {
+        for (const e of foesIn(g, f.x, f.y, K.ult.r)) { damageFoe(g, e, atk * K.ult.mul * um, f, { fx: 'paw' }); stunE(e, K.ult.stun, g.clock); }
+        g.emit('burst', { kind: 'hug', x: f.x, y: f.y, r: K.ult.r }); g.emit('burst', { kind: 'rainbow', x: f.x, y: f.y - 30, r: K.ult.r * 0.7 }); g.emit('shake', { k: 8 });
+      } }]);
+      game.emit('banner', { text: `${f.nick || f.name}的麒麟踏祥云！全队减伤 ${K.ult.drSec}秒`, tier: 3 });
+      return true;
+    }
+    case 'tiger': {   // 白虎啸月：在敌群里来回闪身扑击，最后一爪重击
+      const targets = [];
+      for (let i = 0; i < K.ult.hops; i++) {
+        const list = liveFoes(game).filter(e => !(e.enter > 0));
+        if (!list.length) break;
+        list.sort((a, b) => (b.role !== 'minion') - (a.role !== 'minion') || game.random() - 0.5);
+        targets.push(list[i % list.length]);
+      }
+      if (!targets.length) return false;
+      f.invuln = K.ult.hops * 0.26 + 0.6;
+      const hits = [], path = [], sx = f.x, sy = f.y;
+      targets.forEach((e, i) => {
+        path.push({ x: clamp(e.x - 30, 20, W - 20), y: clamp(e.y + 4, FIELD.top, FIELD.bottom) });
+        hits.push({ at: 0.26 * (i + 1), fn: g => { for (const o of foesIn(g, path[i].x + 30, path[i].y, K.ult.r)) { const [dd, crit] = rollCrit(g, f, atk * K.ult.mul * um); damageFoe(g, o, dd, f, { crit, fx: 'claw' }); } g.emit('burst', { kind: 'claw', x: path[i].x + 30, y: path[i].y - 30, r: K.ult.r }); } });
+      });
+      const last = targets[targets.length - 1];
+      hits.push({ at: 0.26 * targets.length + 0.35, fn: g => { if (last.alive) { const [dd] = rollCrit(g, f, atk * K.ult.fin * um); damageFoe(g, last, dd, f, { crit: true, fx: 'claw' }); } g.emit('burst', { kind: 'bigclaw', x: last.x, y: last.y - last.h * 0.5, r: 130 }); g.emit('shake', { k: 7 }); } });
+      startAct(f, 'ult', 0.26 * targets.length + 0.6, hits, { move: (g, h, dt, a) => {
+        const i = Math.min(path.length - 1, Math.floor(a.t / 0.26)), k = Math.min(1, (a.t - i * 0.26) / 0.1);
+        const from = i ? path[i - 1] : { x: sx, y: sy }, to = path[i];
+        h.x = from.x + (to.x - from.x) * k; h.y = from.y + (to.y - from.y) * k - Math.sin(k * Math.PI) * 46; h.facing = to.x >= from.x ? 1 : -1;
+      } });
+      game.emit('banner', { text: `${f.nick || f.name}的白虎啸月！`, tier: 3 });
+      return true;
+    }
+    case 'elephant': {   // 彩虹大喷泉：一大片水雾，伙伴一直回血，坏心情走不动
+      const at = { x: clamp(f.x, 110, W - 110), y: clamp(f.y - 40, FIELD.top + 60, FIELD.bottom - 40) };
+      startAct(f, 'ult', 0.8, [{ at: 0.45, fn: g => {
+        for (const a of g.pets.values()) if (!a.egg && !a.alive && Math.hypot(a.x - at.x, a.y - at.y) < K.ult.r) wakePet(g, a, 0.3);
+        g.areas.push({ kind: 'water', owner: f.uid, x: at.x, y: at.y, r: K.ult.r, t: 0, life: K.ult.sec, tickT: 0, every: K.ult.tick,
+          tick: gg => {
+            for (const e of foesIn(gg, at.x, at.y, K.ult.r)) { damageFoe(gg, e, atk * K.ult.mul * um, f, { fx: false }); slowE(e, K.ult.slow, 0.7, gg.clock); }
+            for (const a of petsIn(gg, at.x, at.y, K.ult.r)) { const amt = healPet(gg, a, a.maxHp * K.ult.heal * st.heal, f); if (amt > 1 && gg.random() < 0.3) gg.emit('heal', { uid: a.uid, x: a.x, y: a.y, amount: Math.round(amt), small: true }); }
+          } });
+        g.emit('burst', { kind: 'candyrain', x: at.x, y: at.y, r: K.ult.r });
+      } }]);
+      game.emit('banner', { text: `${f.nick || f.name}的彩虹大喷泉！在水雾里一直回血`, tier: 3 });
+      return true;
+    }
+    case 'koi': {   // 锦鲤转运：全队技能、大招马上转好，天上下一场金币雨
+      for (const a of game.pets.values()) { if (a.egg || !a.alive || a === f) continue; a.skillCd = Math.min(a.skillCd || 0, 0.5); a.ultCd = Math.min(a.ultCd || 0, Math.max(0, (a.ultCd || 0) * (1 - K.ult.cut))); }
+      const hits = [];
+      for (let i = 0; i < K.ult.n; i++) hits.push({ at: 0.3 + i * K.ult.every, fn: g => {
+        const list = liveFoes(g).filter(e => !(e.enter > 0));
+        const e = list.length ? list[Math.floor(g.random() * list.length)] : null;
+        const tx = e ? e.x + (g.random() - 0.5) * 40 : 120 + g.random() * 480, ty = e ? e.y : FIELD.top + g.random() * 400;
+        addProj(g, { team: 'p', owner: f.uid, kind: 'meteor', x: tx - 120, y: ty - 520, vx: 240, vy: 1040, dmg: 0, r: 1, life: 0.5, noHit: true,
+          onEnd: gg => { for (const o of foesIn(gg, tx, ty, K.ult.r)) { const [dd, crit] = rollCrit(gg, f, atk * K.ult.mul * um); damageFoe(gg, o, dd, f, { crit, fx: 'star' }); } gg.emit('burst', { kind: 'candy', x: tx, y: ty, r: K.ult.r }); } });
+      } });
+      startAct(f, 'ult', 0.3 + K.ult.n * K.ult.every + 0.3, hits);
+      game.emit('banner', { text: `${f.nick || f.name}的锦鲤转运！全队技能、大招马上转好`, tier: 3 });
       return true;
     }
     case 'phoenix': { // 浴火重生：打盹的伙伴全部复活，敌群里炸开火焰

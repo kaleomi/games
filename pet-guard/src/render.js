@@ -662,10 +662,10 @@ export class Renderer {
       if (b.delay > 0) continue;
       const size = (b.r || 10) * (b.big ? 3.2 : 2.6);
       if (b.team === 'p') {
-        const map = { foxfire: 'proj:foxfire', snowball: 'proj:snowball', rainbow: 'proj:rainbow', heart: 'proj:heart', seed: 'proj:seed', cool: 'proj:heart', meteor: 'proj:rainbow', wool: 'proj:wool', leaf: 'proj:leaf', feather: 'proj:feather' };
+        const map = { foxfire: 'proj:foxfire', snowball: 'proj:snowball', rainbow: 'proj:rainbow', heart: 'proj:heart', seed: 'proj:seed', cool: 'proj:heart', meteor: 'proj:rainbow', wool: 'proj:wool', leaf: 'proj:leaf', feather: 'proj:feather', water: 'proj:water', goldbubble: 'proj:goldbubble' };
         const dirRot = b.kind === 'foxfire' || b.kind === 'rainbow' || b.kind === 'meteor' || b.kind === 'feather' ? b.rot : b.spin ? b.rot : 0;
         if (b.kind === 'cool') { x.save(); x.globalCompositeOperation = 'lighter'; x.strokeStyle = '#ff7ad9'; x.lineWidth = 5; x.beginPath(); x.moveTo(b.x, b.y); x.lineTo(b.x - b.vx * 0.04, b.y - b.vy * 0.04); x.stroke(); x.restore(); continue; }
-        if (b.heal) { if (!this.icon(x, b.kind === 'wool' ? 'proj:wool' : 'fx:heart', b.x, b.y, b.kind === 'wool' ? 24 : 18) && !this.icon(x, 'fx:heart', b.x, b.y, 18)) { x.fillStyle = '#ff7fae'; heart(x, b.x, b.y, 8); x.fill(); } continue; }
+        if (b.heal) { const hk = b.kind === 'wool' || b.kind === 'water' ? 'proj:' + b.kind : 'fx:heart'; if (!this.icon(x, hk, b.x, b.y, hk === 'fx:heart' ? 18 : 24) && !this.icon(x, b.kind === 'water' ? 'fx:drop' : 'fx:heart', b.x, b.y, 18)) { x.fillStyle = '#ff7fae'; heart(x, b.x, b.y, 8); x.fill(); } continue; }
         if (!this.icon(x, map[b.kind] || 'proj:heart', b.x, b.y, b.kind === 'meteor' ? 44 : size, { rot: dirRot })) placeholderProj(x, b, size);
       } else {
         const map = { rain: 'fx:drop', snowflake: 'fx:snow' };
@@ -1303,7 +1303,7 @@ function placeholderCrop(x, id, stage, px, py, h, rot) {
 }
 function placeholderProduce(x, id, px, py, s) { x.fillStyle = CROP_COLOR[id] || '#ff9fc4'; x.beginPath(); x.arc(px, py, s * 0.38, 0, TAU); x.fill(); x.strokeStyle = 'rgba(90,50,30,.6)'; x.lineWidth = 2; x.stroke(); x.fillStyle = '#7ccf6a'; x.beginPath(); x.ellipse(px, py - s * 0.38, s * 0.15, s * 0.07, 0, 0, TAU); x.fill(); }
 function placeholderProj(x, b, size) {
-  const c = { foxfire: '#6fd0ff', snowball: '#ffffff', rainbow: '#ff9ef0', heart: '#ff7fae', seed: '#5a4a3a', wool: '#fff6e6', leaf: '#7ccf6a', feather: '#ff8a3d' }[b.kind] || '#fff';
+  const c = { foxfire: '#6fd0ff', snowball: '#ffffff', rainbow: '#ff9ef0', heart: '#ff7fae', seed: '#5a4a3a', wool: '#fff6e6', leaf: '#7ccf6a', feather: '#ff8a3d', water: '#8fd0ff', goldbubble: '#ffd84a' }[b.kind] || '#fff';
   x.save(); x.translate(b.x, b.y); x.rotate(b.rot || 0);
   const gr = x.createRadialGradient(0, 0, 1, 0, 0, size / 2); gr.addColorStop(0, '#fff'); gr.addColorStop(0.5, c); gr.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = gr; x.beginPath(); x.ellipse(0, 0, size / 2, size / 3, 0, 0, TAU); x.fill(); x.restore();
