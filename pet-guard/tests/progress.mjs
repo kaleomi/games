@@ -9,7 +9,7 @@ const mem = new Map(); const storage = { getItem: k => mem.get(k) ?? null, setIt
 let t0 = 1.7e12; const save = new Save({ storage, now: () => t0 });
 const g = new Game({ save, random: rnd, now: () => t0, settings: { npcMin: 4 } });
 const SP = ['shiba', 'cat', 'bunny', 'panda', 'fox', 'hamster', 'penguin', 'dragon'];
-const W = ['柴犬', '猫', '兔', '熊猫', '狐狸', '仓鼠', '企鹅', '龙'];
+const W = ['柴犬', '猫', '兔', '熊猫', '狐狸', '仓鼠', '企鹅', '羊'];
 for (let i = 0; i < n; i++) g.chat({ id: 'u' + i, name: '观众' + i }, W[i % 8]);
 const dt = 1 / 30, total = hours * 3600;
 let stageStart = 0, fails = 0, clears = 0, lastZone = 0; const per = {}; const times = {};

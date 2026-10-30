@@ -92,13 +92,13 @@ export const SPECIES = {
   penguin: { name: '啾啾', kind: '企鹅', color: '#5aa8f0', role: 'ranged', hp: 152, atk: 9.5,  armor: 0.1,  interval: 1.0,  range: 400, food: 'fish',
     skill: { name: '暴风雪球', cd: 9 }, ult: { name: '冰雪乐园' }, words: ['企鹅', '啾啾', '小企鹅', '企企'],
     desc: '冰系控制：雪球减速；暴风雪球三连发；冰雪乐园冻住全场', passive: '寒冷：冻住的概率提升' },
-  dragon:  { name: '糖豆', kind: '小奶龙', color: '#c77dff', role: 'ranged', hp: 148, atk: 10.5, armor: 0.1,  interval: 1.1,  range: 400, food: 'candy',
-    skill: { name: '彩虹吐息', cd: 10 }, ult: { name: '流星糖果雨' }, words: ['龙', '小龙', '奶龙', '糖豆', '恐龙', '小奶龙'],
-    desc: '远程范围：彩虹弹炸开一小片；彩虹吐息扇形连喷；流星糖果雨砸满全场', passive: '甜甜：范围伤害提升' },
-  // ───── 高级萌宠：回家种田，农场等级够了花金币解锁（ADV_PETS） ─────
-  sheep:   { name: '绵绵', kind: '小绵羊', color: '#f3e6d0', role: 'back',  hp: 210, atk: 9,    armor: 0.15, interval: 1.0,  range: 400, food: 'milk', heal: 1.35, adv: true,
+  sheep:   { name: '绵绵', kind: '小绵羊', color: '#f3e6d0', role: 'back',  hp: 165, atk: 7.5,  armor: 0.12, interval: 1.0,  range: 400, food: 'milk', heal: 1.1,
     skill: { name: '棉花云护盾', cd: 9 }, ult: { name: '云朵摇篮' }, words: ['羊', '绵羊', '小羊', '小绵羊', '绵绵', '咩咩', '羊羊'],
-    desc: '高级治疗：羊毛球能打能奶；棉花云护盾给最累的三只套护盾；云朵摇篮全队护盾、叫醒打盹的伙伴', passive: '软绵绵：治疗和护盾提升' },
+    desc: '治疗护盾：羊毛球能打能奶；棉花云护盾给最累的三只套护盾；云朵摇篮全队护盾、叫醒打盹的伙伴', passive: '软绵绵：治疗和护盾提升' },
+  // ───── 高级萌宠：回家种田，农场等级够了花金币解锁（ADV_PETS） ─────
+  dragon:  { name: '糖豆', kind: '小奶龙', color: '#c77dff', role: 'ranged', hp: 200, atk: 14,   armor: 0.12, interval: 1.05, range: 420, food: 'candy', adv: true,
+    skill: { name: '彩虹吐息', cd: 10 }, ult: { name: '流星糖果雨' }, words: ['龙', '小龙', '奶龙', '糖豆', '恐龙', '小奶龙'],
+    desc: '高级远程：彩虹弹炸开一片；彩虹吐息扇形连喷；流星糖果雨砸满全场', passive: '甜甜：范围伤害提升' },
   deer:    { name: '鹿鹿', kind: '小鹿', color: '#d9a066', role: 'ranged', hp: 195, atk: 13.5, armor: 0.1,  interval: 1.0,  range: 420, food: 'fruit', heal: 0.5, adv: true,
     skill: { name: '森林之歌', cd: 9 }, ult: { name: '生命之树' }, words: ['鹿', '小鹿', '鹿鹿', '梅花鹿', '麋鹿'],
     desc: '高级控场：叶子魔法穿透；森林之歌让坏心情被藤蔓缠住、给身边伙伴回血；生命之树长出一大片森林，一边打一边奶', passive: '森林：技能冷却缩短' },
@@ -113,7 +113,7 @@ export const ALL_SPECIES = Object.keys(SPECIES);
 export const SPECIES_IDS = ALL_SPECIES.filter(id => !SPECIES[id].adv);   // 基础八种（开场页、轮播、随机分配用）
 export const ADV_IDS = ALL_SPECIES.filter(id => SPECIES[id].adv);
 // 高级萌宠解锁条件：农场等级 + 金币
-export const ADV_PETS = { sheep: { lv: 3, cost: 600 }, deer: { lv: 6, cost: 2000 }, unicorn: { lv: 10, cost: 6000 }, phoenix: { lv: 14, cost: 15000 } };
+export const ADV_PETS = { dragon: { lv: 3, cost: 600 }, deer: { lv: 6, cost: 2000 }, unicorn: { lv: 10, cost: 6000 }, phoenix: { lv: 14, cost: 15000 } };
 export const ROLE_NAMES = { front: '前排', melee: '近战', ranged: '远程', back: '治疗' };
 
 // 各萌宠招式参数（伤害 = 攻击力 × 倍数）
@@ -125,8 +125,8 @@ export const KIT = {
   fox:     { proj: 'foxfire', speed: 720, mul: 1.7, pierce: 1, burn: 0.35, burnSec: 3, skill: { n: 5, arc: 0.7, mul: 2.2 }, ult: { r: 170, sec: 4, tick: 0.25, mul: 2.4, fin: 10 } },
   hamster: { proj: 'seed', speed: 820, mul: 1.15, skill: { n: 18, mul: 1.4, range: 320 }, ult: { n: 32, mul: 2.4, xpSec: 20, xp: 0.3 } },
   penguin: { proj: 'snowball', speed: 600, mul: 1.6, slow: 0.35, slowSec: 2, freeze: 0.08, skill: { n: 3, mul: 2.6, r: 70, slow: 0.45 }, ult: { freeze: 2.4, mul: 7 } },
-  dragon:  { proj: 'rainbow', speed: 560, mul: 1.8, splash: 56, skill: { arc: 0.55, len: 300, tick: 0.2, n: 8, mul: 0.9 }, ult: { n: 18, r: 80, mul: 4.2, every: 0.18 } },
-  sheep:   { proj: 'wool', speed: 500, mul: 1.4, healMul: 0.14, skill: { n: 3, shield: 0.3, frac: 0.15 }, ult: { shield: 0.35, wake: 0.6, heal: 0.3, r: 200, slow: 0.4 } },
+  dragon:  { proj: 'rainbow', speed: 580, mul: 1.9, splash: 64, skill: { arc: 0.6, len: 320, tick: 0.2, n: 9, mul: 1 }, ult: { n: 22, r: 86, mul: 4.6, every: 0.16 } },
+  sheep:   { proj: 'wool', speed: 500, mul: 1.3, healMul: 0.12, skill: { n: 3, shield: 0.22, frac: 0.12 }, ult: { shield: 0.28, wake: 0.5, heal: 0.25, r: 200, slow: 0.4 } },
   deer:    { proj: 'leaf', speed: 700, mul: 1.6, pierce: 2, skill: { r: 130, mul: 3, root: 1.2, heal: 0.12 }, ult: { r: 220, sec: 6, tick: 0.5, mul: 1.5, heal: 0.04, slow: 0.45 } },
   unicorn: { reach: 54, r: 70, mul: 2.8, skill: { dist: 280, mul: 5, r: 66 }, ult: { n: 22, r: 90, mul: 4.6, every: 0.12, atk: 0.2, atkSec: 8 } },
   phoenix: { proj: 'feather', speed: 760, mul: 1.6, burn: 0.4, burnSec: 3, skill: { n: 7, arc: 0.9, mul: 2.3 }, ult: { revive: 0.6, r: 200, mul: 14 } },

@@ -36,6 +36,8 @@ export function plotCost(farm) { const i = farm.plots.length - FARM.plotsStart; 
 export function marketMul(game, id) { const m = game.market; return !m ? 1 : m.hot === id ? FARM.market.hot : m.cold === id ? FARM.market.cold : 1; }
 export function petUnlocked(game, f, sp) {
   if (!ADV_PETS[sp]) return true;
+  const p = profileOf(game, f);
+  if (p?.pets?.[sp] || f.mem?.[sp]) return true;   // 以前就养过的（小奶龙改成高级萌宠之前领养的）照样能用
   const farm = farmOf(game, f);
   return !!farm && farm.pets.includes(sp);
 }
@@ -148,7 +150,7 @@ export function unlockPet(game, f, sp) {
   if (!A) return false;
   const farm = farmOf(game, f);
   if (!farm) return false;
-  if (farm.pets.includes(sp)) { game.setSpecies(f, sp); return true; }
+  if (farm.pets.includes(sp) || petUnlocked(game, f, sp)) { game.setSpecies(f, sp); return true; }
   if (farm.lv < A.lv) { say(game, f, `${SPECIES[sp].kind}要农场 Lv${A.lv} 才能解锁（现在 Lv${farm.lv}，回家种田升级）`); return false; }
   if (farm.coins < A.cost) { say(game, f, `解锁${SPECIES[sp].kind}要${A.cost}金币（还差${A.cost - farm.coins}）`); return false; }
   farm.coins -= A.cost; farm.pets.push(sp);

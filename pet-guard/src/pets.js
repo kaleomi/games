@@ -33,7 +33,7 @@ export function pickSpecies(game) {
   const count = id => hs.filter(f => f.sp === id).length;
   if (hs.filter(f => SPECIES[f.sp].role === 'front').length < Math.ceil(n / 6)) return game.random() < 0.6 ? 'shiba' : 'panda';
   if (count('bunny') < Math.ceil(n / 7)) return 'bunny';
-  const pool = ['cat', 'fox', 'hamster', 'penguin', 'dragon'];
+  const pool = ['cat', 'fox', 'hamster', 'penguin', 'sheep'];
   return pool[Math.floor(game.random() * pool.length)];
 }
 

@@ -3,7 +3,7 @@
 import { W, H, FONT, ROUND_FONT, BOTTOM_Y, SPECIES, SPECIES_IDS, GEAR, TALENT, FORMS, TREE, GIFTS, GIFT_TITLES, MORALE, LEVEL, FOES, ROLE_NAMES, BOND, COMFORT, FRIEND, SPRITES, WISH } from './config.js';
 import { wishStore } from './wish.js';
 import { bestFriend, friendLevel, SPRITE_UNITS } from './friends.js';
-import { farmOf, plotStage, CROP, levelNeed, plotCost, marketMul, fmtSec } from './farm.js';
+import { farmOf, plotStage, CROP, levelNeed, plotCost, marketMul, fmtSec, petUnlocked } from './farm.js';
 import { CROPS, FARM, ADV_PETS, ADV_IDS } from './config.js';
 import { rr, heart, star, clipText } from './render.js';
 import { talentParts, combatPower, setBonus, itemName, bondLevel, bondNext, SLOT_IDS, talentMul } from './gear.js';
@@ -614,7 +614,7 @@ function drawFarmCard(r, x, c, f) {
   });
   const barn = Object.entries(fm.barn).filter(([, n]) => n > 0);
   text(x, barn.length ? `仓库：${barn.map(([id, n]) => `${CROP[id].name}×${n}`).join(' ')}` : '仓库空空的', l + 14, t + h - 34, 12, C.ink, 'left', 'normal');
-  const pets = ADV_IDS.map(sp => `${SPECIES[sp].kind}${fm.pets.includes(sp) ? '✓' : `(Lv${ADV_PETS[sp].lv})`}`).join(' ');
+  const pets = ADV_IDS.map(sp => `${SPECIES[sp].kind}${petUnlocked(g, f, sp) ? '✓' : `(Lv${ADV_PETS[sp].lv})`}`).join(' ');
   text(x, clipText(x, pets, w - 28), l + 14, t + h - 12, 11, '#c0578a', 'left', 'normal');
   x.restore();
 }

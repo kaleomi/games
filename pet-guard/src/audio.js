@@ -137,7 +137,7 @@ export class Audio {
     if (!this.ctx || !this.sfx) return;
     switch (e.type) {
       case 'hit': this.play(e.foe ? 'hurt' : e.kind === 'paw' || e.kind === 'claw' ? 'paw' : 'pop'); break;
-      case 'sfx': if (e.name === 'atk') this.play(['fox', 'hamster', 'penguin', 'dragon', 'bunny'].includes(e.sp) ? 'shoot' : 'paw'); break;
+      case 'sfx': if (e.name === 'atk') this.play(['fox', 'hamster', 'penguin', 'dragon', 'bunny', 'sheep', 'deer', 'phoenix'].includes(e.sp) ? 'shoot' : 'paw'); break;
       case 'purify': this.play(e.role === 'minion' ? 'purify' : 'bigpurify'); break;
       case 'pat': case 'feed': this.play('heart'); break;
       case 'hatch': this.play('hatch'); break;

@@ -269,7 +269,7 @@ export class Game {
       if (sp) this.setSpecies(f, sp);
       return f;
     }
-    if (sp && ADV_PETS[sp]) { const pr = this.save && !uid.startsWith('test:') ? this.save.peek(uid) : null; if (!pr?.farm?.pets?.includes(sp)) { this.emit('toast', { uid, text: `${user.name || '小可爱'}：${SPECIES[sp].kind}是高级萌宠，农场 Lv${ADV_PETS[sp].lv} + ${ADV_PETS[sp].cost}金币解锁（发「解锁${SPECIES[sp].kind}」）` }); sp = null; } }
+    if (sp && ADV_PETS[sp]) { const pr = this.save && !uid.startsWith('test:') ? this.save.peek(uid) : null; if (!pr?.farm?.pets?.includes(sp) && !pr?.pets?.[sp]) { this.emit('toast', { uid, text: `${user.name || '小可爱'}：${SPECIES[sp].kind}是高级萌宠，农场 Lv${ADV_PETS[sp].lv} + ${ADV_PETS[sp].cost}金币解锁（发「解锁${SPECIES[sp].kind}」）` }); sp = null; } }
     const test = uid.startsWith('test:');
     const prof = this.save && !test ? this.save.get(uid, user.name, user.avatar) : null;
     const chosen = sp || prof?.cur || pickSpecies(this);

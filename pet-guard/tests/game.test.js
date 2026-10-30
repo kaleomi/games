@@ -79,10 +79,10 @@ test('长大：跨过等级门槛发「长大」事件', () => {
 
 test('天赋觉醒：取最好、200次保底神话、闪光保底', () => {
   const { g, save } = setup(3);
-  g.chat({ id: 'u4', name: '土豪' }, '龙');
+  g.chat({ id: 'u4', name: '土豪' }, '羊');
   const f = g.pets.get('u4');
   const r = awaken(g, f, 199);
-  const d = save.data.players.u4.pets.dragon;
+  const d = save.data.players.u4.pets.sheep;
   assert.ok(d.talent >= Math.max(...r.rolls.filter(x => x < 5)) || d.talent === 5);
   assert.ok(d.shiny, `150次内必闪光（shinyPity=${d.shinyPity}）`);
   if (d.talent < 5) { awaken(g, f, 1); assert.ok(d.talent === 5 || d.star >= 1); }
@@ -137,7 +137,7 @@ test('存档往返：导出再导入不丢萌宠数据', () => {
 
 test('打一会儿不报错：一整章能跑完', () => {
   const { g, run } = setup(11);
-  const W = ['柴犬', '猫', '兔', '熊猫', '狐狸', '仓鼠', '企鹅', '龙'];
+  const W = ['柴犬', '猫', '兔', '熊猫', '狐狸', '仓鼠', '企鹅', '羊'];
   for (let i = 0; i < 8; i++) g.chat({ id: 'q' + i, name: '观众' + i }, W[i]);
   g.gift({ id: 'q1', name: '观众1' }, { name: '跑车', price: 1200, count: 1 });
   g.gift({ id: 'q2', name: '观众2' }, { name: '鲜花', price: 10, count: 2 });
@@ -160,7 +160,7 @@ function battle(g, run) { g.phaseT = 0.01; run(0.2); assert.equal(g.phase, 'batt
 
 test('许愿：心愿挂上树；偷果鼠偷走心愿，别人抢回来两人结下友情', () => {
   const { g, save, run } = setup(21);
-  const W = ['柴犬', '猫', '狐狸', '兔', '熊猫', '仓鼠', '企鹅', '龙', '狗', '猫', '兔', '狐狸'];
+  const W = ['柴犬', '猫', '狐狸', '兔', '熊猫', '仓鼠', '企鹅', '羊', '狗', '猫', '兔', '狐狸'];
   W.forEach((w, i) => g.chat({ id: 'w' + i, name: '许愿人' + i }, w));
   battle(g, run);
   W.forEach((w, i) => g.chat({ id: 'w' + i, name: '许愿人' + i }, `许愿 心愿${i}号`));
@@ -188,7 +188,7 @@ test('许愿：心愿挂上树；偷果鼠偷走心愿，别人抢回来两人�
 test('抱抱首领：首领打空委屈大哭，全场抱抱安慰好，心愿成真', () => {
   const { g, save, run } = setup(23);
   g.setStageN(5); g.startLobby('jump');
-  for (let i = 0; i < 6; i++) g.chat({ id: 'h' + i, name: '观众' + i }, ['柴犬', '猫', '兔', '狐狸', '熊猫', '龙'][i]);
+  for (let i = 0; i < 6; i++) g.chat({ id: 'h' + i, name: '观众' + i }, ['柴犬', '猫', '兔', '狐狸', '熊猫', '羊'][i]);
   run(3);
   g.chat({ id: 'h0', name: '观众0' }, '许愿 天天开心');
   battle(g, run);
@@ -360,7 +360,7 @@ test('高级萌宠：没解锁领不了；农场等级和金币够了解锁，�
   assert.equal(f.sp, 'unicorn', '解锁后直接换上');
   assert.equal(fm.coins, 10);
   // 四只高级萌宠打一会儿不报错
-  for (const [i, sp] of ['sheep', 'deer', 'unicorn', 'phoenix'].entries()) {
+  for (const [i, sp] of ['dragon', 'deer', 'unicorn', 'phoenix'].entries()) {
     g.chat({ id: 'b' + i, name: '高级' + i }, '狗');
     const o = g.pets.get('b' + i), of = farmOf(g, o); of.pets.push(sp);
     assert.ok(g.setSpecies(o, sp));
@@ -371,4 +371,16 @@ test('高级萌宠：没解锁领不了；农场等级和金币够了解锁，�
   for (const id of ['b0', 'b1', 'b2', 'b3']) { const o = g.pets.get(id); o.ultCd = 0; o.ultReq = g.clock + 2; }
   run(5);
   assert.ok(g.phase === 'battle' || g.phase === 'clear' || g.phase === 'result');
+});
+
+test('小奶龙是高级萌宠：没解锁领不了；以前就养过的照样能用', () => {
+  const { g, save } = setup(49);
+  g.chat({ id: 'd1', name: '新来的' }, '龙');
+  assert.notEqual(g.pets.get('d1').sp, 'dragon');
+  // 老观众：存档里早就有小奶龙
+  const p = save.get('d2', '老观众'); p.pets.dragon = { lv: 12, xp: 0, nick: '', talent: 0, talentPity: 0, star: 0, sub: 0, shiny: false, shinyPity: 0, gear: {}, bond: 0 }; p.cur = 'dragon';
+  g.chat({ id: 'd2', name: '老观众' }, '龙');
+  assert.equal(g.pets.get('d2').sp, 'dragon');
+  g.chat({ id: 'd3', name: '要羊' }, '羊');
+  assert.equal(g.pets.get('d3').sp, 'sheep', '小绵羊现在随便领');
 });
