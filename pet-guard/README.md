@@ -134,7 +134,7 @@
 
 ## 美术素材（GPT 生成）
 
-所有角色、道具、背景、序列帧都用 GPT 生成，**已经全部导入**（`assets/`，94张原图 → 200多张贴图 + 32组序列帧，约19MB）。提示词在 `art/PROMPTS.md`（`art/prompts.json` 是源，改完跑 `node tools/build_prompts.mjs` 重新生成）。想换哪张，重新生成后单独导入就行：`python3 tools/import_art.py 原图文件夹 --only pet_cat`。
+所有角色、道具、背景、序列帧都用 GPT 生成，**已经全部导入**（`assets/`，94张原图 → 200多张贴图 + 32组序列帧，约16MB）。提示词在 `art/PROMPTS.md`（`art/prompts.json` 是源，改完跑 `node tools/build_prompts.mjs` 重新生成）。想换哪张，重新生成后单独导入就行：`python3 tools/import_art.py 原图文件夹 --only pet_cat`。
 
 生成好的原图按清单里的文件名命名（`pet_shiba.png`、`foe_dust.png`、`bg_spring.png`……），放进一个文件夹，然后：
 
