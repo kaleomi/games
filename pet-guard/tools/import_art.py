@@ -8,7 +8,7 @@
 「(1)」之类也认）。art/fix.json 可以给单张图加修正：
   { "pet_shiba": { "flip": true, "bgTol": 30, "order": [2,1,0] } }
   flip：左右翻转（萌宠要朝右）；bgTol：白底容差（有灰色地面阴影就调大）；order：切出来的顺序重排；
-  cutX：[389] 两个角色粘在一起时，在原图这一列（像素）切开
+  cutX：[389] 两个角色粘在一起时，在原图这一列（像素）切开；colsX：[0,380,770,1190,1536] 黑底光效按这些竖线分列（光效跨过等分线时用）
 """
 import json, os, re, sys, shutil, argparse
 import numpy as np
@@ -187,13 +187,14 @@ def cut(mask, rows, cols):
     while len(out) < K: out.append(None)
     return out
 
-def cut_cells(mask, rows, cols):
-    """按等分网格切（黑底发光图：光效是一团散开的粒子，不适合按连通块）。"""
+def cut_cells(mask, rows, cols, colx=None):
+    """按等分网格切（黑底发光图：光效是一团散开的粒子，不适合按连通块）。colx：自己给每列的分界（像素），光效跨过等分线时用"""
     H, W = mask.shape
     out = []
     for r in range(rows):
         for c in range(cols):
-            y0, y1, x0, x1 = H * r // rows, H * (r + 1) // rows, W * c // cols, W * (c + 1) // cols
+            y0, y1 = H * r // rows, H * (r + 1) // rows
+            x0, x1 = (colx[c], colx[c + 1]) if colx else (W * c // cols, W * (c + 1) // cols)
             sub = mask[y0:y1, x0:x1]
             ys, xs = np.nonzero(sub)
             if len(xs) < 20: out.append(None); continue
@@ -235,7 +236,7 @@ def process(path, fid, spec, fix, manifest, preview):
     src = Image.fromarray(rgba, 'RGBA')
     if fix.get('flipAll'): src = src.transpose(Image.FLIP_LEFT_RIGHT); mask = mask[:, ::-1]
     rows, cols = spec['grid']
-    boxes = cut_cells(mask, rows, cols) if spec.get('split') == 'cells' else cut(mask, rows, cols)
+    boxes = cut_cells(mask, rows, cols, fix.get('colsX')) if spec.get('split') == 'cells' else cut(mask, rows, cols)
     if fix.get('order'): boxes = [boxes[i] for i in fix['order']]
     pad = 3
     parts = []

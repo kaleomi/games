@@ -529,9 +529,9 @@ export class Renderer {
   // 背后：一圈慢慢转的马卡龙彩虹柔光 + 脚下转圈的小星星（有 shiny:halo / shiny:circle 贴图就用图）
   shinyBack(x, f, t, h) {
     const cy = f.y - h * 0.5, pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
-    if (!this.glowImg(x, 'shiny:halo', f.x, cy, h * 1.35, 0.42 + 0.18 * pulse, t * 0.4)) rainbowHalo(x, f.x, cy, h * 0.68, 0.6 + 0.2 * pulse, t * 0.4);
+    if (!this.glowImg(x, 'shiny:halo', f.x, cy, h * 1.3, 0.45 + 0.2 * pulse, t * 0.4, 1, 'source-over')) rainbowHalo(x, f.x, cy, h * 0.68, 0.6 + 0.2 * pulse, t * 0.4);
     x.save(); x.globalCompositeOperation = 'lighter';
-    if (!this.glowImg(x, 'shiny:circle', f.x, f.y, h * 1.15, 0.6 + 0.25 * pulse)) {
+    if (!this.glowImg(x, 'shiny:circle', f.x, f.y + 2, h * 1.15, 0.7 + 0.25 * pulse, 0, 1, 'source-over')) {
       for (let i = 0; i < 10; i++) {
         const an = t * 0.9 + i * TAU / 10, px = f.x + Math.cos(an) * h * 0.5, py = f.y + Math.sin(an) * h * 0.16, front = Math.sin(an) > 0;
         x.globalAlpha = (front ? 0.95 : 0.5) * (0.7 + 0.3 * Math.sin(t * 5 + i));
@@ -550,17 +550,17 @@ export class Renderer {
       const r1 = frac(Math.sin(seed + cyc * 12.9898 + j * 78.233) * 43758.5), r2 = frac(Math.sin(seed + cyc * 39.346 + j * 11.135) * 24634.6);
       const px = f.x + ox + (r1 - 0.5) * h * 0.8, py = f.y + oy - h * (0.3 + r2 * 0.7), sz = h * (0.17 + 0.07 * r2) * Math.sin(q * Math.PI);
       x.globalAlpha = 1;
-      if (!this.glowImg(x, 'shiny:twinkle', px, py, sz * 2.4, 1, q * 0.8)) twinkle(x, px, py, sz, '#fff6c8', q * 0.8);
+      if (!this.glowImg(x, 'shiny:twinkle', px, py, sz * 2.4, 1, q * 0.8, 1, 'source-over')) twinkle(x, px, py, sz, '#fff6c8', q * 0.8);
     }
     x.restore();
-    if (Math.random() < 0.06) this.parts.push({ kind: 'glowimg', icon: this.assets.has('shiny:dust') ? 'shiny:dust' : 'glow:sparkle', x: f.x + (Math.random() - 0.5) * h * 0.7, y: f.y - h * Math.random() * 0.9, t: 0, life: 0.9, size: h * 0.32, grow: 0.3, rot: Math.random() * TAU, spin: 1, flat: 1, alpha: 0.7 });
+    if (Math.random() < 0.06) this.parts.push({ kind: 'glowimg', op: this.assets.has('shiny:dust') ? 'source-over' : 'lighter', icon: this.assets.has('shiny:dust') ? 'shiny:dust' : 'glow:sparkle', x: f.x + (Math.random() - 0.5) * h * 0.7, y: f.y - h * Math.random() * 0.9, t: 0, life: 0.9, size: h * 0.32, grow: 0.3, rot: Math.random() * TAU, spin: 1, flat: 1, alpha: 0.7 });
   }
-  // 黑底发光贴图（导入时黑色变透明），用「变亮」叠上去
-  glowImg(x, name, cx, cy, size, alpha = 1, rot = 0, flat = 1) {
+  // 黑底发光贴图（导入时黑色变透明）。默认「变亮」叠上去；亮背景上会发白，闪光特效用 op: 'source-over' 保留原色
+  glowImg(x, name, cx, cy, size, alpha = 1, rot = 0, flat = 1, op = 'lighter') {
     const a = this.assets.get(name);
     if (!a) return false;
     const s = size / Math.max(a.w, a.h);
-    x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha *= alpha; x.translate(cx, cy); x.scale(1, flat); x.rotate(rot); x.drawImage(a.img, -a.w * s / 2, -a.h * s / 2, a.w * s, a.h * s); x.restore();
+    x.save(); x.globalCompositeOperation = op; x.globalAlpha *= alpha; x.translate(cx, cy); x.scale(1, flat); x.rotate(rot); x.drawImage(a.img, -a.w * s / 2, -a.h * s / 2, a.w * s, a.h * s); x.restore();
     return true;
   }
   aura(x, f, tal, t) {
@@ -707,7 +707,7 @@ export class Renderer {
         const a = this.assets.get(p.icon);
         if (a) {
           const sc = p.size * (1 + p.grow * k) / Math.max(a.w, a.h), fade = k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85;
-          x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = Math.max(0, fade) * p.alpha * 0.8;
+          x.save(); x.globalCompositeOperation = p.op || 'lighter'; x.globalAlpha = Math.max(0, fade) * p.alpha * 0.8;
           x.translate(p.x, p.y); x.rotate(p.rot + p.spin * p.t); x.scale(sc, sc * p.flat);
           x.drawImage(a.img, -a.w / 2, -a.h / 2); x.restore();
         }

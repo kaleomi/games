@@ -43,14 +43,14 @@ function avatarCircle(r, x, url, cx, cy, rad, fallback = '#ffd6e4', label = '') 
 }
 // 闪光头像：原图不改色，背后一圈彩虹柔光，角上一闪一闪的十字星
 function shinyIconBack(r, x, cx, cy, size) {
-  if (!r.glowImg(x, 'shiny:halo', cx, cy, size * 1.3, 0.55, r.t * 0.4)) rainbowHalo(x, cx, cy, size * 0.62, 0.6, r.t * 0.4);
+  if (!r.glowImg(x, 'shiny:halo', cx, cy, size * 1.3, 0.75, r.t * 0.4, 1, 'source-over')) rainbowHalo(x, cx, cy, size * 0.62, 0.6, r.t * 0.4);
 }
 function shinyIconFront(r, x, cx, cy, size) {
   x.save(); x.globalCompositeOperation = 'lighter';
   const k = (r.t * 0.8) % 1, k2 = (r.t * 0.8 + 0.5) % 1, s1 = Math.sin(k * Math.PI), s2 = Math.sin(k2 * Math.PI);
   const big = Math.max(6, size * 0.2);
-  if (!r.glowImg(x, 'shiny:twinkle', cx + size * 0.36, cy - size * 0.34, big * 2.4 * s1, 1, k)) twinkle(x, cx + size * 0.36, cy - size * 0.34, big * s1, '#fff6c8', k);
-  if (size >= 60 && !r.glowImg(x, 'shiny:twinkle', cx - size * 0.34, cy + size * 0.1, big * 1.6 * s2, 1, k2)) twinkle(x, cx - size * 0.34, cy + size * 0.1, big * 0.7 * s2, '#ffd6f0', k2);
+  if (!r.glowImg(x, 'shiny:twinkle', cx + size * 0.36, cy - size * 0.34, big * 2.4 * s1, 1, k, 1, 'source-over')) twinkle(x, cx + size * 0.36, cy - size * 0.34, big * s1, '#fff6c8', k);
+  if (size >= 60 && !r.glowImg(x, 'shiny:twinkle', cx - size * 0.34, cy + size * 0.1, big * 1.6 * s2, 1, k2, 1, 'source-over')) twinkle(x, cx - size * 0.34, cy + size * 0.1, big * 0.7 * s2, '#ffd6f0', k2);
   x.restore();
 }
 // 小号萌宠头像（取图里的成年形态，没有就色块）

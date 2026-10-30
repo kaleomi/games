@@ -633,6 +633,18 @@
   "proj:wool": {
    "src": "fx/proj_wool.webp"
   },
+  "shiny:circle": {
+   "src": "fx/shiny_circle.webp"
+  },
+  "shiny:dust": {
+   "src": "fx/shiny_dust.webp"
+  },
+  "shiny:halo": {
+   "src": "fx/shiny_halo.webp"
+  },
+  "shiny:twinkle": {
+   "src": "fx/shiny_twinkle.webp"
+  },
   "tree": {
    "src": "misc/tree.webp"
   },
@@ -876,6 +888,40 @@
    "frames": [
     "seq/seq_shiba_2_sleep_0.webp",
     "seq/seq_shiba_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:cat:2:attack": {
+   "frames": [
+    "seq/seq_cat_2_attack_0.webp",
+    "seq/seq_cat_2_attack_1.webp",
+    "seq/seq_cat_2_attack_2.webp",
+    "seq/seq_cat_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:happy": {
+   "frames": [
+    "seq/seq_cat_2_happy_0.webp",
+    "seq/seq_cat_2_happy_1.webp",
+    "seq/seq_cat_2_happy_2.webp",
+    "seq/seq_cat_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:idle": {
+   "frames": [
+    "seq/seq_cat_2_idle_0.webp",
+    "seq/seq_cat_2_idle_1.webp",
+    "seq/seq_cat_2_idle_2.webp",
+    "seq/seq_cat_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:sleep": {
+   "frames": [
+    "seq/seq_cat_2_sleep_0.webp",
+    "seq/seq_cat_2_sleep_1.webp"
    ],
    "fps": 2
   }
