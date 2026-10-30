@@ -20,9 +20,8 @@ for (let k = 0; k < total / dt; k++) {
   for (const e of g.drainEvents()) {
     if (e.type === 'stage') {
       stageStart = g.clock;
-      // 送礼：大哥 u0 每关送 whale 个加油鸭；其他人每关 30% 送 1 个
+      // 送礼：只有大哥 u0 每关送 whale 个加油鸭，其他人不送
       if (whale > 0) g.gift({ id: 'u0', name: '观众0' }, { name: '加油鸭', price: 15, count: whale });
-      if (whale > 0) for (let i = 1; i < n; i++) if (rnd() < 0.3) g.gift({ id: 'u' + i, name: '观众' + i }, { name: '加油鸭', price: 15, count: 1 });
     }
     if (e.type === 'clear') { clears++; const key = e.kind; (times[key] ||= []).push(g.clock - stageStart); }
     if (e.type === 'comforted') (times.grade ||= []).push(e.grade);
