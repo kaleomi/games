@@ -118,6 +118,141 @@ function drawAwakenPet(r, x, p, form, cx, cy, size, roll) {
   } else petIcon(r, x, p.sp, form, cx + ox, cy + oy, size);
   if (slv) shinyIconFront(r, x, cx + ox, cy + oy, size, slv);
 }
+// ───────── 观众档案（主播点左下角榜单里的头像打开）：萌宠、图鉴、农场仓库、好朋友 ─────────
+const PF = { x: 24, y: 150, w: 672, h: 860 };
+const PF_TABS = [['pets', '萌宠'], ['dex', '小精灵图鉴'], ['farm', '农场仓库'], ['friends', '好朋友']];
+function drawProfile(r, x) {
+  const g = r.game, P = r.profile, uid = P.uid, f = g.pets.get(uid);
+  const p = g.save?.peek(uid) || (f ? { uid, name: f.name, avatar: f.avatar, pets: { [f.sp]: { lv: f.level, nick: f.nick, talent: f.talent, star: f.star, shiny: f.shiny, gear: f.gear, bond: f.bond } }, cur: f.sp, friends: {}, sprites: f.memSprites || {}, farm: f.farmMem || null } : null);
+  if (!p) { r.profile = null; return; }
+  const { x: l, y: t, w, h } = PF;
+  x.save();
+  x.fillStyle = 'rgba(60,30,50,0.35)'; x.fillRect(0, 0, W, H);
+  panel(x, l, t, w, h, 0.98);
+  // 头部：头像、名字、在不在场、几项总数
+  avatarCircle(r, x, p.avatar, l + 50, t + 48, 30, SPECIES[p.cur || f?.sp]?.color, p.name);
+  text(x, clipText(x, p.name || '小可爱', 300), l + 92, t + 42, 22, C.ink);
+  pill(x, f ? '在场' : '不在场', l + 92 + Math.min(300, x.measureText(p.name || '').width) + 40, t + 35, f ? '#3fcf8e' : '#c9b8b4', '#fff', 12);
+  const owned = Object.keys(p.pets || {}).filter(sp => SPECIES[sp]).length;
+  text(x, `送礼 ${p.coins || 0} 抖币 · 贡献 ${Math.floor(p.merit || 0)} · 来过 ${p.games || 0} 场 · 通关 ${p.clears || 0} 关 · 心愿成真 ${p.wishTrue || 0} 次`, l + 92, t + 68, 13, C.mute, 'left', 'normal');
+  text(x, `养了 ${owned}/${ALL_IDS.length} 种萌宠`, l + 92, t + 88, 13, C.mute, 'left', 'normal');
+  x.font = `bold 28px ${FONT}`; x.fillStyle = C.mute; x.textAlign = 'center'; x.fillText('×', l + w - 28, t + 40);
+  r.hudHits.push({ kind: 'pfClose', x: l + w - 50, y: t + 12, w: 44, h: 40 });
+  // 标签
+  PF_TABS.forEach(([id, name], i) => {
+    const tx = l + 20 + i * 158, ty = t + 106, on = P.tab === id;
+    x.fillStyle = on ? C.pink : '#fbe6ee'; rr(x, tx, ty, 150, 34, 17); x.fill();
+    text(x, name, tx + 75, ty + 23, 15, on ? '#fff' : C.pink, 'center');
+    r.hudHits.push({ kind: 'pfTab', tab: id, x: tx, y: ty, w: 150, h: 34 });
+  });
+  const ct = t + 156, ch = h - 170;
+  ({ pets: pfPets, dex: pfDex, farm: pfFarm, friends: pfFriends })[P.tab]?.(r, x, p, f, l + 16, ct, w - 32, ch);
+  x.restore();
+}
+const ALL_IDS = Object.keys(SPECIES);
+function pfPets(r, x, p, f, l, t, w) {
+  const cw = w / 3, chh = 158;
+  ALL_IDS.forEach((sp, i) => {
+    const d = p.pets?.[sp], S = SPECIES[sp], cx = l + (i % 3) * cw, cy = t + Math.floor(i / 3) * chh;
+    x.fillStyle = (f?.sp || p.cur) === sp ? '#fff0f6' : 'rgba(255,255,255,0.6)'; rr(x, cx + 4, cy + 4, cw - 8, chh - 10, 12); x.fill();
+    if ((f?.sp || p.cur) === sp) { x.strokeStyle = C.pink; x.lineWidth = 2; x.stroke(); }
+    const form = d ? FORMS.findLastIndex(fm => (d.lv || 1) >= fm.lv) : 2;
+    if (d) petIcon(r, x, sp, form, cx + 46, cy + 56, 76, d.shiny ? Math.max(1, starOf(d)) : 0);
+    else { const a = r.assets.gray(`pet:${sp}:2`); if (a) { const s2 = 70 / Math.max(a.w, a.h); x.save(); x.globalAlpha = 0.45; x.drawImage(a.img, cx + 46 - a.w * s2 / 2, cy + 56 - a.h * s2 / 2, a.w * s2, a.h * s2); x.restore(); } }
+    text(x, clipText(x, d?.nick || S.name, 110), cx + 90, cy + 28, 15, d ? C.ink : C.mute);
+    text(x, S.kind + (S.adv ? ' · 高级' : ''), cx + 90, cy + 46, 11, C.mute, 'left', 'normal');
+    if (!d) { text(x, S.adv ? `农场Lv${ADV_PETS[sp].lv}解锁` : '还没领养', cx + 90, cy + 70, 12, C.mute, 'left', 'normal'); if (S.adv) text(x, `${ADV_PETS[sp].cost}金币`, cx + 90, cy + 88, 12, '#e08a2a', 'left', 'normal'); return; }
+    text(x, `Lv${d.lv || 1} · ${FORMS[form].name}`, cx + 90, cy + 68, 13, '#e08a2a');
+    if ((d.talent || 0) > 0 || (d.star || 0) > 0) partsText(x, talentParts(d), cx + 90, cy + 88, 13); else text(x, '天赋未觉醒', cx + 90, cy + 88, 12, C.mute, 'left', 'normal');
+    text(x, `亲密 ${bondLevel(d.bond)}档 · 战力 ${combatPower({ level: d.lv, gear: d.gear, talent: d.talent, star: d.star, sub: d.sub, bond: d.bond })}`, cx + 90, cy + 107, 11, C.mute, 'left', 'normal');
+    SLOT_IDS.forEach((sl, k) => {
+      const it = d.gear?.[sl], gx = cx + 16 + k * 50, gy = cy + 118;
+      x.fillStyle = '#fff'; rr(x, gx, gy, 42, 28, 8); x.fill(); x.strokeStyle = it ? GEAR.tiers[it.tier].color : '#eadbd6'; x.lineWidth = 2; x.stroke();
+      if (it && !r.icon(x, `gear:${sl}:${it.tier}`, gx + 21, gy + 14, 24)) { x.fillStyle = GEAR.tiers[it.tier].color; star(x, gx + 21, gy + 14, 8); x.fill(); }
+      if (it?.plus) text(x, `+${it.plus}`, gx + 40, gy + 26, 10, '#e08a2a', 'right');
+    });
+  });
+  const sh = p.shards || [];
+  text(x, `装扮碎片：${GEAR.tiers.slice(0, 5).map((tt, i) => `${tt.name}${sh[i] || 0}`).join('  ')}`, l + 8, t + 4 * chh + 14, 12, C.mute, 'left', 'normal');
+}
+function pfDex(r, x, p, f, l, t, w) {
+  const map = p.sprites || {}, got = SPRITE_UNITS.filter(u => map[u] > 0).length;
+  text(x, `收服了 ${got}/${SPRITE_UNITS.length} 种小精灵（每多一种全属性 +${Math.round(SPRITES.perKind * 100)}%）${p.follow ? ` · 跟着的：${FOES[p.follow]?.name || p.follow}` : ''}`, l + 8, t + 14, 14, C.ink, 'left', 'normal');
+  const cw = w / 4, chh = 150;
+  SPRITE_UNITS.forEach((u, i) => {
+    const cx = l + (i % 4) * cw, cy = t + 30 + Math.floor(i / 4) * chh, n = map[u] || 0;
+    x.fillStyle = p.follow === u ? '#fff0f6' : 'rgba(255,255,255,0.6)'; rr(x, cx + 4, cy + 4, cw - 8, chh - 10, 12); x.fill();
+    const name = `foe:${u}:1`, a = n ? r.assets.get(name) || r.assets.get(`foe:${u}:0`) : r.assets.gray(`foe:${u}:0`);
+    if (a) { const s2 = 76 / Math.max(a.w, a.h); x.save(); if (!n) x.globalAlpha = 0.35; x.drawImage(a.img, cx + cw / 2 - a.w * s2 / 2, cy + 56 - a.h * s2 / 2, a.w * s2, a.h * s2); x.restore(); }
+    text(x, n ? FOES[u].name : '？？？', cx + cw / 2, cy + 112, 13, n ? C.ink : C.mute, 'center');
+    text(x, n ? `×${n} · ${SPRITES.text[u] || ''}` : '还没收服', cx + cw / 2, cy + 130, 10, C.mute, 'center', 'normal');
+  });
+}
+function pfFarm(r, x, p, f, l, t, w) {
+  const g = r.game, fm = p.farm;
+  if (!fm) { text(x, '还没回家种过田（打完首领回家发「种田」）', l + w / 2, t + 80, 15, C.mute, 'center', 'normal'); return; }
+  const need = levelNeed(fm.lv), now = g.now();
+  text(x, `农场 Lv${fm.lv}`, l + 8, t + 20, 20, '#5a9a3a');
+  x.fillStyle = '#e2efd6'; rr(x, l + 120, t + 8, 200, 12, 6); x.fill(); x.fillStyle = '#8fd36a'; rr(x, l + 120, t + 8, 200 * Math.min(1, (fm.xp || 0) / need), 12, 6); x.fill();
+  text(x, `${fm.xp || 0}/${need}`, l + 330, t + 19, 11, C.mute, 'left', 'normal');
+  text(x, `${fm.coins} 金币`, l + w - 8, t + 20, 20, '#e08a2a', 'right');
+  text(x, `一共收了 ${fm.harvest || 0} 个菜 · 卖了 ${fm.sold || 0} 金币 · ${fm.plots.length} 块地`, l + 8, t + 44, 12, C.mute, 'left', 'normal');
+  // 菜地
+  text(x, '菜地', l + 8, t + 78, 15, C.ink);
+  fm.plots.forEach((pl, i) => {
+    const cx = l + 8 + i * 104, cy = t + 90;
+    x.fillStyle = '#c9a07a'; rr(x, cx, cy, 96, 96, 12); x.fill();
+    if (!pl) { text(x, '空地', cx + 48, cy + 54, 13, '#fff', 'center'); return; }
+    const st = plotStage(pl, now), c = CROP[pl.c];
+    if (!r.sprite(x, `crop:${pl.c}:${st.stage}`, cx + 48, cy + 70, 56)) { x.fillStyle = '#8fd36a'; x.beginPath(); x.arc(cx + 48, cy + 50, 16, 0, TAU); x.fill(); }
+    text(x, c?.name || pl.c, cx + 48, cy + 84, 11, '#fff', 'center');
+    text(x, st.stage === 2 ? '熟了' : fmtSec(st.left), cx + 48, cy + 16, 11, st.stage === 2 ? '#ffe36b' : '#fff', 'center');
+  });
+  // 仓库
+  text(x, '仓库', l + 8, t + 222, 15, C.ink);
+  const barn = Object.entries(fm.barn || {}).filter(([, n]) => n > 0);
+  if (!barn.length) text(x, '空的（收了菜还没卖的会放在这里）', l + 60, t + 222, 12, C.mute, 'left', 'normal');
+  barn.forEach(([id, n], i) => {
+    const cx = l + 8 + (i % 6) * 104, cy = t + 234 + Math.floor(i / 6) * 70;
+    x.fillStyle = 'rgba(255,255,255,0.7)'; rr(x, cx, cy, 96, 60, 10); x.fill();
+    if (!r.icon(x, 'produce:' + id, cx + 26, cy + 30, 40)) { x.fillStyle = '#ff9fc4'; x.beginPath(); x.arc(cx + 26, cy + 30, 14, 0, TAU); x.fill(); }
+    text(x, CROP[id]?.name || id, cx + 52, cy + 26, 12, C.ink);
+    text(x, `×${n}`, cx + 52, cy + 46, 14, '#e08a2a');
+  });
+  // 作物解锁 + 高级萌宠
+  const y2 = t + 400;
+  text(x, '作物', l + 8, y2, 15, C.ink);
+  CROPS.forEach((c, i) => {
+    const cx = l + 8 + (i % 5) * 126, cy = y2 + 14 + Math.floor(i / 5) * 46, ok = c.lv <= fm.lv;
+    x.save(); if (!ok) x.globalAlpha = 0.4;
+    if (!r.icon(x, 'produce:' + c.id, cx + 18, cy + 18, 30)) { x.fillStyle = '#8fd36a'; x.beginPath(); x.arc(cx + 18, cy + 18, 11, 0, TAU); x.fill(); }
+    text(x, c.name, cx + 38, cy + 16, 12, C.ink); text(x, ok ? '已解锁' : `Lv${c.lv}`, cx + 38, cy + 32, 10, C.mute, 'left', 'normal');
+    x.restore();
+  });
+  const y3 = y2 + 130;
+  text(x, '高级萌宠', l + 8, y3, 15, C.ink);
+  ADV_IDS.forEach((sp, i) => {
+    const cx = l + 8 + i * 158, cy = y3 + 14, has = (fm.pets || []).includes(sp) || !!p.pets?.[sp];
+    x.fillStyle = has ? '#fff0f6' : 'rgba(255,255,255,0.6)'; rr(x, cx, cy, 150, 92, 12); x.fill();
+    if (has) petIcon(r, x, sp, 2, cx + 38, cy + 46, 64); else { const a = r.assets.gray(`pet:${sp}:2`); if (a) { const s2 = 60 / Math.max(a.w, a.h); x.save(); x.globalAlpha = 0.45; x.drawImage(a.img, cx + 38 - a.w * s2 / 2, cy + 46 - a.h * s2 / 2, a.w * s2, a.h * s2); x.restore(); } }
+    text(x, SPECIES[sp].kind, cx + 74, cy + 40, 13, has ? C.ink : C.mute);
+    text(x, has ? '已解锁' : `Lv${ADV_PETS[sp].lv} · ${ADV_PETS[sp].cost}`, cx + 74, cy + 60, 10, has ? '#3fcf8e' : C.mute, 'left', 'normal');
+  });
+}
+function pfFriends(r, x, p, f, l, t, w) {
+  const list = Object.entries(p.friends || {}).map(([uid, v]) => ({ uid, ...v })).sort((a, b) => (b.v || 0) - (a.v || 0));
+  if (!list.length) { text(x, '还没有好朋友（发「贴贴」去抱别人家的萌宠）', l + w / 2, t + 80, 15, C.mute, 'center', 'normal'); return; }
+  text(x, `${list.length} 个朋友（友情越高合体技越强）`, l + 8, t + 14, 14, C.ink, 'left', 'normal');
+  list.slice(0, 20).forEach((fr, i) => {
+    const cx = l + (i % 2) * (w / 2), cy = t + 30 + Math.floor(i / 2) * 58, lv = friendLevel(fr.v);
+    const other = r.game.save?.peek(fr.uid);
+    x.fillStyle = 'rgba(255,255,255,0.6)'; rr(x, cx + 4, cy, w / 2 - 8, 50, 12); x.fill();
+    avatarCircle(r, x, other?.avatar, cx + 30, cy + 25, 17, '#ffd6e4', fr.n);
+    text(x, clipText(x, fr.n || other?.name || '小可爱', 150), cx + 56, cy + 22, 14, C.ink);
+    text(x, lv ? FRIEND.names[lv - 1] : '认识了', cx + 56, cy + 40, 11, lv >= 3 ? C.pink : C.mute, 'left', 'normal');
+    text(x, `友情 ${fr.v || 0}`, cx + w / 2 - 16, cy + 30, 13, '#e08a2a', 'right');
+  });
+}
 // 小号萌宠头像（取图里的成年形态，没有就色块）
 function petIcon(r, x, sp, form, cx, cy, size, shiny = false) {
   const name = `pet:${sp}:${form}`, a = r.assets.get(name);
@@ -139,6 +274,7 @@ const fruitsOf = g => (g.tree ? Math.max(0, Math.ceil(g.tree.hp / (g.tree.maxHp 
 
 export function drawHud(r, x, dt) {
   const g = r.game;
+  r.hudHits = [];
   x.save();
   topBar(r, x);
   bossBar(r, x);
@@ -156,6 +292,7 @@ export function drawHud(r, x, dt) {
   if (g.phase === 'result' && g.result) result(r, x, dt);
   drawCards(r, x, dt);
   drawPopups(r, x, dt);
+  if (r.profile) drawProfile(r, x);
   x.restore();
 }
 
@@ -249,6 +386,22 @@ function meritBoard(r, x) {
 
 // ───────── 底部两块面板 ─────────
 const carousel = { page: 0 };
+// 轮播：鼠标停在面板上就不翻页（移开接着翻）；点小圆点直接跳到那一页
+function carouselPage(r, key, n, every, box) {
+  const st = ((r.pageState ||= {})[key] ||= { t: 0, last: r.t });
+  const m = r.mouse, hover = !!m && m.x >= box.l && m.x <= box.l + box.w && m.y >= box.t && m.y <= box.t + box.h;
+  if (!hover) st.t += Math.max(0, Math.min(0.5, r.t - st.last));
+  st.last = r.t;
+  return { page: Math.floor(st.t / every) % n, hover, st };
+}
+function drawDots(r, x, key, n, page, every, cx0, cy, on, off, hover) {
+  for (let i = 0; i < n; i++) {
+    const dx = cx0 - (n - 1 - i) * 16;
+    x.fillStyle = i === page ? on : off; x.beginPath(); x.arc(dx, cy, i === page ? 5 : 4, 0, TAU); x.fill();
+    (r.hudHits ||= []).push({ kind: 'dot', key, i, every, x: dx - 8, y: cy - 10, w: 16, h: 20 });
+  }
+  if (hover) text(x, '已暂停', cx0 - (n - 1) * 16 - 14, cy + 4, 10, C.mute, 'right', 'normal');
+}
 function bottomPanels(r, x) {
   const g = r.game, t0 = BOTTOM_Y + 6, h = H - t0 - 8;
   if (g.phase === 'home') return homePanels(r, x, t0, h);
@@ -273,6 +426,7 @@ function bottomPanels(r, x) {
     if ((p.talent || 0) > 0 || (p.star || 0) > 0) partsText(x, talentParts(p).slice(0, 1).map(q => ({ ...q, text: q.text.replace(/\d+★$/, '') })), l1 + 280, y, 12);   // 榜上地方小：星数不写，没觉醒过的不写
     text(x, String(p.cp), l1 + w1 - 10, y, 12, '#e08a2a', 'right');
     r.rankRows.push({ uid: p.uid, online: p.online, l: l1, t: y - 18, w: w1, h: 26 });
+    if (r.mouse && r.mouse.x >= l1 && r.mouse.x <= l1 + w1 && r.mouse.y >= y - 18 && r.mouse.y <= y + 8) { x.save(); x.strokeStyle = C.pink; x.lineWidth = 2; x.beginPath(); x.arc(l1 + 44, y - 5, 13, 0, TAU); x.stroke(); x.restore(); }
   });
   if (!R.length && g.settings.rankPage !== false) text(x, '还没有人上榜，发「狗」「猫」领养一只吧', l1 + w1 / 2, t0 + 120, 13, C.mute, 'center', 'normal');
   // 右：玩法轮播（弹出萌宠卡时让给萌宠卡）
@@ -280,10 +434,11 @@ function bottomPanels(r, x) {
   if (r.cards.length) return;
   panel(x, l2, t0, w2, h, 0.9);
   const pages = PAGES.filter(p => g.settings.giftPages !== false || p.id !== 'gift');
-  carousel.page = Math.max(0, Math.floor(r.t / 9)) % pages.length;
-  const pg = pages[carousel.page % pages.length];
+  const cp = carouselPage(r, 'main', pages.length, 9, { l: l2, t: t0, w: w2, h });
+  carousel.page = cp.page;
+  const pg = pages[cp.page];
   pill(x, pg.title, l2 + 60, t0 + 20, '#7cc6ff', '#fff', 14);
-  pages.forEach((p, i) => { x.fillStyle = i === carousel.page % pages.length ? C.pink : '#f2d6df'; x.beginPath(); x.arc(l2 + w2 - 16 - (pages.length - 1 - i) * 12, t0 + 20, 4, 0, TAU); x.fill(); });
+  drawDots(r, x, 'main', pages.length, cp.page, 9, l2 + w2 - 16, t0 + 20, C.pink, '#f2d6df', cp.hover);
   pg.draw(r, x, l2, t0 + 40, w2, h - 44);
 }
 // ───────── 在家：农场榜 + 种田轮播 ─────────
@@ -299,6 +454,7 @@ function farmRanks(r) {
 }
 function homePanels(r, x, t0, h) {
   const g = r.game, l1 = 8, w1 = 348;
+  r.rankRows = [];
   panel(x, l1, t0, w1, h, 0.92);
   pill(x, '农场榜', l1 + 50, t0 + 20, '#8fd36a', '#fff', 14);
   text(x, '发「农场」看自己的菜地', l1 + w1 - 12, t0 + 25, 11, C.mute, 'right', 'normal');
@@ -312,14 +468,15 @@ function homePanels(r, x, t0, h) {
     text(x, clipText(x, p.name, 110), l1 + 62, y, 13, C.ink, 'left', 'bold');
     text(x, `农场Lv${p.lv}`, l1 + 210, y, 12, '#5a9a3a', 'left', 'bold');
     text(x, `${p.coins}金币`, l1 + w1 - 10, y, 12, '#e08a2a', 'right');
+    (r.rankRows ||= []).push({ uid: p.uid, online: p.online, l: l1, t: y - 18, w: w1, h: 26, tab: 'farm' });
   });
   if (!R.length) text(x, '还没有人种田，发「种田」开始吧', l1 + w1 / 2, t0 + 120, 13, C.mute, 'center', 'normal');
   const l2 = 364, w2 = 348;
   if (r.cards.length) return;
   panel(x, l2, t0, w2, h, 0.92);
-  const page = Math.max(0, Math.floor(r.t / 8)) % HOME_PAGES.length, pg = HOME_PAGES[page];
+  const cp = carouselPage(r, 'home', HOME_PAGES.length, 8, { l: l2, t: t0, w: w2, h }), page = cp.page, pg = HOME_PAGES[page];
   pill(x, pg.title, l2 + 60, t0 + 20, '#8fd36a', '#fff', 14);
-  HOME_PAGES.forEach((p, i) => { x.fillStyle = i === page ? '#8fd36a' : '#e2efd6'; x.beginPath(); x.arc(l2 + w2 - 16 - (HOME_PAGES.length - 1 - i) * 12, t0 + 20, 4, 0, TAU); x.fill(); });
+  drawDots(r, x, 'home', HOME_PAGES.length, page, 8, l2 + w2 - 16, t0 + 20, '#8fd36a', '#e2efd6', cp.hover);
   pg.draw(r, x, l2, t0 + 40, w2, h - 44);
 }
 const HOME_PAGES = [
@@ -739,8 +896,23 @@ function drawPopups(r, x, dt) {
   if (p.t >= p.life) r.popups.shift();
 }
 
+const inBox = (b, lx, ly) => lx >= b.x && lx <= b.x + b.w && ly >= b.y && ly <= b.y + b.h;
+export function hudHot(r, lx, ly) {
+  if (r.profile) return true;
+  if ((r.hudHits || []).some(b => inBox(b, lx, ly))) return true;
+  return (r.rankRows || []).some(row => lx >= row.l && lx <= row.l + row.w && ly >= row.t && ly <= row.t + row.h);
+}
 export function hudClick(r, lx, ly) {
-  for (const row of r.rankRows || []) if (lx >= row.l && lx <= row.l + row.w && ly >= row.t && ly <= row.t + row.h) { if (row.online) r.consume([{ type: 'card', uid: row.uid, gear: true }]); return true; }
+  // 观众档案开着：点标签换页、点 × 或外面关掉
+  if (r.profile) {
+    const hit = (r.hudHits || []).find(b => b.kind?.startsWith('pf') && inBox(b, lx, ly));
+    if (hit?.kind === 'pfTab') r.profile.tab = hit.tab;
+    else if (hit?.kind === 'pfClose' || !inBox(PF, lx, ly)) r.profile = null;
+    return true;
+  }
+  const dot = (r.hudHits || []).find(b => b.kind === 'dot' && inBox(b, lx, ly));
+  if (dot) { const st = r.pageState?.[dot.key]; if (st) st.t = dot.i * dot.every + 0.01; return true; }
+  for (const row of r.rankRows || []) if (lx >= row.l && lx <= row.l + row.w && ly >= row.t && ly <= row.t + row.h) { r.profile = { uid: row.uid, tab: row.tab || 'pets' }; return true; }
   return false;
 }
 export { GIFTS, GIFT_TITLES, FOES, chapterDef, BOND };

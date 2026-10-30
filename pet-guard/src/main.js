@@ -60,7 +60,8 @@ window.addEventListener('pointerdown', unlock);
 window.addEventListener('keydown', unlock);
 const toLogical = e => { const r = canvas.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; };
 canvas.addEventListener('pointerdown', e => { const [x, y] = toLogical(e); renderer.click(x, y); });
-canvas.addEventListener('pointermove', e => { const [x, y] = toLogical(e); const uid = renderer.hitUid(x, y); renderer.hoverUid = uid; canvas.style.cursor = uid ? 'pointer' : ''; });
+canvas.addEventListener('pointermove', e => { const [x, y] = toLogical(e); renderer.mouse = { x, y }; const uid = renderer.hitUid(x, y); renderer.hoverUid = uid; canvas.style.cursor = uid || renderer.hudHot(x, y) ? 'pointer' : ''; });
+canvas.addEventListener('pointerleave', () => { renderer.mouse = null; renderer.hoverUid = null; });
 
 // 同一时间只允许一个游戏页面，避免同一份礼物结算两次
 let blocked = false;

@@ -7,7 +7,7 @@ import { farmOf, plotStage, tileRect, CROP, marketOf, FARM_FX } from './farm.js'
 import { CROPS, FARM } from './config.js';
 import { partHit, partLabels, safeParts, clamp, partOf as partOfZ } from './combat.js';
 const RINGS_SQUASH = RINGS.squash;
-import { drawHud, hudClick } from './hud.js';
+import { drawHud, hudClick, hudHot } from './hud.js';
 import { chapterDef } from './stage.js';
 
 const TAU = Math.PI * 2;
@@ -1192,8 +1192,10 @@ export class Renderer {
     for (const f of this.game.pets.values()) { if (f.npc) continue; const d = (f.x - lx) ** 2 + (f.y - (f.h || 60) * 0.5 - ly) ** 2; if (d < bd) { bd = d; best = f.uid; } }
     return best;
   }
+  hudHot(lx, ly) { return hudHot(this, lx, ly); }
   click(lx, ly) {
     if (hudClick(this, lx, ly)) return;
+    if (this.profile) return;
     const uid = this.hitUid(lx, ly);
     if (uid) this.consume([{ type: 'card', uid, gear: true }]);
   }
