@@ -6,7 +6,7 @@ import { stepFoe } from './foes.js';
 import { startStage, stepStage, stageKind, chapterOf, failTarget, stageLabel, stageTitle, interceptZone, likeShield } from './stage.js';
 import { makeWish, returnWish, startComfort, hugBoss, comforting, initTreeSlots, wishStore } from './wish.js';
 import { addFriendship, hugFriend, stepDuo, tame, maybeTame, loadSprites, stepGarden, bestFriend, friendsOf, friendLevel, SPRITE_UNITS } from './friends.js';
-import { plant, water, harvest, sell, expand, farmAll, unlockPet, giftFarm, battleCoins, startHome, stepHome, assignTile, parseCrop, petUnlocked } from './farm.js';
+import { plant, water, harvest, sell, expand, farmAll, unlockPet, giftFarm, battleCoins, startHome, stepHome, assignTile, parseCrop, petUnlocked, flushFarm } from './farm.js';
 import { FARM, ADV_PETS } from './config.js';
 import { stepProjs, LANES, score, healTree } from './combat.js';
 import { giftKind, applyGift, stepGifts, moraleLike, dailyCheckin, loadBuffs, pauseSummons, resumeSummons, xpMul, goldPurified, addBond } from './gifts.js';
@@ -226,7 +226,7 @@ export class Game {
       for (const f of [...this.pets.values()]) stepPet(this, f, dt, false);
       stepGifts(this, dt, false);
       stepHome(this, dt);
-      if (this.phaseT <= 0) this.startLobby('home');
+      if (this.phaseT <= 0) { flushFarm(this); this.startLobby('home'); }
       return;
     }
     this.engaged.clear();

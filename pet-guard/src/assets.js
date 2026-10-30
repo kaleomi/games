@@ -8,6 +8,7 @@
 //   fx:<heart|star|note|bubble|petal|snow|drop|leaf|rainbow|cloud>   proj:<foxfire|snowball|rainbow|heart|bamboo|seed|claw|poof>
 //   glow:<glow|sparkle|ring|circle|pillar|wave|frost|bolt>   truck   logo
 //   seq:<物种>:<形态>:<idle|attack|happy|sleep>   序列帧（多张）
+import { SHINY, recolorShiny } from './shiny.js';
 export class Assets {
   constructor(base = 'assets/') {
     this.base = base;
@@ -44,8 +45,15 @@ export class Assets {
   frames(name) { return this.seq.get(name) || null; }
   // 派生：白色剪影（受击闪白、进化剪影）
   white(name) { return this.derive(name, 'white', (x, im) => { x.drawImage(im, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = '#fff'; x.fillRect(0, 0, im.width, im.height); }); }
-  // 闪光：色相旋转
-  shiny(name, hue = 150) { return this.derive(name, 'shiny' + hue, (x, im) => { x.filter = `hue-rotate(${hue}deg) saturate(1.25) brightness(1.05)`; x.drawImage(im, 0, 0); }); }
+  // 闪光：按这种萌宠自己的闪光配色换主毛色（src/shiny.js）；名字里第二段是物种（pet:fox:2 / seq:fox:2:idle#3）
+  shiny(name) {
+    const rules = SHINY[String(name).split(':')[1]];
+    return this.derive(name, 'shiny', (x, im) => {
+      x.drawImage(im, 0, 0);
+      if (!rules) return;
+      try { const d = x.getImageData(0, 0, im.width, im.height); recolorShiny(d.data, rules); x.putImageData(d, 0, 0); } catch { x.filter = 'saturate(0.8) brightness(1.08)'; }
+    });
+  }
   // 灰度（心愿树睡着）
   gray(name) { return this.derive(name, 'gray', (x, im) => { x.filter = 'grayscale(0.85) brightness(0.9)'; x.drawImage(im, 0, 0); }); }
   // 金色（金色偷果鼠）

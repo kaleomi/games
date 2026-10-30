@@ -2,6 +2,7 @@
 // 横幅、提示、开场页、结算页、萌宠卡、天赋觉醒、长大
 import { W, H, FONT, ROUND_FONT, BOTTOM_Y, SPECIES, SPECIES_IDS, GEAR, TALENT, FORMS, TREE, GIFTS, GIFT_TITLES, MORALE, LEVEL, FOES, ROLE_NAMES, BOND, COMFORT, FRIEND, SPRITES, WISH } from './config.js';
 import { wishStore } from './wish.js';
+import { SHINY_NAME } from './shiny.js';
 import { bestFriend, friendLevel, SPRITE_UNITS } from './friends.js';
 import { farmOf, plotStage, CROP, levelNeed, plotCost, marketMul, fmtSec, petUnlocked } from './farm.js';
 import { CROPS, FARM, ADV_PETS, ADV_IDS } from './config.js';
@@ -43,7 +44,7 @@ function avatarCircle(r, x, url, cx, cy, rad, fallback = '#ffd6e4', label = '') 
 }
 // 小号萌宠头像（取图里的成年形态，没有就色块）
 function petIcon(r, x, sp, form, cx, cy, size, shiny = false) {
-  const name = `pet:${sp}:${form}`, a = shiny ? r.assets.shiny(name, TALENT.shiny.hue) : r.assets.get(name);
+  const name = `pet:${sp}:${form}`, a = shiny ? r.assets.shiny(name) : r.assets.get(name);
   if (a) { const s = size / Math.max(a.w, a.h); x.drawImage(a.img, cx - a.w * s / 2, cy - a.h * s / 2, a.w * s, a.h * s); return; }
   x.fillStyle = SPECIES[sp]?.color || '#ccc'; x.beginPath(); x.arc(cx, cy, size * 0.42, 0, TAU); x.fill();
   x.fillStyle = '#fff'; x.font = `bold ${Math.round(size * 0.42)}px ${FONT}`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(SPECIES[sp]?.kind?.slice(-1) || '?', cx, cy + 1); x.textBaseline = 'alphabetic';
@@ -549,11 +550,11 @@ function drawCards(r, x, dt) {
   x.fillStyle = '#fff0f5'; rr(x, l + 10, t + 10, 120, 150, 12); x.fill();
   const tal = f.star > 0 ? 5 : f.talent || 0;
   if (tal >= 3) { x.save(); x.globalAlpha *= 0.45; x.fillStyle = TALENT.tiers[tal].color; x.beginPath(); x.arc(l + 70, t + 92, 52, 0, TAU); x.fill(); x.restore(); }
-  const pa = f.shiny ? r.assets.shiny(`pet:${f.sp}:${form}`, TALENT.shiny.hue) : r.assets.get(`pet:${f.sp}:${form}`);
+  const pa = f.shiny ? r.assets.shiny(`pet:${f.sp}:${form}`) : r.assets.get(`pet:${f.sp}:${form}`);
   if (pa) { const s = Math.min(112 / pa.h, 110 / pa.w); x.drawImage(pa.img, l + 70 - pa.w * s / 2, t + 152 - pa.h * s, pa.w * s, pa.h * s); }
   else petIcon(r, x, f.sp, form, l + 70, t + 95, 90);
   if (f.gear?.hat) r.icon(x, `gear:hat:${f.gear.hat.tier}`, l + 70, t + 40, 40);
-  if (f.shiny) pill(x, '✦闪光✦', l + 70, t + 22, '#ffd84a', '#7a4a00', 11);
+  if (f.shiny) pill(x, `✦闪光·${SHINY_NAME[f.sp] || ''}✦`.replace('·✦', '✦'), l + 70, t + 22, '#ffd84a', '#7a4a00', 11);
   const rx = l + 140;
   text(x, clipText(x, f.nick || SPECIES[f.sp].name, 130), rx, t + 30, 20, C.ink);
   text(x, clipText(x, `${f.name}的${SPECIES[f.sp].kind}·${FORMS[form].name}`, 196), rx, t + 50, 12, C.mute, 'left', 'normal');

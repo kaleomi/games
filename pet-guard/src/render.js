@@ -2,7 +2,7 @@
 // 所有角色都是一张生成图 + 程序动作（呼吸、蹦跳、扑击、受击压扁、打盹、孵化、进化、净化）；没有图时画占位图形
 import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS, WISH, STAGE, GARDEN, FRIEND } from './config.js';
 import { wishAt } from './wish.js';
-import { farmOf, plotStage, tileRect, CROP, marketMul } from './farm.js';
+import { farmOf, plotStage, tileRect, CROP, marketMul, FARM_FX } from './farm.js';
 import { CROPS, FARM } from './config.js';
 import { partHit, partLabels, safeParts, clamp, partOf as partOfZ } from './combat.js';
 const RINGS_SQUASH = RINGS.squash;
@@ -37,6 +37,8 @@ export class Renderer {
     this.breaths = [];
     this.trucks = [];
     this.fruitAnim = [];
+    this.later = [];        // 定时触发的小动画（种田一步步来）
+    this.plotFx = new Map(); // 菜地格子上的动画状态：uid:格子 → 还没蹦走的熟菜 / 还没落地的种子 / 还没浇到的水
     this.lastFruits = 12;
     this.hoverUid = null;
     this.fruitPos = [];   // 每个果子在画面上的位置（许愿气泡、灯笼、偷果用）
@@ -122,11 +124,10 @@ export class Renderer {
         case 'hugFriend': this.burst('heart', e.x, e.y - 70, 12, { spread: 60, up: 120, size: 18 }); this.glow('sparkle', e.x, e.y - 60, 120, 0.8); this.floaters.push({ x: e.x, y: e.y - 110, text: e.lv ? `贴贴~ ${FRIEND.names[e.lv - 1]}` : '贴贴~', color: '#ff8fb8', size: 17, t: 0, life: 1.4, vy: -30 }); break;
         case 'duo': this.duos.push({ ...e, t: 0, life: 1.1 }); this.glow('circle', e.tx, e.ty, e.r * 2.2, 1.2, { flat: true, spin: 2 }); this.shake = Math.max(this.shake, 5); break;
         case 'tame': { const f = g.pets.get(e.uid); const px = f?.x ?? e.x, py = f?.y ?? e.y; this.glow('sparkle', px, py - 40, 130, 1); this.burst('star', px, py - 40, 10, { spread: 60, up: 100, size: 15 }); this.floaters.push({ x: px, y: py - 120, text: `收服「${e.unitName}」！`, color: '#9fe8ff', size: 17, t: 0, life: 1.8, vy: -28 }); break; }
-        case 'farmPlant': { const r = this.tileOf(e.uid); if (r) { this.burst('leaf', r.cx, r.cy, 8, { spread: 50, up: 80, size: 14, grav: 200 }); this.floaters.push({ x: r.cx, y: r.y - 6, text: `种下${CROP[e.crop]?.name || ''}×${e.n}`, color: '#8fe07a', size: 15, t: 0, life: 1.4, vy: -26 }); } break; }
-        case 'farmWater': { const f = g.pets.get(e.uid), r = this.tileOf(e.uid); if (f) f.waterT = 1.6; if (r) for (let k = 0; k < 10; k++) this.parts.push({ kind: 'drop', x: r.x + 14 + Math.random() * (r.w - 28), y: r.y - 30 - Math.random() * 30, vx: 0, vy: 80, t: -k * 0.08, life: 0.6, size: 12, rot: 0, spin: 0, grav: 500 });
-          if (e.friend) { const r2 = this.tileOf(e.friend); if (r2) { this.burst('heart', r2.cx, r2.cy - 20, 5, { spread: 30, up: 60, size: 14 }); this.floaters.push({ x: r2.cx, y: r2.y - 8, text: '好朋友帮浇水~', color: '#ff9fc4', size: 14, t: 0, life: 1.4, vy: -24 }); } } break; }
-        case 'farmHarvest': { const r = this.tileOf(e.uid); if (r) { e.crops.slice(0, 6).forEach((id, k) => this.parts.push({ kind: 'produce', icon: 'produce:' + id, crop: id, x: r.cx + (k - 1) * 16, y: r.cy - 10, vx: (Math.random() - 0.5) * 120, vy: -260 - Math.random() * 80, t: -k * 0.06, life: 1, size: 30, rot: 0, spin: (Math.random() - 0.5) * 3, grav: 600 })); this.floaters.push({ x: r.cx, y: r.y - 10, text: `收获×${e.n} 经验+${e.xp}`, color: '#ffd84a', size: 16, t: 0, life: 1.6, vy: -26 }); } break; }
-        case 'farmSell': { const r = this.tileOf(e.uid), m = this.marketPos(); if (r) { for (let k = 0; k < Math.min(8, e.n); k++) this.parts.push({ kind: 'fly', icon: 'produce:' + e.crops[k % e.crops.length], crop: e.crops[k % e.crops.length], x0: r.cx, y0: r.cy, x1: m.x, y1: m.y, x: r.cx, y: r.cy, t: -k * 0.07, life: 0.7, size: 26 }); this.floaters.push({ x: m.x, y: m.y - 40, text: `+${e.coins}金币`, color: '#ffd84a', size: 20, t: 0, life: 1.8, vy: -24 }); } break; }
+        case 'farmHarvest': this.fxHarvest(e); break;
+        case 'farmSell': this.fxSell(e); break;
+        case 'farmPlant': this.fxPlant(e); break;
+        case 'farmWater': this.fxWater(e); break;
         case 'farmLevel': { const r = this.tileOf(e.uid); if (r) { this.glow('sparkle', r.cx, r.cy, 160, 1.2); this.floaters.push({ x: r.cx, y: r.y - 26, text: `农场 Lv${e.lv}！`, color: '#9fe8ff', size: 20, t: 0, life: 2, vy: -22 }); } break; }
         case 'farmUnlock': { const f = g.pets.get(e.uid); if (f) { this.glow('wave', f.x, f.y, 260, 1.4, { flat: true }); this.glow('sparkle', f.x, f.y - 50, 220, 1.4); this.burst('star', f.x, f.y - 50, 24, { spread: 140, up: 220, size: 18 }); } break; }
         case 'farmGift': { const r = this.tileOf(e.uid); if (r) { this.glow('sparkle', r.cx, r.cy, 140, 1); if (e.ripe) this.floaters.push({ x: r.cx, y: r.y - 8, text: '施肥！马上熟了', color: '#ffd84a', size: 16, t: 0, life: 1.6, vy: -24 }); } break; }
@@ -213,6 +214,7 @@ export class Renderer {
   draw(dt) {
     const x = this.ctx, g = this.game;
     this.t += dt;
+    this.runLater();
     x.setTransform(this.k, 0, 0, this.k, 0, 0);
     x.save();
     if (this.shake > 0) { x.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake); this.shake = Math.max(0, this.shake - dt * 30); }
@@ -244,7 +246,7 @@ export class Renderer {
   // 按高度画一张图，脚底中点在 (cx, fy)；o: { flip, sx, sy, rot, alpha, variant: white|shiny|gray|gold, ax:锚点比例 }
   sprite(x, name, cx, fy, h, o = {}) {
     const A = this.assets;
-    let a = o.variant === 'white' ? A.white(name) : o.variant === 'shiny' ? A.shiny(name, TALENT.shiny.hue) : o.variant === 'gray' ? A.gray(name) : o.variant === 'gold' ? A.gold(name) : A.get(name);
+    let a = o.variant === 'white' ? A.white(name) : o.variant === 'shiny' ? A.shiny(name) : o.variant === 'gray' ? A.gray(name) : o.variant === 'gold' ? A.gold(name) : A.get(name);
     if (!a) return null;
     const s = h / a.h, w = a.w * s;
     x.save();
@@ -472,7 +474,7 @@ export class Renderer {
     // 撑伞
     if (f.umbrellaT > 0 || this.game.zones.some(z => z.full && f.umbrellaZ === z.id)) { if (!this.icon(x, 'misc:umbrella', f.x + ox, headY - 18, h * 0.9)) { x.fillStyle = '#7fd3ff'; x.beginPath(); x.arc(f.x + ox, headY - 6, h * 0.42, Math.PI, 0); x.fill(); } }
     f.umbrellaT = Math.max(0, (f.umbrellaT || 0) - dt);
-    if (f.waterT > 0) { f.waterT -= dt; const wx = f.x + ox + (flip ? -1 : 1) * h * 0.5, wy = headY + h * 0.3; if (!this.icon(x, 'farm:can', wx, wy, h * 0.6, { rot: (flip ? 1 : -1) * (0.5 + Math.sin(this.t * 6) * 0.15) })) { x.fillStyle = '#7fb8e8'; rr(x, wx - 12, wy - 8, 24, 16, 5); x.fill(); } }
+    if (f.farmTool) this.drawTool(x, f, f.x + ox, headY, h, flip);
     if (f.shiny && Math.random() < 0.012) this.glow('sparkle', f.x + (Math.random() - 0.5) * h * 0.6, f.y - h * (0.3 + Math.random() * 0.6), 40, 0.7);
     if (f.shiny && Math.random() < 0.05) this.burst('star', f.x + (Math.random() - 0.5) * h * 0.8, f.y - h * Math.random(), 1, { spread: 4, up: 30, size: 10, life: 0.7 });
     if (flash?.kind === 'evolve' || flash?.kind === 'ult') { x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.5 * (1 - flash.t / flash.life); x.fillStyle = flash.kind === 'ult' ? '#ffd0ef' : '#fff6b0'; x.beginPath(); x.arc(f.x, f.y - h * 0.5, h * (0.7 + flash.t), 0, TAU); x.fill(); x.restore(); }
@@ -665,8 +667,9 @@ export class Renderer {
       }
       if (p.kind === 'fly') {   // 卖菜：菜飞向菜摊
         if (p.t < 0) { out.push(p); continue; }
-        const e2 = 1 - (1 - k) * (1 - k), px = p.x0 + (p.x1 - p.x0) * e2, py = p.y0 + (p.y1 - p.y0) * e2 - Math.sin(k * Math.PI) * 90;
-        x.save(); x.globalAlpha = k > 0.85 ? (1 - k) / 0.15 : 1; if (!this.icon(x, p.icon, px, py, p.size)) placeholderProduce(x, p.crop, px, py, p.size); x.restore();
+        const e2 = p.ease === 'in' ? k * k : 1 - (1 - k) * (1 - k), px = p.x0 + (p.x1 - p.x0) * e2, py = p.y0 + (p.y1 - p.y0) * e2 - Math.sin(k * Math.PI) * (p.arc ?? 90);
+        const sz = p.size * (p.shrink ? 1 - k * p.shrink : 1);
+        x.save(); x.globalAlpha = k > 0.85 ? (1 - k) / 0.15 : 1; if (!this.icon(x, p.icon, px, py, sz, { rot: (p.spin || 0) * p.t })) placeholderProduce(x, p.crop, px, py, sz); x.restore();
         continue;
       }
       if (p.kind === 'produce') {
@@ -765,9 +768,120 @@ export class Renderer {
     x.beginPath(); x.moveTo(0, 345); x.lineTo(W, 345); x.stroke();
   }
   marketPos() { return { x: 610, y: 300 }; }
+  // ───────── 种田动画：收 → 卖 → 种 → 浇，一棵一棵、一块一块按顺序来（节奏表 FARM_FX 在 farm.js）─────────
+  after(d, fn) { this.later.push({ at: this.t + d, fn }); }
+  runLater() {
+    if (!this.later.length) return;
+    const due = this.later.filter(l => l.at <= this.t);
+    if (!due.length) return;
+    this.later = this.later.filter(l => l.at > this.t);
+    for (const l of due) { try { l.fn(); } catch { /* 画面上的小动画失败不影响游戏 */ } }
+  }
+  slotPos(r, i) { return i < 3 ? { x: r.x + r.w * (i + 0.5) / 3, y: r.y + r.h * 0.78 } : { x: r.x + r.w - 16, y: r.y + 12 }; }
+  toolPos(f) { return f?.toolPos && this.t - f.toolPos.t < 0.5 ? f.toolPos : { x: (f?.x || 0) + 24, y: (f?.y || 0) - 34 }; }
+  setTool(f, icon, dur, label) { if (f) { f.farmTool = { icon, until: this.t + dur, label, t0: this.t }; f.toolBump = 0; } }
+  bumpTool(f) { if (f) f.toolBump = this.t; }
+  // 宠物手里的农具：篮子 / 种子袋 / 洒水壶 / 金币，头顶一个小牌子写着正在干什么
+  drawTool(x, f, px, headY, h, flip) {
+    const tl = f.farmTool;
+    if (!tl || tl.until <= this.t) { f.farmTool = null; return; }
+    const dir = flip ? -1 : 1, age = this.t - tl.t0, pop = Math.min(1, age / 0.18), bump = f.toolBump ? Math.max(0, 1 - (this.t - f.toolBump) / 0.22) : 0;
+    const wx = px + dir * h * 0.46, wy = headY + h * 0.48 + Math.sin(this.t * 5) * 2 - bump * 6;
+    let rot = 0, size = h * 0.5 * (0.6 + 0.4 * pop) * (1 + bump * 0.2);
+    if (tl.icon === 'farm:can') rot = dir * (0.5 + Math.sin(this.t * 7) * 0.14);
+    else if (tl.icon === 'farm:seed') rot = dir * Math.sin(this.t * 14) * 0.16 - dir * bump * 0.4;
+    else if (tl.icon === 'farm:coins') { rot = Math.sin(this.t * 8) * 0.08; size *= 0.9; }
+    f.toolPos = { x: wx, y: wy - size * 0.2, t: this.t };
+    if (!this.icon(x, tl.icon, wx, wy, size, { rot })) { x.fillStyle = { 'farm:can': '#7fb8e8', 'farm:seed': '#c9a06a', 'farm:basket': '#d9a45a', 'farm:coins': '#ffd84a' }[tl.icon] || '#fff'; rr(x, wx - size / 2, wy - size / 3, size, size * 0.66, 6); x.fill(); }
+    if (tl.icon === 'farm:can' && Math.random() < 0.5) this.parts.push({ kind: 'drop', x: wx + dir * size * 0.5, y: wy + size * 0.1, vx: dir * 40, vy: 40, t: 0, life: 0.35, size: 8, rot: 0, spin: 0, grav: 600 });
+    if (tl.label) {
+      x.save(); x.font = `bold 12px ${FONT}`; x.textAlign = 'center';
+      const tw = x.measureText(tl.label).width + 14, ly = headY - 12 - (1 - pop) * 6;
+      x.globalAlpha *= pop * Math.min(1, (tl.until - this.t) / 0.2);
+      x.fillStyle = 'rgba(255,250,240,0.95)'; rr(x, px - tw / 2, ly - 13, tw, 18, 9); x.fill(); x.strokeStyle = '#e0b070'; x.lineWidth = 1.5; x.stroke();
+      x.fillStyle = '#8a5a3a'; x.fillText(tl.label, px, ly + 1); x.restore();
+    }
+  }
+  // 收：熟菜先在地里抖一抖，再一棵棵蹦起来飞进篮子
+  fxHarvest(e) {
+    const g = this.game, f = g.pets.get(e.uid), r = this.tileOf(e.uid);
+    if (!r) return;
+    this.setTool(f, 'farm:basket', e.dur, `收菜 ${e.n}`);
+    e.idx.forEach((i, j) => {
+      const at = FARM_FX.harvest(j), crop = e.crops[j];
+      if (i < 3) this.plotFx.set(`${e.uid}:${i}`, { kind: 'ghost', crop, t0: this.t, until: this.t + at });
+      this.after(at, () => {
+        const r2 = this.tileOf(e.uid); if (!r2) return;
+        const p = this.slotPos(r2, i), to = this.toolPos(f);
+        this.burst('leaf', p.x, p.y - 16, 4, { spread: 26, up: 70, size: 11, grav: 300, life: 0.6 });
+        this.parts.push({ kind: 'ring', x: p.x, y: p.y, t: 0, life: 0.4, size: 34, color: '#fff3b0', squash: 0.45, w: 3 });
+        this.parts.push({ kind: 'fly', icon: 'produce:' + crop, crop, x0: p.x, y0: p.y - 24, x1: to.x, y1: to.y, x: p.x, y: p.y, t: 0, life: 0.5, size: 30, arc: 70, spin: 4 });
+        this.after(0.5, () => { this.bumpTool(f); const t2 = this.toolPos(f); this.burst('star', t2.x, t2.y - 6, 2, { spread: 14, up: 40, size: 10, life: 0.5 }); });
+      });
+    });
+    this.after(e.dur - 0.15, () => { const r2 = this.tileOf(e.uid); if (r2) this.floaters.push({ x: r2.cx + 18, y: r2.y - 14, text: `收获×${e.n} 经验+${e.xp}`, color: '#ffd84a', size: 16, t: 0, life: 1.5, vy: -26 }); });
+  }
+  // 卖：菜一个个飞去菜摊 → 小摊亮一下 → 金币一枚枚飞回来
+  fxSell(e) {
+    const g = this.game, f = g.pets.get(e.uid), m = this.marketPos(), mm = Math.min(8, e.n);
+    if (!this.tileOf(e.uid)) return;
+    const back = FARM_FX.sellBack(mm);
+    this.setTool(f, 'farm:basket', back, `卖菜 ${e.n}`);
+    for (let j = 0; j < mm; j++) {
+      const crop = e.crops[j % e.crops.length];
+      this.after(FARM_FX.sellItem(j), () => { const p = this.toolPos(f); this.bumpTool(f); this.parts.push({ kind: 'fly', icon: 'produce:' + crop, crop, x0: p.x, y0: p.y, x1: m.x, y1: m.y + 20, x: p.x, y: p.y, t: 0, life: 0.7, size: 26, arc: 110, spin: 3, shrink: 0.3 }); });
+    }
+    this.after(FARM_FX.sellItem(mm - 1) + 0.7, () => { this.glow('sparkle', m.x, m.y + 10, 150, 0.7); this.floaters.push({ x: m.x, y: m.y - 50, text: `+${e.coins}金币`, color: '#ffd84a', size: 20, t: 0, life: 1.6, vy: -22 }); });
+    this.after(back, () => {
+      this.setTool(f, 'farm:coins', 0.9, `+${e.coins}金币`);
+      const p = this.toolPos(f), nc = Math.min(6, 2 + Math.ceil(mm / 2));
+      for (let k = 0; k < nc; k++) this.parts.push({ kind: 'fly', icon: 'farm:coin', crop: 'corn', x0: m.x, y0: m.y + 10, x1: p.x + (Math.random() - 0.5) * 10, y1: p.y, x: m.x, y: m.y, t: -k * 0.06, life: 0.5, size: 20, arc: 80, spin: 8, ease: 'in' });
+      this.after(0.5 + nc * 0.06, () => { const t2 = this.toolPos(f); this.bumpTool(f); this.burst('star', t2.x, t2.y - 8, 5, { spread: 26, up: 60, size: 12, life: 0.6 }); });
+    });
+  }
+  // 种：种子一颗颗撒进空地，落地冒出小芽
+  fxPlant(e) {
+    const g = this.game, f = g.pets.get(e.uid), r = this.tileOf(e.uid);
+    if (!r) return;
+    const name = CROP[e.crop]?.name || '';
+    this.setTool(f, 'farm:seed', e.dur, `种${name} ${e.n}`);
+    e.idx.forEach((i, j) => {
+      const at = FARM_FX.plant(j);
+      if (i < 3) this.plotFx.set(`${e.uid}:${i}`, { kind: 'sprout', at: this.t + at + 0.3 });
+      this.after(at, () => {
+        const r2 = this.tileOf(e.uid); if (!r2) return;
+        const p = this.slotPos(r2, i), from = this.toolPos(f);
+        this.bumpTool(f);
+        this.parts.push({ kind: 'fly', icon: 'icon:seed', crop: 'sunflower', x0: from.x, y0: from.y, x1: p.x, y1: p.y - 4, x: from.x, y: from.y, t: 0, life: 0.3, size: 14, arc: 46, spin: 6, ease: 'in' });
+        this.after(0.3, () => { this.burst('leaf', p.x, p.y - 6, 3, { spread: 18, up: 50, size: 10, grav: 260, life: 0.5 }); this.parts.push({ kind: 'ring', x: p.x, y: p.y, t: 0, life: 0.35, size: 26, color: '#c9f0a0', squash: 0.45, w: 3 }); });
+      });
+    });
+    this.after(e.dur - 0.15, () => { const r2 = this.tileOf(e.uid); if (r2) this.floaters.push({ x: r2.cx + 18, y: r2.y - 14, text: `种下${name}×${e.n}`, color: '#8fe07a', size: 15, t: 0, life: 1.4, vy: -26 }); });
+  }
+  // 浇：洒水壶从左到右一块块浇，土一点点变湿；最后顺手去好朋友地里洒几滴
+  fxWater(e) {
+    const g = this.game, f = g.pets.get(e.uid), r = this.tileOf(e.uid);
+    if (!r) return;
+    this.setTool(f, 'farm:can', e.dur, e.n ? `浇水 ${e.n}` : '帮好朋友浇水');
+    if (e.n) this.plotFx.set(`${e.uid}:wet`, { from: this.t + FARM_FX.water(0), dur: FARM_FX.waterStep * e.n + 0.25 });
+    e.idx.forEach((i, j) => {
+      const at = FARM_FX.water(j);
+      if (i < 3) this.plotFx.set(`${e.uid}:${i}`, { kind: 'wet', at: this.t + at + 0.3 });
+      this.after(at, () => { const r2 = this.tileOf(e.uid); if (r2) this.rainOn(this.slotPos(r2, i), 7); });
+    });
+    if (e.friend && e.fn) this.after(FARM_FX.friend(e.n), () => {
+      const r2 = this.tileOf(e.friend); if (!r2) return;
+      for (let k = 0; k < Math.min(3, e.fn); k++) this.rainOn(this.slotPos(r2, e.fidx?.[k] ?? k), 5);
+      this.burst('heart', r2.cx, r2.cy - 20, 5, { spread: 30, up: 60, size: 14 });
+      this.floaters.push({ x: r2.cx, y: r2.y - 8, text: '好朋友帮浇水~', color: '#ff9fc4', size: 14, t: 0, life: 1.4, vy: -24 });
+    });
+    if (e.n) this.after(e.dur - 0.15, () => { const r2 = this.tileOf(e.uid); if (r2) this.floaters.push({ x: r2.cx + 18, y: r2.y - 14, text: `浇水×${e.n} 长得更快`, color: '#7fd3ff', size: 15, t: 0, life: 1.4, vy: -26 }); });
+  }
+  rainOn(p, n) { for (let k = 0; k < n; k++) this.parts.push({ kind: 'drop', x: p.x + (Math.random() - 0.5) * 28, y: p.y - 46 - Math.random() * 16, vx: 0, vy: 90, t: -k * 0.035, life: 0.4, size: 11, rot: 0, spin: 0, grav: 520 }); }
   tileOf(uid) { const i = this.game.homeTiles?.indexOf(uid); return i >= 0 ? tileRect(i) : null; }
   drawFarm(x, dt) {
     const g = this.game, now = g.now(), T = FARM.tiles;
+    if (this.plotFx.size > 40) for (const [k, v] of this.plotFx) if (this.t > (v.until || v.at || (v.from + v.dur) || 0) + 2) this.plotFx.delete(k);
     // 菜摊 + 今日行情
     const m = this.marketPos();
     if (!this.sprite(x, 'farm:market', m.x, m.y + 60, 150)) {
@@ -788,19 +902,36 @@ export class Renderer {
       const r = tileRect(i), farm = farmOf(g, f);
       if (!farm) return;
       const plots = farm.plots, wet = plots.some(p => p && p.w && p.ready > now);
-      const soil = this.assets.get(wet ? 'farm:wet' : 'farm:soil');
-      if (soil) { const s = Math.min(r.w * 1.08 / soil.w, r.h * 1.5 / soil.h); x.drawImage(soil.img, r.cx - soil.w * s / 2, r.cy - soil.h * s / 2 + 4, soil.w * s, soil.h * s); }
+      // 刚浇水：湿土一点点洇开（干土上叠一层越来越不透明的湿土）
+      const wf = this.plotFx.get(`${uid}:wet`), wetK = !wet ? 0 : wf && this.t < wf.from + wf.dur ? Math.max(0, (this.t - wf.from) / wf.dur) : 1;
+      const dry = this.assets.get('farm:soil'), soilW = this.assets.get('farm:wet');
+      const soil = wetK >= 1 ? soilW : dry;
+      if (soil) {
+        const s = Math.min(r.w * 1.08 / soil.w, r.h * 1.5 / soil.h); x.drawImage(soil.img, r.cx - soil.w * s / 2, r.cy - soil.h * s / 2 + 4, soil.w * s, soil.h * s);
+        if (wetK > 0 && wetK < 1 && soilW) { const s2 = Math.min(r.w * 1.08 / soilW.w, r.h * 1.5 / soilW.h); x.save(); x.globalAlpha = wetK; x.drawImage(soilW.img, r.cx - soilW.w * s2 / 2, r.cy - soilW.h * s2 / 2 + 4, soilW.w * s2, soilW.h * s2); x.restore(); }
+      }
       else { x.fillStyle = wet ? '#7a5236' : '#a8754c'; rr(x, r.x, r.y, r.w, r.h, 14); x.fill(); x.strokeStyle = wet ? '#5e3e28' : '#8a5e3c'; x.lineWidth = 3; x.stroke(); x.strokeStyle = 'rgba(255,255,255,0.12)'; x.lineWidth = 2; for (let k = 1; k < 3; k++) { x.beginPath(); x.moveTo(r.x + 10, r.y + k * r.h / 3); x.lineTo(r.x + r.w - 10, r.y + k * r.h / 3); x.stroke(); } }
       // 最多画3块地的菜
       const shown = plots.slice(0, 3);
       shown.forEach((p, k) => {
-        const px = r.x + r.w * (k + 0.5) / 3, py = r.y + r.h * 0.78;
-        if (!p) { x.fillStyle = 'rgba(70,40,20,0.25)'; x.beginPath(); x.ellipse(px, py - 4, 10, 4, 0, 0, TAU); x.fill(); return; }
+        const px = r.x + r.w * (k + 0.5) / 3, py = r.y + r.h * 0.78, fx = this.plotFx.get(`${uid}:${k}`);
+        const hole = () => { x.fillStyle = 'rgba(70,40,20,0.25)'; x.beginPath(); x.ellipse(px, py - 4, 10, 4, 0, 0, TAU); x.fill(); };
+        if (!p) {
+          // 刚收走的菜：还没轮到它蹦出来时，留在地里抖一抖
+          if (fx?.kind === 'ghost' && this.t < fx.until) {
+            const near = Math.max(0, 1 - (fx.until - this.t) / 0.35), rot = Math.sin(this.t * 34) * 0.14 * near;
+            if (!this.sprite(x, `crop:${fx.crop}:2`, px, py - near * 3, 52 * (1 + near * 0.08), { rot })) placeholderCrop(x, fx.crop, 2, px, py, 52, rot);
+          } else hole();
+          return;
+        }
+        let grow = 1;
+        if (fx?.kind === 'sprout') { if (this.t < fx.at) { hole(); return; } const q = Math.min(1, (this.t - fx.at) / 0.35); grow = q >= 1 ? 1 : 1 + 2.7 * (q - 1) ** 3 + 1.7 * (q - 1) ** 2; }
         const st = plotStage(p, now), sway = Math.sin(this.t * 2 + i + k) * 0.05;
-        const hh = [26, 40, 52][st.stage];
+        const hh = [26, 40, 52][st.stage] * Math.max(0.05, grow);
         if (!this.sprite(x, `crop:${p.c}:${st.stage}`, px, py, hh, { rot: sway })) placeholderCrop(x, p.c, st.stage, px, py, hh, sway);
+        const wetYet = p.w && !(fx?.kind === 'wet' && this.t < fx.at);
         if (st.stage === 2 && Math.random() < 0.04) this.burst('star', px + (Math.random() - 0.5) * 20, py - hh * Math.random(), 1, { spread: 4, up: 30, size: 10, life: 0.6 });
-        if (st.stage < 2) { x.fillStyle = 'rgba(40,30,20,0.35)'; rr(x, px - 14, py + 4, 28, 4, 2); x.fill(); x.fillStyle = p.w ? '#7fd3ff' : '#ffd84a'; rr(x, px - 14, py + 4, 28 * st.k, 4, 2); x.fill(); }
+        if (st.stage < 2 && grow >= 1) { x.fillStyle = 'rgba(40,30,20,0.35)'; rr(x, px - 14, py + 4, 28, 4, 2); x.fill(); x.fillStyle = wetYet ? '#7fd3ff' : '#ffd84a'; rr(x, px - 14, py + 4, 28 * st.k, 4, 2); x.fill(); }
       });
       if (plots.length > 3) { x.font = `bold 12px ${FONT}`; x.fillStyle = 'rgba(60,40,30,0.75)'; rr(x, r.x + r.w - 30, r.y + 2, 28, 16, 8); x.fill(); x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(`+${plots.length - 3}`, r.x + r.w - 16, r.y + 14); }
       const ripe = plots.filter(p => p && p.ready <= now).length;

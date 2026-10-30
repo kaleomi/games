@@ -305,10 +305,12 @@ test('种田：种 → 浇水更快 → 收 → 卖；升级解锁新作物；�
   g.chat({ id: 'm1', name: '农夫' }, '种萝卜');
   assert.equal(fm.plots.filter(Boolean).length, 2, '两块地都种上');
   assert.equal(fm.coins, FARM.startCoins - 2 * CROPS[0].seed);
+  run(2);   // 每样农活有动画，做完一样才接下一样
   const left0 = plotStage(fm.plots[0], g.now()).left;
   g.chat({ id: 'm1', name: '农夫' }, '浇水');
   const left1 = plotStage(fm.plots[0], g.now()).left;
   assert.ok(Math.abs(left1 - left0 * FARM.water) < 0.1, `浇水快了 ${left0}→${left1}`);
+  run(2);
   g.chat({ id: 'm1', name: '农夫' }, '收');
   assert.equal(fm.plots.filter(Boolean).length, 2, '没熟收不了');
   run(left1 + 0.5);
@@ -316,11 +318,15 @@ test('种田：种 → 浇水更快 → 收 → 卖；升级解锁新作物；�
   assert.equal(fm.barn.carrot, 2);
   assert.equal(fm.xp, 2 * CROPS[0].xp);
   g.chat({ id: 'm1', name: '农夫' }, '卖');
+  assert.equal(fm.barn.carrot, 2, '收菜动画还没放完，卖要排在后面');
+  run(2);
   const price = Math.round(2 * CROPS[0].sell * (g.market.hot === 'carrot' ? 2 : g.market.cold === 'carrot' ? 0.7 : 1));
   assert.equal(fm.coins, FARM.startCoins - 2 * CROPS[0].seed + price);
   assert.equal(save.data.players.m1.farm.coins, fm.coins, '存进存档');
+  run(3);
   fm.xp = 1000; fm.coins = 5000;
   g.chat({ id: 'm1', name: '农夫' }, '种田');   // 一键
+  run(6);
   assert.ok(fm.lv >= 2 || fm.plots.some(Boolean));
   fm.plots = [null, null]; fm.lv = 3; fm.coins = 5000;
   g.chat({ id: 'm1', name: '农夫' }, '种草莓');
@@ -328,6 +334,32 @@ test('种田：种 → 浇水更快 → 收 → 卖；升级解锁新作物；�
   g.chat({ id: 'm1', name: '农夫' }, '扩地');
   assert.equal(fm.plots.length, 3);
   assert.equal(fm.coins, 5000 - 2 * CROPS[2].seed - FARM.plotCost[0]);
+});
+
+test('一键种田：收 → 卖 → 种 → 浇 一样样来，上一样的动画放完才做下一样', () => {
+  const { g, run } = setup(44);
+  g.chat({ id: 'q1', name: '勤快' }, '兔');
+  run(3); g.startHome(); g.drainEvents();
+  const f = g.pets.get('q1'), fm = farmOf(g, f);
+  fm.coins = 500;
+  fm.plots = [{ c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0 }, { c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0 }];
+  g.chat({ id: 'q1', name: '勤快' }, '种田');
+  const seen = [], when = {};
+  for (let t = 0; t < 8; t += 0.05) {
+    run(0.05);
+    for (const e of g.drainEvents()) if (/^farm(Harvest|Sell|Plant|Water)$/.test(e.type) && e.uid === 'q1') { seen.push(e.type); when[e.type] = g.clock; }
+  }
+  assert.deepEqual(seen, ['farmHarvest', 'farmSell', 'farmPlant', 'farmWater'], seen.join(','));
+  assert.ok(when.farmSell - when.farmHarvest >= 0.8, '收完才卖');
+  assert.ok(when.farmPlant - when.farmSell >= 1.4, '卖完才种');
+  assert.ok(when.farmWater - when.farmPlant >= 0.9, '种完才浇');
+  assert.equal(fm.plots.filter(p => p && p.w).length, 2, '新种的都浇上了');
+  // 回家时间到了还没做完的，出门前一口气做完
+  fm.plots = [{ c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0 }, null];
+  g.chat({ id: 'q1', name: '勤快' }, '种田');
+  g.phaseT = 0.01; run(0.1);
+  assert.equal(g.phase, 'lobby');
+  assert.ok(!f.farmJobs?.length && fm.plots.every(p => p && p.c), '出门前都做完了');
 });
 
 test('好朋友顺手浇水；在家送礼施肥、给金币', () => {

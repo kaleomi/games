@@ -1,5 +1,6 @@
 // 声音：小音效用 assets/sfx/ 里的真实录音（来源和授权见 assets/sfx/CREDITS.md），不用电子合成音；
 // 背景音乐放 assets/audio/bgm_lobby.mp3、bgm_battle.mp3、bgm_boss.mp3、bgm_win.mp3、bgm_home.mp3（有就放，没有就不放）
+import { FARM_FX } from './farm.js';
 const BASE = new URL('../assets/audio/', import.meta.url).href;
 const SFX_BASE = new URL('../assets/sfx/', import.meta.url).href;
 const INSTR = {
@@ -164,6 +165,14 @@ export class Audio {
       case 'wishTrue': this.play('lantern'); break;
       case 'duo': this.play('duo'); break;
       case 'result': if (!e.clear) this.play('lose'); break;
+      // 种田：每棵菜、每颗种子、每块地都有一声，跟着动画的节奏一下下响
+      case 'farmHarvest': if (this.ok('farmHarvest', 0.15)) for (let j = 0; j < Math.min(e.n, 8); j++) { const d = FARM_FX.harvest(j); this.smp('hit2', { vol: 0.26, rate: 1.15 + j * 0.05, delay: d }); this.note('xylo', PENTA[j % PENTA.length], { vol: 0.2, delay: d + 0.5 }); } break;
+      case 'farmSell': if (this.ok('farmSell', 0.3)) { const m = Math.min(8, e.n); for (let j = 0; j < m; j += 2) this.smp('whoosh', { vol: 0.12, rate: 1.5 + j * 0.05, delay: FARM_FX.sellItem(j) }); this.smp('till', { vol: 0.34, delay: FARM_FX.sellBack(m) - 0.05 }); this.run('xylo', ['E6', 'G6', 'C7'], 0.07, { vol: 0.24, delay: FARM_FX.sellBack(m) + 0.45 }); } break;
+      case 'farmPlant': if (this.ok('farmPlant', 0.15)) for (let j = 0; j < Math.min(e.n, 8); j++) { const d = FARM_FX.plant(j) + 0.3; this.smp('hit1', { vol: 0.24, rate: 0.75 + j * 0.03, delay: d }); this.note('harp', ['C6', 'D6', 'E6', 'G6', 'A6', 'C7'][j % 6], { vol: 0.2, delay: d + 0.05 }); } break;
+      case 'farmWater': if (this.ok('farmWater', 0.2)) { for (let j = 0; j < Math.min(e.n, 6); j++) this.smp('splash', { vol: 0.16, rate: 1.35 + j * 0.06, delay: FARM_FX.water(j), dur: 0.35 }); if (e.fn) this.run('harp', ['D6', 'G6'], 0.1, { vol: 0.26, delay: FARM_FX.friend(e.n) }); } break;
+      case 'farmLevel': this.play('chime'); break;
+      case 'farmUnlock': this.play('unlock'); break;
+      case 'farmGift': this.play('gift'); break;
       default: break;
     }
     void game;
