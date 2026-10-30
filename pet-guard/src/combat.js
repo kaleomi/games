@@ -224,7 +224,7 @@ export function healTree(game, amount) {
   if (got > 0) game.emit('fruitBack', { n: got });
   return t.hp - before;
 }
-// 输出贡献：伤害按本关首领血量折算（每1%记一次），治疗、护盾按队友最大体力折算（每1/4条记一次）；小伙伴的算给主人
+// 输出守护值：伤害按本关首领血量折算（每1%记一次），治疗、护盾按队友最大体力折算（每1/4条记一次）；小伙伴的算给主人
 export function outputScore(game, f, frac, key) {
   if (!f || !f.isPet || !(frac > 0)) return;
   const o = f.merc ? game.pets.get(f.owner) : f;

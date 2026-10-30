@@ -1,4 +1,4 @@
-// HUD：顶栏（关卡、倒计时、心愿果、爱心能量）、首领血条、礼物效果、本关贡献、萌宠战力榜、玩法轮播、
+// HUD：顶栏（关卡、倒计时、心愿果、爱心能量）、首领血条、礼物效果、本关守护、萌宠战力榜、玩法轮播、
 // 横幅、提示、开场页、结算页、萌宠卡、天赋觉醒、长大
 import { W, H, FONT, ROUND_FONT, BOTTOM_Y, SPECIES, SPECIES_IDS, GEAR, TALENT, FORMS, TREE, GIFTS, GIFT_TITLES, MORALE, LEVEL, FOES, ROLE_NAMES, BOND, COMFORT, FRIEND, SPRITES, WISH } from './config.js';
 import { wishStore } from './wish.js';
@@ -134,7 +134,7 @@ function drawProfile(r, x) {
   text(x, clipText(x, p.name || '小可爱', 300), l + 92, t + 42, 22, C.ink);
   pill(x, f ? '在场' : '不在场', l + 92 + Math.min(300, x.measureText(p.name || '').width) + 40, t + 35, f ? '#3fcf8e' : '#c9b8b4', '#fff', 12);
   const owned = Object.keys(p.pets || {}).filter(sp => SPECIES[sp]).length;
-  text(x, `送礼 ${p.coins || 0} 抖币 · 贡献 ${Math.floor(p.merit || 0)} · 来过 ${p.games || 0} 场 · 通关 ${p.clears || 0} 关 · 心愿成真 ${p.wishTrue || 0} 次`, l + 92, t + 68, 13, C.mute, 'left', 'normal');
+  text(x, `送礼 ${p.coins || 0} 抖币 · 守护值 ${Math.floor(p.merit || 0)} · 来过 ${p.games || 0} 场 · 通关 ${p.clears || 0} 关 · 心愿成真 ${p.wishTrue || 0} 次`, l + 92, t + 68, 13, C.mute, 'left', 'normal');
   text(x, `养了 ${owned}/${ALL_IDS.length} 种萌宠`, l + 92, t + 88, 13, C.mute, 'left', 'normal');
   x.font = `bold 28px ${FONT}`; x.fillStyle = C.mute; x.textAlign = 'center'; x.fillText('×', l + w - 28, t + 40);
   r.hudHits.push({ kind: 'pfClose', x: l + w - 50, y: t + 12, w: 44, h: 40 });
@@ -380,7 +380,7 @@ function meritBoard(r, x) {
   if (!list.length) return;
   const l = W - 208, t = 102, w = 200, h = 30 + list.length * 28;
   panel(x, l, t, w, h, 0.86);
-  text(x, '本关贡献', l + 12, t + 21, 14, C.pink);
+  text(x, '本关守护', l + 12, t + 21, 14, C.pink);
   list.forEach((f, i) => {
     const y = t + 44 + i * 28;
     avatarCircle(r, x, f.avatar, l + 22, y - 5, 11, SPECIES[f.sp].color, f.name);
@@ -744,7 +744,7 @@ function result(r, x, dt) {
     });
     y += 34 + Math.min(3, R.gifts.length) * 26 + 6;
   }
-  pill(x, '守护贡献', l + 60, y + 6, C.pink, '#fff', 13);
+  pill(x, '守护值', l + 60, y + 6, C.pink, '#fff', 13);
   y += 34;
   const drops = new Map(); for (const d of R.drops || []) { if (!drops.has(d.uid)) drops.set(d.uid, []); drops.get(d.uid).push(d); }
   R.players.slice(0, 10).forEach((p, i) => {
@@ -755,7 +755,7 @@ function result(r, x, dt) {
     petIcon(r, x, p.sp, FORMS.findLastIndex(fm => (p.level || 1) >= fm.lv), l + 92, yy - 5, 30, p.shiny);
     text(x, clipText(x, p.name, 140), l + 112, yy, 14, C.ink);
     text(x, `${p.nick || SPECIES[p.sp]?.name} Lv${p.level}`, l + 112, yy + 14, 11, C.mute, 'left', 'normal');
-    if (p.merit != null) text(x, `贡献 ${p.merit}`, l + 300, yy + 2, 13, '#e08a2a');
+    if (p.merit != null) text(x, `守护值 ${p.merit}`, l + 300, yy + 2, 13, '#e08a2a');
     const ds = drops.get(p.uid) || [];
     ds.slice(0, 3).forEach((d, j) => {
       const cx = l + 420 + j * 74, tc = GEAR.tiers[d.item.tier].color;

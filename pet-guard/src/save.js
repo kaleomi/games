@@ -1,4 +1,4 @@
-// 玩家存档：按抖音用户ID保存每只萌宠的等级、经验、名字、天赋、闪光、亲密度、装备，以及贡献、送礼累计。
+// 玩家存档：按抖音用户ID保存每只萌宠的等级、经验、名字、天赋、闪光、亲密度、装备，以及守护值、送礼累计。
 // 存在主播这台电脑这个浏览器的本地数据库（IndexedDB，见 idb-store.js）里；可导出/导入 JSON。
 import { GEAR, LEVEL, ALL_SPECIES as SPECIES_IDS, TALENT, FOES, WISH, FRIEND, FARM, CROPS, ADV_PETS } from './config.js';
 

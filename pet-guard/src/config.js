@@ -305,7 +305,7 @@ export const GIFT_TITLES = {
 };
 export const MORALE = { need: 500, dmg: 0.1, sec: 15, capPerSec: 20 };
 
-// 贡献值 = 成长分E × 有效行为（不看伤害高低，萌宠之间公平）
+// 守护值 = 成长分E × 有效行为（不看伤害高低，萌宠之间公平）
 export const SCORE = { aliveEvery: 5, alive: 1, skill: 6, ult: 12, dodge: 3, dmg: 1, heal: 0.25, perCoin: 1, eLv: 0.02, eGear: 0.02, thief: 4, hug: 2, hugFriend: 2, duo: 8, wishBack: 6 };
 export const RANK = { coinW: 0, shown: 8 };
 export const RESERVE = { cap: 30, idle: 300, keep: 1800, xpRate: 0.5, baseXp: ch => 40 + 4 * ch, catchupMax: 500 };
