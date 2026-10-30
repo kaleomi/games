@@ -291,7 +291,7 @@ test('收服小精灵、鲜花种花', () => {
 });
 
 // ───────── 回家种田 ─────────
-import { farmOf, plotStage } from '../src/farm.js';
+import { farmOf, plotStage, marketMul, marketOf } from '../src/farm.js';
 import { FARM, CROPS, ADV_PETS } from '../src/config.js';
 
 test('打完首领回家：结算后进家园，待够时间再出发去下一章', () => {
@@ -339,7 +339,7 @@ test('种田：种 → 浇水更快 → 收 → 卖；升级解锁新作物；�
   g.chat({ id: 'm1', name: '农夫' }, '卖');
   assert.equal(fm.barn.carrot, 2, '收菜动画还没放完，卖要排在后面');
   run(2);
-  const price = Math.round(2 * CROPS[0].sell * (g.market.hot === 'carrot' ? 2 : g.market.cold === 'carrot' ? 0.7 : 1));
+  const price = Math.round(2 * CROPS[0].sell * marketMul(g, 'carrot'));
   assert.equal(fm.coins, FARM.startCoins - 2 * CROPS[0].seed + price);
   assert.equal(save.data.players.m1.farm.coins, fm.coins, '存进存档');
   run(3);
@@ -379,6 +379,20 @@ test('一键种田：收 → 卖 → 种 → 浇 一样样来，上一样的动�
   g.phaseT = 0.01; run(0.1);
   assert.equal(g.phase, 'lobby');
   assert.ok(!f.farmJobs?.length && fm.plots.every(p => p && p.c), '出门前都做完了');
+});
+
+test('今日行情：每天每种菜一个价（×0.5~×2），同一天都一样，第二天会变', () => {
+  const { g } = setup(46);
+  const m1 = { ...marketOf(g).mul };
+  assert.equal(Object.keys(m1).length, CROPS.length);
+  for (const v of Object.values(m1)) assert.ok(v >= FARM.market.min && v <= FARM.market.max, String(v));
+  const g2 = setup(99).g; g2.now = g.now;
+  assert.deepEqual(marketOf(g2).mul, m1, '同一天不管哪局都一样');
+  const t0 = g.now(); g.now = () => t0 + 86400000;
+  assert.notDeepEqual(marketOf(g).mul, m1, '第二天变了');
+  // 一年里出现过的倍数覆盖到两头
+  const seen = new Set(); for (let d = 0; d < 365; d++) { g.now = () => t0 + d * 86400000; for (const v of Object.values(marketOf(g).mul)) seen.add(v); }
+  assert.ok(seen.has(0.5) && seen.has(2), [...seen].sort().join(','));
 });
 
 test('好朋友顺手浇水；在家送礼施肥、给金币', () => {

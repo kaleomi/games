@@ -2,7 +2,7 @@
 // 所有角色都是一张生成图 + 程序动作（呼吸、蹦跳、扑击、受击压扁、打盹、孵化、进化、净化）；没有图时画占位图形
 import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS, WISH, STAGE, GARDEN, FRIEND } from './config.js';
 import { wishAt } from './wish.js';
-import { farmOf, plotStage, tileRect, CROP, marketMul, FARM_FX } from './farm.js';
+import { farmOf, plotStage, tileRect, CROP, marketOf, FARM_FX } from './farm.js';
 import { CROPS, FARM } from './config.js';
 import { partHit, partLabels, safeParts, clamp, partOf as partOfZ } from './combat.js';
 const RINGS_SQUASH = RINGS.squash;
@@ -821,6 +821,30 @@ export class Renderer {
     x.beginPath(); x.moveTo(0, 345); x.lineTo(W, 345); x.stroke();
   }
   marketPos() { return { x: 610, y: 300 }; }
+  // 今日行情：菜摊上方的小黑板，按倍数从高到低，每页3种轮播
+  drawMarketBoard(x, g) {
+    const M = marketOf(g), P = FARM.market, order = M.order, pages = Math.ceil(order.length / P.perPage);
+    const page = Math.floor(this.t / P.every) % pages, k = (this.t % P.every) / P.every;
+    const l = 506, t = 92, w = 204, h = 116;
+    x.save();
+    x.fillStyle = 'rgba(255,250,240,0.94)'; rr(x, l, t, w, h, 14); x.fill(); x.strokeStyle = '#e0b070'; x.lineWidth = 2; x.stroke();
+    x.textAlign = 'left'; x.font = `bold 14px ${FONT}`; x.fillStyle = '#c0573d'; x.fillText('今日行情', l + 12, t + 21);
+    x.font = `12px ${FONT}`; x.fillStyle = '#a08a70'; x.textAlign = 'right'; x.fillText('每天都变', l + w - 12, t + 21);
+    // 翻页：新的一页从下往上滑进来
+    const slide = k < 0.08 ? (1 - k / 0.08) : 0;
+    x.save(); x.beginPath(); x.rect(l + 4, t + 28, w - 8, h - 40); x.clip();
+    order.slice(page * P.perPage, page * P.perPage + P.perPage).forEach((id, i) => {
+      const c = CROP[id], m = M.mul[id], y = t + 46 + i * 26 + slide * 26, up = m > 1.001, down = m < 0.999;
+      if (!this.icon(x, 'produce:' + id, l + 22, y - 4, 22)) placeholderProduce(x, id, l + 22, y - 4, 22);
+      x.textAlign = 'left'; x.font = `bold 13px ${FONT}`; x.fillStyle = '#5a4030'; x.fillText(c.name, l + 38, y + 1);
+      x.font = `11px ${FONT}`; x.fillStyle = '#a08a70'; x.fillText(`${Math.round(c.sell * m)}金币`, l + 84, y + 1);
+      const col = up ? '#ff5a3d' : down ? '#5a8ad0' : '#a08a70';
+      x.textAlign = 'right'; x.font = `bold 14px ${FONT}`; x.fillStyle = col; x.fillText(`${up ? '↑' : down ? '↓' : ''}×${m.toFixed(1)}`, l + w - 12, y + 1);
+    });
+    x.restore();
+    for (let i = 0; i < pages; i++) { x.fillStyle = i === page ? '#e0b070' : 'rgba(224,176,112,0.3)'; x.beginPath(); x.arc(l + w / 2 + (i - (pages - 1) / 2) * 11, t + h - 8, 3, 0, TAU); x.fill(); }
+    x.restore();
+  }
   // ───────── 种田动画：收 → 卖 → 种 → 浇，一棵一棵、一块一块按顺序来（节奏表 FARM_FX 在 farm.js）─────────
   after(d, fn) { this.later.push({ at: this.t + d, fn }); }
   runLater() {
@@ -942,12 +966,7 @@ export class Renderer {
       x.fillStyle = '#ff9fc4'; for (let i = 0; i < 6; i++) { x.beginPath(); x.moveTo(m.x - 66 + i * 22, m.y - 20); x.lineTo(m.x - 44 + i * 22, m.y - 20); x.lineTo(m.x - 55 + i * 22, m.y - 4); x.closePath(); x.fill(); }
       x.fillStyle = '#fff'; x.font = `bold 15px ${FONT}`; x.textAlign = 'center'; x.fillText('卖菜', m.x, m.y + 30);
     }
-    if (g.market) {
-      const hot = CROP[g.market.hot], cold = CROP[g.market.cold];
-      x.save(); x.fillStyle = 'rgba(255,250,240,0.92)'; rr(x, m.x - 92, m.y - 128, 184, 46, 12); x.fill(); x.strokeStyle = '#e0b070'; x.lineWidth = 2; x.stroke();
-      x.font = `bold 13px ${FONT}`; x.textAlign = 'center'; x.fillStyle = '#c0573d'; x.fillText(`今日行情 ${hot.name} ×${FARM.market.hot}`, m.x, m.y - 108);
-      x.fillStyle = '#7a8aa0'; x.fillText(`${cold.name} ×${FARM.market.cold}`, m.x, m.y - 90); x.restore();
-    }
+    this.drawMarketBoard(x, g);
     // 每位观众一块菜地
     (g.homeTiles || []).forEach((uid, i) => {
       const f = uid && g.pets.get(uid);

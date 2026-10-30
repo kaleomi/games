@@ -2,7 +2,7 @@
 // 种下 → 浇水（快40%）→ 熟了收获进仓库 → 卖掉换金币；金币买种子、扩地、解锁高级萌宠；收获涨农场经验，升级解锁新作物
 // 作物按真实时间长，在家种下、打一章回来就熟了（快的萝卜在家就能收）
 import { CROPS, FARM, ADV_PETS, SPECIES, SCORE } from './config.js';
-import { newFarm } from './save.js';
+import { newFarm, dayKeyOf } from './save.js';
 import { profileOf } from './loot.js';
 import { bestFriend, addFriendship } from './friends.js';
 
@@ -33,7 +33,18 @@ export function plotStage(plot, now) {
 export const cropUnlocked = (farm, id) => (CROP[id]?.lv || 99) <= farm.lv;
 export const levelNeed = lv => FARM.level(lv);
 export function plotCost(farm) { const i = farm.plots.length - FARM.plotsStart; return i < FARM.plotCost.length ? FARM.plotCost[i] : null; }
-export function marketMul(game, id) { const m = game.market; return !m ? 1 : m.hot === id ? FARM.market.hot : m.cold === id ? FARM.market.cold : 1; }
+// 今日行情：按日期算（同一天不管回几次家、刷不刷新页面都一样），每种菜一个倍数，×0.5 ~ ×2（按对数均匀，涨跌机会一样多）
+export function marketOf(game) {
+  const day = dayKeyOf(nowMs(game));
+  if (game.market?.day === day) return game.market;
+  let h = 2166136261; for (const ch of 'pet-guard-market:' + day) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const rnd = () => { h = (h + 0x6D2B79F5) | 0; let t = Math.imul(h ^ (h >>> 15), 1 | h); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const { min, max } = FARM.market, mul = {};
+  for (const c of CROPS) mul[c.id] = Math.round(min * (max / min) ** rnd() * 10) / 10;
+  const ids = CROPS.map(c => c.id).sort((a, b) => mul[b] - mul[a]);
+  return (game.market = { day, mul, hot: ids[0], cold: ids[ids.length - 1], order: ids });
+}
+export function marketMul(game, id) { return marketOf(game).mul[id] ?? 1; }
 export function petUnlocked(game, f, sp) {
   if (!ADV_PETS[sp]) return true;
   const p = profileOf(game, f);
@@ -249,11 +260,7 @@ function addFarmXp(game, f, farm, xp) {
 export function startHome(game) {
   game.homeTiles = [];
   for (const f of game.humans()) if (!f.merc && !f.reserve) assignTile(game, f);
-  const pool = CROPS.filter(c => c.lv <= 12);
-  const hot = pool[Math.floor(game.random() * pool.length)];
-  let cold = pool[Math.floor(game.random() * pool.length)];
-  if (cold === hot) cold = pool[(pool.indexOf(hot) + 1) % pool.length];
-  game.market = { hot: hot.id, cold: cold.id };
+  marketOf(game);
   game.homeAutoT = 2;
 }
 export function assignTile(game, f) {
