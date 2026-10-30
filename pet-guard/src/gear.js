@@ -134,6 +134,12 @@ export function petStats(f) {
   };
 }
 // 战力：等级 + 装备 + 天赋 + 亲密
+// 大数字加单位：1.23万、4.5亿（战力、金币、守护值）
+export function fmtNum(n) {
+  n = Math.round(Number(n) || 0); const a = Math.abs(n);
+  const cut = (v, u) => `${v >= 100 ? Math.round(v) : v >= 10 ? Math.round(v * 10) / 10 : Math.round(v * 100) / 100}${u}`;
+  return a >= 1e12 ? cut(n / 1e12, '万亿') : a >= 1e8 ? cut(n / 1e8, '亿') : a >= 1e4 ? cut(n / 1e4, '万') : String(n);
+}
 export function combatPower(f) {
   return Math.round(((f.level || 1) * 50 + setScore(f.gear) * 120) * talentMul(f) * (1 + BOND.per * bondLevel(f.bond)));
 }

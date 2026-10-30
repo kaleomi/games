@@ -6,7 +6,7 @@ import { bestFriend, friendLevel, SPRITE_UNITS } from './friends.js';
 import { farmOf, plotStage, CROP, MUT, splitKey, keyName, levelNeed, plotCost, marketMul, fmtSec, petUnlocked } from './farm.js';
 import { CROPS, FARM, ADV_PETS, ADV_IDS } from './config.js';
 import { rr, heart, star, clipText, twinkle, rainbowHalo, flowFill } from './render.js';
-import { talentParts, combatPower, setBonus, itemName, bondLevel, bondNext, SLOT_IDS, talentMul, starOf } from './gear.js';
+import { fmtNum, talentParts, combatPower, setBonus, itemName, bondLevel, bondNext, SLOT_IDS, talentMul, starOf } from './gear.js';
 import { stageLabel, stageTitle, stageKind, KIND_NAMES, chapterOf, chapterDef } from './stage.js';
 import { fmtDuration } from './game.js';
 
@@ -134,7 +134,7 @@ function drawProfile(r, x) {
   text(x, clipText(x, p.name || '小可爱', 300), l + 92, t + 42, 22, C.ink);
   pill(x, f ? '在场' : '不在场', l + 92 + Math.min(300, x.measureText(p.name || '').width) + 40, t + 35, f ? '#3fcf8e' : '#c9b8b4', '#fff', 12);
   const owned = Object.keys(p.pets || {}).filter(sp => SPECIES[sp]).length;
-  text(x, `送礼 ${p.coins || 0} 抖币 · 守护值 ${Math.floor(p.merit || 0)} · 来过 ${p.games || 0} 场 · 通关 ${p.clears || 0} 关 · 心愿成真 ${p.wishTrue || 0} 次`, l + 92, t + 68, 13, C.mute, 'left', 'normal');
+  text(x, `送礼 ${fmtNum(p.coins || 0)} 抖币 · 守护值 ${fmtNum(p.merit || 0)} · 来过 ${p.games || 0} 场 · 通关 ${p.clears || 0} 关 · 心愿成真 ${p.wishTrue || 0} 次`, l + 92, t + 68, 13, C.mute, 'left', 'normal');
   text(x, `养了 ${owned}/${ALL_IDS.length} 种萌宠`, l + 92, t + 88, 13, C.mute, 'left', 'normal');
   x.font = `bold 28px ${FONT}`; x.fillStyle = C.mute; x.textAlign = 'center'; x.fillText('×', l + w - 28, t + 40);
   r.hudHits.push({ kind: 'pfClose', x: l + w - 50, y: t + 12, w: 44, h: 40 });
@@ -169,7 +169,7 @@ function pfPets(r, x, p, f, l, t, w) {
     text(x, `Lv${d.lv || 1}·${FORMS[form].name}`, cx + 74, cy + 62, 12, '#e08a2a');
     if ((d.talent || 0) > 0 || (d.star || 0) > 0) partsText(x, talentParts(d).slice(0, 1), cx + 10, cy + 98, 12); else text(x, '未觉醒', cx + 10, cy + 98, 11, C.mute, 'left', 'normal');
     text(x, `亲密${bondLevel(d.bond)}档`, cx + cw - 10, cy + 98, 11, C.mute, 'right', 'normal');
-    text(x, `战力 ${combatPower({ level: d.lv, gear: d.gear, talent: d.talent, star: d.star, sub: d.sub, bond: d.bond })}`, cx + 10, cy + 116, 11, C.mute, 'left', 'normal');
+    text(x, `战力 ${fmtNum(combatPower({ level: d.lv, gear: d.gear, talent: d.talent, star: d.star, sub: d.sub, bond: d.bond }))}`, cx + 10, cy + 116, 11, C.mute, 'left', 'normal');
     SLOT_IDS.forEach((sl, k) => {
       const it = d.gear?.[sl], gx = cx + 8 + k * ((cw - 16) / 4), gw = (cw - 16) / 4 - 4, gy = cy + 126;
       x.fillStyle = '#fff'; rr(x, gx, gy, gw, 28, 7); x.fill(); x.strokeStyle = it ? GEAR.tiers[it.tier].color : '#eadbd6'; x.lineWidth = 2; x.stroke();
@@ -200,7 +200,7 @@ function pfFarm(r, x, p, f, l, t, w) {
   text(x, `农场 Lv${fm.lv}`, l + 8, t + 20, 20, '#5a9a3a');
   x.fillStyle = '#e2efd6'; rr(x, l + 120, t + 8, 200, 12, 6); x.fill(); x.fillStyle = '#8fd36a'; rr(x, l + 120, t + 8, 200 * Math.min(1, (fm.xp || 0) / need), 12, 6); x.fill();
   text(x, `${fm.xp || 0}/${need}`, l + 330, t + 19, 11, C.mute, 'left', 'normal');
-  text(x, `${fm.coins} 金币`, l + w - 8, t + 20, 20, '#e08a2a', 'right');
+  text(x, `${fmtNum(fm.coins)} 金币`, l + w - 8, t + 20, 20, '#e08a2a', 'right');
   text(x, `一共收了 ${fm.harvest || 0} 个菜 · 卖了 ${fm.sold || 0} 金币 · ${fm.plots.length} 块地`, l + 8, t + 44, 12, C.mute, 'left', 'normal');
   // 菜地
   text(x, '菜地', l + 8, t + 78, 15, C.ink);
@@ -388,7 +388,7 @@ function meritBoard(r, x) {
     const y = t + 44 + i * 28;
     avatarCircle(r, x, f.avatar, l + 22, y - 5, 11, SPECIES[f.sp].color, f.name);
     text(x, clipText(x, f.nick || f.name, 100), l + 40, y, 13, C.ink, 'left', 'bold');
-    text(x, String(Math.floor(f.merit)), l + w - 10, y, 13, '#e08a2a', 'right');
+    text(x, fmtNum(f.merit), l + w - 10, y, 13, '#e08a2a', 'right');
   });
 }
 
@@ -433,7 +433,7 @@ function bottomPanels(r, x) {
     x.font = `12px ${FONT}`;
     text(x, clipText(x, `${p.nick || SPECIES[p.sp]?.name} Lv${p.level}`, 76), l1 + 178, y, 12, C.ink, 'left', 'normal');
     if ((p.talent || 0) > 0 || (p.star || 0) > 0) partsText(x, talentParts(p).slice(0, 1).map(q => ({ ...q, text: q.text.replace(/\d+★$/, '') })), l1 + 258, y, 12);   // 榜上地方小：星数不写，没觉醒过的不写
-    text(x, String(p.cp), l1 + w1 - 10, y, 12, '#e08a2a', 'right');
+    text(x, fmtNum(p.cp), l1 + w1 - 10, y, 12, '#e08a2a', 'right');
     r.rankRows.push({ uid: p.uid, online: p.online, l: l1, t: y - 18, w: w1, h: 26 });
     if (r.mouse && r.mouse.x >= l1 && r.mouse.x <= l1 + w1 && r.mouse.y >= y - 18 && r.mouse.y <= y + 8) { x.save(); x.strokeStyle = C.pink; x.lineWidth = 2; x.beginPath(); x.arc(l1 + 44, y - 5, 13, 0, TAU); x.stroke(); x.restore(); }
   });
@@ -476,7 +476,7 @@ function homePanels(r, x, t0, h) {
     if (p.online) { x.fillStyle = '#3fcf7a'; x.beginPath(); x.arc(l1 + 53, y + 3, 4, 0, TAU); x.fill(); }
     text(x, clipText(x, p.name, 110), l1 + 62, y, 13, C.ink, 'left', 'bold');
     text(x, `农场Lv${p.lv}`, l1 + 210, y, 12, '#5a9a3a', 'left', 'bold');
-    text(x, `${p.coins}金币`, l1 + w1 - 10, y, 12, '#e08a2a', 'right');
+    text(x, `${fmtNum(p.coins)}金币`, l1 + w1 - 10, y, 12, '#e08a2a', 'right');
     (r.rankRows ||= []).push({ uid: p.uid, online: p.online, l: l1, t: y - 18, w: w1, h: 26, tab: 'farm' });
   });
   if (!R.length) text(x, '还没有人种田，发「种田」开始吧', l1 + w1 / 2, t0 + 120, 13, C.mute, 'center', 'normal');
@@ -759,7 +759,7 @@ function result(r, x, dt) {
     petIcon(r, x, p.sp, FORMS.findLastIndex(fm => (p.level || 1) >= fm.lv), l + 92, yy - 5, 30, p.shiny);
     text(x, clipText(x, p.name, 140), l + 112, yy, 14, C.ink);
     text(x, `${p.nick || SPECIES[p.sp]?.name} Lv${p.level}`, l + 112, yy + 14, 11, C.mute, 'left', 'normal');
-    if (p.merit != null) text(x, `守护值 ${p.merit}`, l + 300, yy + 2, 13, '#e08a2a');
+    if (p.merit != null) text(x, `守护值 ${fmtNum(p.merit)}`, l + 300, yy + 2, 13, '#e08a2a');
     const ds = drops.get(p.uid) || [];
     ds.slice(0, 3).forEach((d, j) => {
       const cx = l + 420 + j * 74, tc = GEAR.tiers[d.item.tier].color;
@@ -813,7 +813,7 @@ function drawCards(r, x, dt) {
   const bl = bondLevel(f.bond), nb = bondNext(f.bond);
   text(x, '亲密', rx, t + 136, 13, C.mute, 'left', 'normal');
   for (let j = 0; j < 10; j++) { x.fillStyle = j < bl ? '#ff7fae' : '#f3d6e0'; heart(x, rx + 42 + j * 15, t + 131, 5.5); x.fill(); }
-  text(x, `战力 ${combatPower(f)}`, rx, t + 160, 15, '#e08a2a');
+  text(x, `战力 ${fmtNum(combatPower(f))}`, rx, t + 160, 15, '#e08a2a');
   text(x, nb ? `亲密 ${f.bond}/${nb}` : `亲密 ${f.bond}`, rx + 196, t + 160, 11, C.mute, 'right', 'normal');
   SLOT_IDS.forEach((sl, j) => {
     const it = f.gear?.[sl], cx = l + 46 + j * 86, cy = t + 204;

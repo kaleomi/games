@@ -1,6 +1,6 @@
 // 萌宠保卫战 · 战斗模拟（不依赖页面，可在 Node 里测试）
 import { ROUND, PET, SPECIES, SPECIES_IDS, GIFTS, SCORE, RESERVE, NPC, STAGE, LEVEL, RANK, TREE, FORMS, formOf, BOND, FOES, COMFORT, FRIEND, SPRITES } from './config.js';
-import { SLOT_IDS, makeItem, rollItem, combatPower, growthE, talentText } from './gear.js';
+import { SLOT_IDS, makeItem, rollItem, combatPower, growthE, talentText, fmtNum } from './gear.js';
 import { parseSpecies, parseSkill, pickSpecies, setupPet, refreshStats, stepPet, requestUlt, stepAreas, chooseRing, requestDodge, patPet } from './pets.js';
 import { stepFoe } from './foes.js';
 import { startStage, stepStage, stageKind, chapterOf, failTarget, stageLabel, stageTitle, interceptZone, likeShield } from './stage.js';
@@ -194,7 +194,7 @@ export class Game {
     for (const p of Object.values(this.save?.data?.players || {})) if (!seen.has(p.uid) && !String(p.uid).startsWith('test:')) add(p, p, false);
     list.sort((a, b) => b.score - a.score || b.level - a.level);
     this.ranks = { t: this.clock, list };
-    if (R) announce(this, R.list, list, p => `${p.name} 战力 ${p.cp}，登顶本直播间萌宠战力榜第一！`, (p, i) => `${p.name} 战力 ${p.cp}，冲进萌宠战力榜前三，排第 ${i + 1}！`);
+    if (R) announce(this, R.list, list, p => `${p.name} 战力 ${fmtNum(p.cp)}，登顶本直播间萌宠战力榜第一！`, (p, i) => `${p.name} 战力 ${fmtNum(p.cp)}，冲进萌宠战力榜前三，排第 ${i + 1}！`);
     return this.ranks;
   }
 
@@ -521,7 +521,7 @@ export class Game {
       case 'gear': this.emit('card', { uid: f.uid, gear: true }); break;
       case 'checkin': dailyCheckin(this, f); break;
       case 'rank': { const R = this.rankings(true), i = R.list.findIndex(p => p.uid === f.uid), p = R.list[i];
-        if (p) this.emit('toast', { uid: f.uid, text: `${f.name}：萌宠战力榜第 ${i + 1} / ${R.list.length} · 战力 ${p.cp}${i > 0 ? ` · 离上一名差 ${R.list[i - 1].score - p.score}` : ' · 第一名！'}` }); break; }
+        if (p) this.emit('toast', { uid: f.uid, text: `${f.name}：萌宠战力榜第 ${i + 1} / ${R.list.length} · 战力 ${fmtNum(p.cp)}${i > 0 ? ` · 离上一名差 ${fmtNum(R.list[i - 1].score - p.score)}` : ' · 第一名！'}` }); break; }
       default: break;
     }
     return true;
