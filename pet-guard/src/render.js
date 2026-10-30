@@ -1,6 +1,7 @@
 // 画面：背景、心愿树、躲雨区域、萌宠、坏心情、弹道、粒子、名字条；HUD 在 hud.js
 // 所有角色都是一张生成图 + 程序动作（呼吸、蹦跳、扑击、受击压扁、打盹、孵化、进化、净化）；没有图时画占位图形
-import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS, WISH, STAGE, GARDEN, FRIEND } from './config.js';
+import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS, WISH, STAGE, GARDEN, FRIEND, SHINY_FX } from './config.js';
+import { starOf } from './gear.js';
 import { wishAt } from './wish.js';
 import { farmOf, plotStage, tileRect, CROP, marketOf, FARM_FX } from './farm.js';
 import { CROPS, FARM } from './config.js';
@@ -447,8 +448,9 @@ export class Renderer {
     const a = f.act;
     // 光环（天赋）
     const tal = f.star > 0 ? TALENT.tiers.length - 1 : f.talent || 0;
-    if (!f.egg && tal >= 3 && !f.mini) this.aura(x, f, tal, t);
-    if (f.shiny && !f.egg && f.alive) this.shinyBack(x, f, t, h);
+    const SF = !f.egg && f.alive ? this.shinyFx(f) : null;
+    if (!f.egg && tal >= 3 && !f.mini && !(SF?.circle > 0)) this.aura(x, f, tal, t);   // 闪光3★起脚下换成爱心星光圈
+    if (SF) this.shinyBack(x, f, t, h, SF);
     if (f.auto > 0 && !f.npc) { x.save(); x.globalAlpha = 0.5 + 0.2 * Math.sin(t * 4); x.strokeStyle = '#ff9fd0'; x.lineWidth = 2; x.beginPath(); x.ellipse(f.x, f.y, h * 0.42, h * 0.14, 0, 0, TAU); x.stroke(); x.restore(); }
     this.shadow(x, f.x, f.y, h * 0.32, f.alive ? 0.22 : 0.15);
     if (f.egg) { this.drawEgg(x, f, t); return; }
@@ -476,7 +478,7 @@ export class Renderer {
     if (flash?.kind === 'evolve' || flash?.kind === 'hatch') { const k = flash.t / flash.life, p = Math.sin(Math.min(1, k * 1.4) * Math.PI); sx *= 1 + 0.28 * p; sy *= 1 + 0.28 * p; }
     const blink = flash && flash.kind !== 'ult' && flash.t < flash.life * 0.7 ? 0.35 + 0.35 * Math.sin(flash.t * 24) : 0;
     const tint = Math.max(blink, (f.hitFlash || 0) / 0.15 * 0.55);
-    const sheen = f.shiny ? ((t / 2.8) % 1) * 4 : null;   // 每 2.8 秒从身上扫过一道光（扫 0.7 秒）
+    const sheen = SF?.sheen ? ((t / SF.sheen) % 1) * SF.sheen / 0.7 : null;   // 每隔几秒从身上扫过一道光（扫 0.7 秒）
     const dims = this.petSprite(x, f, f.x + ox, f.y + oy, h, { flip, sx, sy, rot, alpha, tint, sheen });
     // 头饰 / 墨镜
     const wear = wearOf(sp), w = dims?.w || h * 0.9;
@@ -491,7 +493,7 @@ export class Renderer {
     if (f.umbrellaT > 0 || this.game.zones.some(z => z.full && f.umbrellaZ === z.id)) { if (!this.icon(x, 'misc:umbrella', f.x + ox, headY - 18, h * 0.9)) { x.fillStyle = '#7fd3ff'; x.beginPath(); x.arc(f.x + ox, headY - 6, h * 0.42, Math.PI, 0); x.fill(); } }
     f.umbrellaT = Math.max(0, (f.umbrellaT || 0) - dt);
     if (f.farmTool) this.drawTool(x, f, f.x + ox, headY, h, flip);
-    if (f.shiny) this.shinyFront(x, f, t, h, ox, oy);
+    if (SF) this.shinyFront(x, f, t, h, ox, oy, SF);
     if (flash?.kind === 'evolve' || flash?.kind === 'ult') { x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.5 * (1 - flash.t / flash.life); x.fillStyle = flash.kind === 'ult' ? '#ffd0ef' : '#fff6b0'; x.beginPath(); x.arc(f.x, f.y - h * 0.5, h * (0.7 + flash.t), 0, TAU); x.fill(); x.restore(); }
     if ((f.stunUntil || 0) > g.clock) this.stunStars(x, f.x, f.y - h - 6, t);
   }
@@ -525,35 +527,42 @@ export class Renderer {
     }
     if (Math.random() < 0.1 + k * 0.3) this.burst('star', f.x + (Math.random() - 0.5) * 40, f.y - 30 - Math.random() * 30, 1, { spread: 6, up: 30, size: 10, life: 0.6 });
   }
-  // ───────── 闪光萌宠：原图不改色，身上多几样特效 ─────────
-  // 背后：一圈慢慢转的马卡龙彩虹柔光 + 脚下转圈的小星星（有 shiny:halo / shiny:circle 贴图就用图）
-  shinyBack(x, f, t, h) {
-    const cy = f.y - h * 0.5, pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
-    if (!this.glowImg(x, 'shiny:halo', f.x, cy, h * 1.3, 0.45 + 0.2 * pulse, t * 0.4, 1, 'source-over')) rainbowHalo(x, f.x, cy, h * 0.68, 0.6 + 0.2 * pulse, t * 0.4);
-    x.save(); x.globalCompositeOperation = 'lighter';
-    if (!this.glowImg(x, 'shiny:circle', f.x, f.y + 2, h * 1.15, 0.7 + 0.25 * pulse, 0, 1, 'source-over')) {
-      for (let i = 0; i < 10; i++) {
-        const an = t * 0.9 + i * TAU / 10, px = f.x + Math.cos(an) * h * 0.5, py = f.y + Math.sin(an) * h * 0.16, front = Math.sin(an) > 0;
-        x.globalAlpha = (front ? 0.95 : 0.5) * (0.7 + 0.3 * Math.sin(t * 5 + i));
-        twinkle(x, px, py, h * (i % 2 ? 0.05 : 0.075), `hsl(${(i * 36 + t * 40) % 360},95%,82%)`);
-      }
+  // ───────── 闪光萌宠：原图不改色，身上加特效；闪光星级越高特效越多（SHINY_FX）─────────
+  shinyFx(f) { return f?.shiny ? SHINY_FX[Math.min(SHINY_FX.length, Math.max(1, starOf(f))) - 1] : null; }
+  // 背后：慢慢转的彩虹光圈（2★起）+ 脚下转圈的爱心星光圈（3★起）
+  shinyBack(x, f, t, h, S) {
+    const cy = f.y - h * 0.5, pulse = 0.5 + 0.5 * Math.sin(t * 2.4), big = S.big || 1;
+    if (S.halo > 0) {
+      const a = S.halo + 0.18 * pulse;
+      if (!this.glowImg(x, 'shiny:halo', f.x, cy, h * 1.3 * big, a, t * 0.4, 1, 'source-over')) rainbowHalo(x, f.x, cy, h * 0.68 * big, a + 0.15, t * 0.4);
+      if (S.twin && !this.glowImg(x, 'shiny:halo', f.x, cy, h * 1.6 * big, a * 0.45, -t * 0.3, 1, 'source-over')) rainbowHalo(x, f.x, cy, h * 0.84 * big, a * 0.5, -t * 0.3);
     }
-    x.restore();
+    if (S.circle > 0) {
+      x.save(); x.globalCompositeOperation = 'lighter';
+      if (!this.glowImg(x, 'shiny:circle', f.x, f.y + 2, h * 1.15 * big, S.circle * (0.8 + 0.2 * pulse), 0, 1, 'source-over')) {
+        for (let i = 0; i < 10; i++) {
+          const an = t * 0.9 + i * TAU / 10, px = f.x + Math.cos(an) * h * 0.5, py = f.y + Math.sin(an) * h * 0.16, front = Math.sin(an) > 0;
+          x.globalAlpha = S.circle * (front ? 0.95 : 0.5) * (0.7 + 0.3 * Math.sin(t * 5 + i));
+          twinkle(x, px, py, h * (i % 2 ? 0.05 : 0.075), `hsl(${(i * 36 + t * 40) % 360},95%,82%)`);
+        }
+      }
+      x.restore();
+    }
   }
-  // 身前：三颗十字星芒轮流在身上一闪一闪，偶尔飘起一颗彩色小光点
-  shinyFront(x, f, t, h, ox, oy) {
-    const P = 1.5, seed = f.uid.length * 13.7;
+  // 身前：几颗十字星芒轮流在身上一闪一闪（星级越高越多），高星级飘起彩色小光点
+  shinyFront(x, f, t, h, ox, oy, S) {
+    const P = 1.5, seed = f.uid.length * 13.7, n = S.twinkle;
     x.save(); x.globalCompositeOperation = 'lighter';
-    for (let j = 0; j < 3; j++) {
-      const tt = t + j * P / 3, cyc = Math.floor(tt / P), q = (tt / P - cyc) / 0.55;
+    for (let j = 0; j < n; j++) {
+      const tt = t + j * P / n, cyc = Math.floor(tt / P), q = (tt / P - cyc) / 0.55;
       if (q >= 1) continue;
       const r1 = frac(Math.sin(seed + cyc * 12.9898 + j * 78.233) * 43758.5), r2 = frac(Math.sin(seed + cyc * 39.346 + j * 11.135) * 24634.6);
-      const px = f.x + ox + (r1 - 0.5) * h * 0.8, py = f.y + oy - h * (0.3 + r2 * 0.7), sz = h * (0.17 + 0.07 * r2) * Math.sin(q * Math.PI);
+      const px = f.x + ox + (r1 - 0.5) * h * 0.8, py = f.y + oy - h * (0.3 + r2 * 0.7), sz = h * (0.13 + 0.06 * Math.min(n, 4) / 4 + 0.06 * r2) * Math.sin(q * Math.PI);
       x.globalAlpha = 1;
       if (!this.glowImg(x, 'shiny:twinkle', px, py, sz * 2.4, 1, q * 0.8, 1, 'source-over')) twinkle(x, px, py, sz, '#fff6c8', q * 0.8);
     }
     x.restore();
-    if (Math.random() < 0.06) this.parts.push({ kind: 'glowimg', op: this.assets.has('shiny:dust') ? 'source-over' : 'lighter', icon: this.assets.has('shiny:dust') ? 'shiny:dust' : 'glow:sparkle', x: f.x + (Math.random() - 0.5) * h * 0.7, y: f.y - h * Math.random() * 0.9, t: 0, life: 0.9, size: h * 0.32, grow: 0.3, rot: Math.random() * TAU, spin: 1, flat: 1, alpha: 0.7 });
+    if (S.dust > 0 && Math.random() < S.dust) this.parts.push({ kind: 'glowimg', op: this.assets.has('shiny:dust') ? 'source-over' : 'lighter', icon: this.assets.has('shiny:dust') ? 'shiny:dust' : 'glow:sparkle', x: f.x + (Math.random() - 0.5) * h * 0.7, y: f.y - h * Math.random() * 0.9, t: 0, life: 0.9, size: h * 0.32, grow: 0.3, rot: Math.random() * TAU, spin: 1, flat: 1, alpha: 0.7 });
   }
   // 黑底发光贴图（导入时黑色变透明）。默认「变亮」叠上去；亮背景上会发白，闪光特效用 op: 'source-over' 保留原色
   glowImg(x, name, cx, cy, size, alpha = 1, rot = 0, flat = 1, op = 'lighter') {

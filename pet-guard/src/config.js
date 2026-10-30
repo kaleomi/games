@@ -155,6 +155,17 @@ export const TALENT = {
   pity: 200,                      // 连续 200 次没出闪光，第 200 次必出闪光
   star: { step: 1, subK: 0.5 },   // 闪光之后再出闪光升星：每多一星全属性倍率 +1；两星之间最好那一档记「副天赋」
 };
+// 闪光特效：闪光星级越高特效越多（第 1 行 = 刚出闪光，最后一行 = 6★ 及以上）
+//   twinkle 身上同时闪几颗十字星芒；halo 背后彩虹光圈（透明度，0 = 没有）；circle 脚下爱心星光圈；
+//   sheen 每隔几秒扫过一道亮光（0 = 没有）；dust 飘小光点（每帧几率）；big 光圈放大；twin 再叠一层反着转的光圈
+export const SHINY_FX = [
+  { twinkle: 2, halo: 0,    circle: 0,    sheen: 0,   dust: 0 },                       // 闪光
+  { twinkle: 2, halo: 0.35, circle: 0,    sheen: 0,   dust: 0 },                       // 闪光2★
+  { twinkle: 3, halo: 0.45, circle: 0.75, sheen: 0,   dust: 0 },                       // 闪光3★
+  { twinkle: 3, halo: 0.5,  circle: 0.85, sheen: 3,   dust: 0 },                       // 闪光4★
+  { twinkle: 4, halo: 0.55, circle: 0.9,  sheen: 2.6, dust: 0.05 },                    // 闪光5★
+  { twinkle: 5, halo: 0.65, circle: 1,    sheen: 2.2, dust: 0.1, big: 1.15, twin: true }, // 闪光6★ 及以上
+];
 
 // ───────── 亲密度：摸摸、投喂涨；每过一档全属性 +2% ─────────
 export const BOND = { steps: [5, 15, 30, 50, 80, 120, 170, 230, 300, 400], per: 0.02, heart: 2, pat: 1 };
