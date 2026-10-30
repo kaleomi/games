@@ -345,14 +345,14 @@ const PAGES = [
     });
   } },
   { id: 'gift', title: '礼物', draw(r, x, l, t, w) {
-    const rows = [['小心心', '投喂零食：经验+50%、亲密+2'], ['鲜花', '种花回血 + 叫来小伙伴、放大招'], ['加油鸭', '天赋觉醒：洗天赋，有机会闪光'], ['爱你哟', '爱心派对：全队攻击+30%、爱心雨'], ['墨镜', '酷酷墨镜：戴墨镜、攻击+30%'], ['礼花筒', '庆典：装备掉落×2 十分钟'], ['跑车', '梦幻甜品车：全场吃甜点、梦幻装扮'], ['任意礼物', '自动守护：每1抖币12秒']];
+    const rows = [['小心心', '投喂零食：经验+50%、亲密+2'], ['鲜花', '种花回血 + 叫来小伙伴、放大招'], ['加油鸭', '天赋觉醒：洗天赋，最高「闪光」'], ['爱你哟', '爱心派对：全队攻击+30%、爱心雨'], ['墨镜', '酷酷墨镜：戴墨镜、攻击+30%'], ['礼花筒', '庆典：装备掉落×2 十分钟'], ['跑车', '梦幻甜品车：全场吃甜点、梦幻装扮'], ['任意礼物', '自动守护：每1抖币12秒']];
     rows.forEach(([a, b], i) => { const y = t + 18 + i * 26; text(x, a, l + 14, y, 13, C.pink); text(x, b, l + 86, y, 13, C.ink, 'left', 'normal'); });
   } },
   { id: 'grow', title: '养成', draw(r, x, l, t, w) {
     text(x, `长大：幼崽 → Lv${FORMS[1].lv} 少年 → Lv${FORMS[2].lv} 成年`, l + 14, t + 18, 13, C.ink, 'left', 'normal');
     text(x, '天赋（加油鸭觉醒，取最好）：', l + 14, t + 46, 13, C.ink, 'left', 'normal');
-    TALENT.tiers.forEach((tt, i) => { text(x, `${tt.name}×${tt.mul}`, l + 14 + (i % 3) * 108, t + 70 + Math.floor(i / 3) * 22, 13, tt.color === '#e8edf5' ? '#8a8a9a' : tt.color); });
-    text(x, '神话之后还能升星 · 觉醒有机会变「闪光」异色', l + 14, t + 128, 12, C.mute, 'left', 'normal');
+    TALENT.tiers.filter(tt => tt.w > 0).forEach((tt, i) => { text(x, `${tt.name}×${tt.mul} ${tt.w}%`, l + 14 + (i % 3) * 108, t + 70 + Math.floor(i / 3) * 22, 13, tt.color); });
+    text(x, `最高「闪光」带闪光特效，${TALENT.pity}次保底 · 再出闪光还能升星`, l + 14, t + 128, 12, C.mute, 'left', 'normal');
     text(x, '亲密度：摸摸、投喂涨，每一级全属性+2%', l + 14, t + 154, 13, C.ink, 'left', 'normal');
     text(x, '小精灵：净化坏心情有机会收服，图鉴每种+1%', l + 14, t + 180, 13, C.ink, 'left', 'normal');
   } },
@@ -560,7 +560,7 @@ function drawCards(r, x, dt) {
   panel(x, l, t, w, h, 0.98);
   const form = FORMS.findLastIndex(fm => (f.level || 1) >= fm.lv);
   x.fillStyle = '#fff0f5'; rr(x, l + 10, t + 10, 120, 150, 12); x.fill();
-  const tal = f.star > 0 ? 5 : f.talent || 0;
+  const tal = f.star > 0 ? TALENT.tiers.length - 1 : f.talent || 0;
   if (tal >= 3) { x.save(); x.globalAlpha *= 0.45; x.fillStyle = TALENT.tiers[tal].color; x.beginPath(); x.arc(l + 70, t + 92, 52, 0, TAU); x.fill(); x.restore(); }
   const pa = r.assets.get(`pet:${f.sp}:${form}`);
   if (f.shiny) shinyIconBack(r, x, l + 70, t + 98, 110);
@@ -650,7 +650,7 @@ function drawPopups(r, x, dt) {
   if (ga) { x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha *= 0.8; x.translate(cx, cy + 70); x.rotate(p.t * 0.8); x.scale(1, 0.5); const s2 = 300 / Math.max(ga.w, ga.h); x.drawImage(ga.img, -ga.w * s2 / 2, -ga.h * s2 / 2, ga.w * s2, ga.h * s2); x.restore(); }
   if (p.kind === 'awaken') {
     const T = TALENT.tiers, roll = p.t < 1.6;
-    const shown = roll ? Math.floor(p.t * 14) % T.length : p.best;
+    const shown = roll ? 1 + Math.floor(p.t * 14) % (T.length - 1) : p.best;
     const col = T[shown].color;
     x.save(); x.translate(cx, cy); x.globalCompositeOperation = 'lighter';
     for (let i = 0; i < 12; i++) { x.rotate(TAU / 12 + dt * 0); x.fillStyle = col; x.globalAlpha = a * 0.18; x.beginPath(); x.moveTo(0, 0); x.lineTo(-18, -230); x.lineTo(18, -230); x.closePath(); x.fill(); }
@@ -663,7 +663,7 @@ function drawPopups(r, x, dt) {
     if (!roll) {
       text(x, p.up ? `全属性 ×${p.mulFrom} → ×${p.mulTo}` : `这次是${T[p.best].name}，没超过现在的，下次一定！`, cx, cy + 136, 16, '#fff', 'center');
       if (p.shinyNew) outlined(x, '✦ 闪光了！✦', cx, cy + 172, 30, '#ffe36b', '#8a4a00', 'center', ROUND_FONT, 7);
-      else if (p.pity > 0) text(x, `离保底神话还差 ${TALENT.pity - p.pity} 次`, cx, cy + 166, 13, '#fff', 'center', 'normal');
+      else if (p.pity > 0) text(x, `离保底闪光还差 ${TALENT.pity - p.pity} 次`, cx, cy + 166, 13, '#fff', 'center', 'normal');
     }
   }
   x.restore();

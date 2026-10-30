@@ -1,4 +1,13 @@
 {
-  "gear_hat": { "holes": 600 },
-  "gear_collar": { "holes": 600 }
+  "gear_hat": {
+    "holes": 600
+  },
+  "gear_collar": {
+    "holes": 600
+  },
+  "pet_cat": {
+    "cutX": [
+      389
+    ]
+  }
 }

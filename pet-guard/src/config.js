@@ -69,13 +69,13 @@ export const PET = {
 
 // ───────── 八种萌宠 ─────────
 // role：front 前排、melee 近战、ranged 远程、back 后排治疗
-// 数值是 1 级、无装备、天赋「平凡」时的基础值
+// 数值是 1 级、无装备、还没觉醒天赋时的基础值
 export const SPECIES = {
   shiba:   { name: '柴柴', kind: '柴犬', color: '#f2a33a', role: 'front',  hp: 340, atk: 8,    armor: 0.35, interval: 0.95, range: 0,   food: 'bone',
     skill: { name: '汪汪吼', cd: 9 }, ult: { name: '超级抱抱' }, words: ['柴犬', '柴柴', '狗', '小狗', '狗狗', '修勾', '汪汪'],
     desc: '前排守护：汪汪吼把坏心情都吸过来、给自己加护盾；超级抱抱全队减伤、把身边一圈都抱晕', passive: '皮实：受到伤害降低' },
-  cat:     { name: '橘子', kind: '橘猫', color: '#ff9b4a', role: 'melee',  hp: 200, atk: 12.5, armor: 0.15, interval: 0.82, range: 0,   food: 'fish', crit: 0.15, critDmg: 0.3,
-    skill: { name: '猫猫连环拳', cd: 9 }, ult: { name: '九命猫猫拳' }, words: ['猫', '猫猫', '橘猫', '橘子', '喵', '小猫', '咪咪'],
+  cat:     { name: '橘子', kind: '三花猫', color: '#ff9b4a', role: 'melee',  hp: 200, atk: 12.5, armor: 0.15, interval: 0.82, range: 0,   food: 'fish', crit: 0.15, critDmg: 0.3,
+    skill: { name: '猫猫连环拳', cd: 9 }, ult: { name: '九命猫猫拳' }, words: ['猫', '猫猫', '三花', '三花猫', '橘猫', '橘子', '喵', '小猫', '咪咪'],
     desc: '近战连击：专挑精英和首领；连环拳冲进去一顿乱挠；九命猫猫拳满场飞扑', passive: '猫猫拳：暴击伤害提升' },
   bunny:   { name: '棉花', kind: '小白兔', color: '#ff9fc4', role: 'back',  hp: 145, atk: 7,    armor: 0.1,  interval: 1.0,  range: 400, food: 'carrot', heal: 1,
     skill: { name: '胡萝卜便当', cd: 8 }, ult: { name: '棉花糖雨' }, words: ['兔', '兔子', '小兔', '白兔', '棉花', '兔兔', '小白兔'],
@@ -140,19 +140,20 @@ export const PASSIVE = {
 };
 
 // ───────── 天赋（礼物「加油鸭」觉醒一次，随机一档、取最好）：每只萌宠各自的天赋，全属性倍率 ─────────
+// w 是每次觉醒抽到这一档的概率（%）。最高档「闪光」：萌宠身上带闪光特效（原图不改色，见 src/render.js 的 shinyBack / shinyFront）
 export const TALENT = {
   tiers: [
-    { name: '平凡', mul: 1,   w: 40,  color: '#e8edf5' },
-    { name: '出色', mul: 1.4, w: 35,  color: '#4fa3ff' },
-    { name: '卓越', mul: 1.8, w: 18,  color: '#b066ff' },
-    { name: '非凡', mul: 2.2, w: 5,   color: '#ff8a2a' },
-    { name: '传奇', mul: 2.6, w: 1.5, color: '#ffd23a' },
-    { name: '神话', mul: 3,   w: 0.5, color: '#ff4f9a' },
+    { name: '未觉醒', mul: 1,   w: 0,   color: '#e8edf5' },   // 还没觉醒过；觉醒抽不到这一档
+    { name: '出色',   mul: 1.4, w: 40,  color: '#4fa3ff' },
+    { name: '卓越',   mul: 1.8, w: 35,  color: '#b066ff' },
+    { name: '非凡',   mul: 2.2, w: 18,  color: '#ff8a2a' },
+    { name: '传奇',   mul: 2.6, w: 5,   color: '#ffd23a' },
+    { name: '神话',   mul: 3,   w: 1.5, color: '#ff4f9a' },
+    { name: '闪光',   mul: 3.4, w: 0.5, color: '#29c5f6' },
   ],
-  maxPerGift: 99, pity: 200,
-  star: { base: 2, subK: 0.5 },   // 神话之后升星：N★ = ×(N+2)，两星之间最好那一档记「副天赋」
-  // 闪光：每次觉醒有一点机会变成异色闪光萌宠（永久，全属性 ×1.1，画面上换色 + 一直闪星星）
-  shiny: { chance: 0.012, pity: 150, mul: 1.1 },   // 闪光不换颜色，只加特效（src/render.js 的 shinyBack / shinyFront）
+  maxPerGift: 99,
+  pity: 200,                      // 连续 200 次没出闪光，第 200 次必出闪光
+  star: { step: 1, subK: 0.5 },   // 闪光之后再出闪光升星：每多一星全属性倍率 +1；两星之间最好那一档记「副天赋」
 };
 
 // ───────── 亲密度：摸摸、投喂涨；每过一档全属性 +2% ─────────

@@ -14,7 +14,7 @@ export function weekKeyOf(ms) {
 export function dayKeyOf(ms) { const d = new Date(ms); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 
 export function newPet(level = 1) {
-  return { lv: Math.max(1, level | 0), xp: 0, nick: '', talent: 0, talentPity: 0, star: 0, sub: 0, shiny: false, shinyPity: 0, gear: {}, bond: 0 };
+  return { lv: Math.max(1, level | 0), xp: 0, nick: '', talent: 0, talentPity: 0, star: 0, sub: 0, shiny: false, tv: 2, gear: {}, bond: 0 };
 }
 export function newProfile(uid, clearNo = 0) {
   return { uid, name: '小可爱', avatar: '', cur: null, pets: {}, merit: 0, weekMerit: 0, coins: 0, weekCoins: 0, games: 0, clears: 0, seen: 0,
@@ -30,6 +30,16 @@ export function petData(p, sp) {
   return all[sp];
 }
 
+// 旧存档的天赋换成新规则（没有 tv 标记的是旧的）：
+// 旧：平凡/出色/卓越/非凡/传奇/神话，神话之后升星，闪光是另外 1.2% 抽的；新：最高档是「闪光」，闪光之后升星
+// 旧神话2★及以上 → 闪光（星数-1）；旧的闪光萌宠 → 闪光档；旧神话1★ → 神话
+function migrateTalent(d) {
+  const top = TALENT.tiers.length - 1;
+  if ((d.tv | 0) >= 2) { const t = clampInt(d.talent, 0, top, 0); return { talent: t, star: t === top ? clampInt(d.star, 0, 1e6, 0) : 0, shiny: t === top || !!d.shiny }; }
+  const t = clampInt(d.talent, 0, 5, 0), s = clampInt(d.star, 0, 1e6, 0);
+  if (d.shiny || (t === 5 && s >= 2)) return { talent: top, star: t === 5 && s >= 2 ? s - 1 : 0, shiny: true };
+  return { talent: t, star: 0, shiny: false };
+}
 export class Save {
   constructor({ storage = null, now = () => Date.now() } = {}) {
     this.storage = storage;
@@ -57,11 +67,12 @@ export class Save {
       for (const sp of SPECIES_IDS) {
         const d = p.pets?.[sp];
         if (!d || typeof d !== 'object') continue;
+        const tl = migrateTalent(d);
         pets[sp] = {
           lv: clampInt(d.lv, 1, 1e6, 1), xp: clampInt(d.xp, 0, 1e12, 0), nick: cleanNick(d.nick),
-          talent: clampInt(d.talent, 0, TALENT.tiers.length - 1, 0), talentPity: clampInt(d.talentPity, 0, 1e6, 0),
-          star: clampInt(d.star, 0, 1e6, 0), sub: clampInt(d.sub, 0, TALENT.tiers.length - 2, 0),
-          shiny: !!d.shiny, shinyPity: clampInt(d.shinyPity, 0, 1e6, 0), gear: validGear(d.gear), bond: clampInt(d.bond, 0, 1e9, 0),
+          talent: tl.talent, talentPity: clampInt(d.talentPity, 0, 1e6, 0),
+          star: tl.star, sub: clampInt(d.sub, 0, TALENT.tiers.length - 2, 0),
+          shiny: tl.shiny, tv: 2, gear: validGear(d.gear), bond: clampInt(d.bond, 0, 1e9, 0),
         };
       }
       players[uid] = {

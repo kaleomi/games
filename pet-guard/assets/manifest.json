@@ -675,40 +675,6 @@
    ],
    "fps": 2
   },
-  "seq:cat:2:attack": {
-   "frames": [
-    "seq/seq_cat_2_attack_0.webp",
-    "seq/seq_cat_2_attack_1.webp",
-    "seq/seq_cat_2_attack_2.webp",
-    "seq/seq_cat_2_attack_3.webp"
-   ],
-   "fps": 8
-  },
-  "seq:cat:2:happy": {
-   "frames": [
-    "seq/seq_cat_2_happy_0.webp",
-    "seq/seq_cat_2_happy_1.webp",
-    "seq/seq_cat_2_happy_2.webp",
-    "seq/seq_cat_2_happy_3.webp"
-   ],
-   "fps": 8
-  },
-  "seq:cat:2:idle": {
-   "frames": [
-    "seq/seq_cat_2_idle_0.webp",
-    "seq/seq_cat_2_idle_1.webp",
-    "seq/seq_cat_2_idle_2.webp",
-    "seq/seq_cat_2_idle_3.webp"
-   ],
-   "fps": 8
-  },
-  "seq:cat:2:sleep": {
-   "frames": [
-    "seq/seq_cat_2_sleep_0.webp",
-    "seq/seq_cat_2_sleep_1.webp"
-   ],
-   "fps": 2
-  },
   "seq:dragon:2:attack": {
    "frames": [
     "seq/seq_dragon_2_attack_0.webp",

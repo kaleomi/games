@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { Game, parseCommand } from '../src/game.js';
 import { Save, cleanNick } from '../src/save.js';
 import { parseSpecies, parseSkill } from '../src/pets.js';
-import { applyItem, makeItem, talentMul, petStats, combatPower } from '../src/gear.js';
+import { applyItem, makeItem, talentMul, petStats, combatPower, rollTalent, starOf } from '../src/gear.js';
 import { awaken } from '../src/gifts.js';
 import { giftKind } from '../src/gifts.js';
 import { TALENT, FORMS, TREE } from '../src/config.js';
@@ -77,17 +77,36 @@ test('长大：跨过等级门槛发「长大」事件', () => {
   assert.equal(f.h, FORMS[1].h);
 });
 
-test('天赋觉醒：取最好、200次保底神话、闪光保底', () => {
+test('天赋觉醒：没有平凡、取最好、200次保底闪光（最高档，带闪光特效）', () => {
   const { g, save } = setup(3);
   g.chat({ id: 'u4', name: '土豪' }, '羊');
   const f = g.pets.get('u4');
-  const r = awaken(g, f, 199);
+  const top = TALENT.tiers.length - 1;
+  assert.equal(TALENT.tiers[top].name, '闪光');
+  assert.equal(Math.round(TALENT.tiers.reduce((a, t) => a + t.w, 0) * 10) / 10, 100, '概率加起来 100%');
+  const r1 = awaken(g, f, 1);
+  assert.ok(r1.rolls[0] >= 1, '觉醒一次至少出色');
   const d = save.data.players.u4.pets.sheep;
-  assert.ok(d.talent >= Math.max(...r.rolls.filter(x => x < 5)) || d.talent === 5);
-  assert.ok(d.shiny, `150次内必闪光（shinyPity=${d.shinyPity}）`);
-  if (d.talent < 5) { awaken(g, f, 1); assert.ok(d.talent === 5 || d.star >= 1); }
-  assert.ok(talentMul(d) >= 1);
+  if (d.talent < top) { awaken(g, f, 198); assert.ok(d.talent === top, `200次内必出闪光（${d.talent}）`); }
+  assert.ok(d.shiny && f.shiny, '闪光档带闪光特效');
+  assert.equal(talentMul(d), TALENT.tiers[top].mul + (starOf(d) - 1) * TALENT.star.step + (d.sub ? (TALENT.tiers[d.sub].mul - 1) * TALENT.star.subK : 0));
   assert.ok(petStats(f).maxHp > 340);
+  // 1万次觉醒的分布接近配置
+  let s2 = 7; const rnd = () => ((s2 = (s2 * 1664525 + 1013904223) >>> 0) / 4294967296);
+  const cnt = TALENT.tiers.map(() => 0); for (let i = 0; i < 20000; i++) cnt[rollTalent(rnd)]++;
+  assert.equal(cnt[0], 0, '抽不到未觉醒');
+  assert.ok(Math.abs(cnt[1] / 200 - 40) < 2 && Math.abs(cnt[top] / 200 - 0.5) < 0.3, cnt.join(','));
+});
+
+test('旧存档天赋换成新规则：旧神话2★→闪光1★、旧闪光萌宠→闪光档', () => {
+  const old = { version: 1, players: { o1: { name: '老玩家', pets: {
+    shiba: { lv: 30, talent: 5, star: 3 }, cat: { lv: 10, talent: 2, shiny: true }, bunny: { lv: 5, talent: 5, star: 1 }, panda: { lv: 5, talent: 0 } } } } };
+  const v = Save.validate(old).players.o1.pets;
+  assert.deepEqual([v.shiba.talent, v.shiba.star, v.shiba.shiny], [6, 2, true]);
+  assert.deepEqual([v.cat.talent, v.cat.shiny], [6, true]);
+  assert.deepEqual([v.bunny.talent, v.bunny.star, v.bunny.shiny], [5, 0, false]);
+  assert.equal(v.panda.talent, 0);
+  assert.equal(Save.validate({ version: 1, players: { o1: { name: 'x', pets: v } } }).players.o1.pets.shiba.star, 2, '新存档再读不会再变');
 });
 
 test('装备：更高品质穿上、同品质强化、低品质变碎片', () => {

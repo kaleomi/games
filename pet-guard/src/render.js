@@ -446,7 +446,7 @@ export class Renderer {
     let ox = 0, oy = 0, sx = 1, sy = 1, rot = 0, alpha = 1;
     const a = f.act;
     // 光环（天赋）
-    const tal = f.star > 0 ? 5 : f.talent || 0;
+    const tal = f.star > 0 ? TALENT.tiers.length - 1 : f.talent || 0;
     if (!f.egg && tal >= 3 && !f.mini) this.aura(x, f, tal, t);
     if (f.shiny && !f.egg && f.alive) this.shinyBack(x, f, t, h);
     if (f.auto > 0 && !f.npc) { x.save(); x.globalAlpha = 0.5 + 0.2 * Math.sin(t * 4); x.strokeStyle = '#ff9fd0'; x.lineWidth = 2; x.beginPath(); x.ellipse(f.x, f.y, h * 0.42, h * 0.14, 0, 0, TAU); x.stroke(); x.restore(); }
@@ -564,7 +564,7 @@ export class Renderer {
     return true;
   }
   aura(x, f, tal, t) {
-    const c = TALENT.tiers[Math.min(5, tal)].color, h = f.h || 66, st = Math.min(5, f.star || 0);
+    const c = TALENT.tiers[Math.min(TALENT.tiers.length - 1, tal)].color, h = f.h || 66, st = Math.min(5, f.star || 0);
     x.save();
     x.globalCompositeOperation = 'lighter';
     x.globalAlpha = 0.35 + 0.15 * Math.sin(t * 3);
@@ -759,14 +759,14 @@ export class Renderer {
       if (home && g.homeTiles?.includes(f.uid)) continue;   // 在家：名字写在菜地上
       const h = (f.egg ? 52 : f.h || 66) * (home ? 0.78 : 1), top = f.y - h - 8;
       const nm = f.nick || f.name, focus = this.hoverUid === f.uid || (f.labelUntil || 0) > g.clock;
-      const tal = f.star > 0 ? 5 : f.talent || 0;
+      const tal = f.star > 0 ? TALENT.tiers.length - 1 : f.talent || 0;
       x.font = `bold 13px ${FONT}`;
       const lv = `Lv${f.level || 1}`, lw = x.measureText(lv).width + 8;
       x.font = `bold 14px ${FONT}`;
       const nw = Math.min(110, x.measureText(nm).width);
       const total = lw + 4 + nw, left = f.x - total / 2;
       // 等级小胶囊
-      x.fillStyle = f.npc ? 'rgba(120,120,140,.8)' : TALENT.tiers[Math.min(5, tal)].color; rr(x, left, top - 13, lw, 16, 8); x.fill();
+      x.fillStyle = f.npc ? 'rgba(120,120,140,.8)' : TALENT.tiers[Math.min(TALENT.tiers.length - 1, tal)].color; rr(x, left, top - 13, lw, 16, 8); x.fill();
       x.fillStyle = tal >= 1 && tal <= 4 && !f.npc ? '#fff' : '#4a3540'; x.font = `bold 12px ${FONT}`; x.fillText(lv, left + lw / 2, top);
       x.font = `bold 14px ${FONT}`; x.strokeStyle = 'rgba(70,40,50,.85)'; x.lineWidth = 4; x.fillStyle = f.npc ? '#d6d6e0' : f.shiny ? '#ffe36b' : '#fff';
       x.textAlign = 'left';

@@ -7,7 +7,8 @@
 原图按清单里的文件名命名（pet_shiba.png、foe_dust.jpg、bg_spring.png……；GPT 下载下来的名字后面多了
 「(1)」之类也认）。art/fix.json 可以给单张图加修正：
   { "pet_shiba": { "flip": true, "bgTol": 30, "order": [2,1,0] } }
-  flip：左右翻转（萌宠要朝右）；bgTol：白底容差（有灰色地面阴影就调大）；order：切出来的顺序重排
+  flip：左右翻转（萌宠要朝右）；bgTol：白底容差（有灰色地面阴影就调大）；order：切出来的顺序重排；
+  cutX：[389] 两个角色粘在一起时，在原图这一列（像素）切开
 """
 import json, os, re, sys, shutil, argparse
 import numpy as np
@@ -230,6 +231,7 @@ def process(path, fid, spec, fix, manifest, preview):
     else:
         rgb = np.asarray(im.convert('RGB'))
         rgba, mask = (matte_black(rgb) if spec['bg'] == 'black' else matte_white(rgb, fix.get('bgTol', 8), fix.get('holes', 0)))
+    for cx in fix.get('cutX', []): mask[:, max(0, cx - 2):cx + 3] = False   # 两个角色粘在一起（胡子、尾巴碰到了）：在这一列切开
     src = Image.fromarray(rgba, 'RGBA')
     if fix.get('flipAll'): src = src.transpose(Image.FLIP_LEFT_RIGHT); mask = mask[:, ::-1]
     rows, cols = spec['grid']

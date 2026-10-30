@@ -80,12 +80,12 @@ export function talentMul(o) {
   const st = starOf(o);
   if (!st) return tierMul(o?.talent);
   const sub = o.sub | 0;
-  return Math.round((st + TALENT.star.base + (sub > 0 ? (tierMul(sub) - 1) * TALENT.star.subK : 0)) * 100) / 100;
+  return Math.round((tierMul(TALENT.tiers.length - 1) + (st - 1) * TALENT.star.step + (sub > 0 ? (tierMul(sub) - 1) * TALENT.star.subK : 0)) * 100) / 100;
 }
 export function talentParts(o) {
   const T = TALENT.tiers, st = starOf(o), sub = o?.sub | 0, t = Math.max(0, Math.min(T.length - 1, o?.talent | 0));
-  if (!st) return [{ text: T[t].name, color: T[t].color }];
-  const out = [{ text: `${T[T.length - 1].name}${st}★`, color: T[T.length - 1].color }];
+  if (!st) return [{ text: T[t].name, color: t === 0 ? '#a3abb8' : T[t].color }];   // 未觉醒的浅灰太淡，文字用深一点的灰
+  const out = [{ text: st > 1 ? `${T[T.length - 1].name}${st}★` : T[T.length - 1].name, color: T[T.length - 1].color }];
   if (sub > 0) out.push({ text: `·副:${T[sub].name}`, color: T[sub].color });
   return out;
 }
@@ -93,11 +93,11 @@ export function talentText(o) { return talentParts(o).map(p => p.text).join('');
 export function rollTalent(random) {
   const T = TALENT.tiers, total = T.reduce((a, t) => a + t.w, 0);
   let r = random() * total;
-  for (let i = 0; i < T.length; i++) { r -= T[i].w; if (r <= 0) return i; }
-  return 0;
+  for (let i = 0; i < T.length; i++) { if (!T[i].w) continue; r -= T[i].w; if (r <= 0) return i; }
+  return T.findIndex(t => t.w > 0);
 }
-// 天赋档位 1–6（被动用）；神话星级再往上加
-export function talentLevel(o) { return Math.min(6, (o?.talent | 0) + 1) + starOf(o) * 0.5; }
+// 天赋档位 1–7（被动用）；闪光升星再往上加
+export function talentLevel(o) { return Math.min(TALENT.tiers.length, (o?.talent | 0) + 1) + starOf(o) * 0.5; }
 
 // ───────── 亲密度 ─────────
 export function bondLevel(bond) { let n = 0; for (const s of BOND.steps) if ((bond || 0) >= s) n++; return n; }
@@ -109,7 +109,7 @@ export function petStats(f) {
   const gear = f.gear || {};
   const g = gearBonus(gear), cap = GEAR.caps;
   const lvMul = 1 + LEVEL.grow * Math.max(0, (f.level || 1) - 1);
-  const tm = talentMul(f) * (f.shiny ? TALENT.shiny.mul : 1) * (1 + BOND.per * bondLevel(f.bond));
+  const tm = talentMul(f) * (1 + BOND.per * bondLevel(f.bond));
   const sk = SPRITES.perKind * (f.spriteKinds || 0), SF = SPRITES.follow[f.follow] || {};   // 小精灵：图鉴每种+1%，跟着的那只另加
   const tl = talentLevel(f), P = PASSIVE[f.sp] || {};
   const set = setBonus(gear);
@@ -133,9 +133,9 @@ export function petStats(f) {
     hatTier: gear.hat ? gear.hat.tier : -1,
   };
 }
-// 战力：等级 + 装备 + 天赋 + 闪光 + 亲密
+// 战力：等级 + 装备 + 天赋 + 亲密
 export function combatPower(f) {
-  return Math.round(((f.level || 1) * 50 + setScore(f.gear) * 120) * talentMul(f) * (f.shiny ? TALENT.shiny.mul : 1) * (1 + BOND.per * bondLevel(f.bond)));
+  return Math.round(((f.level || 1) * 50 + setScore(f.gear) * 120) * talentMul(f) * (1 + BOND.per * bondLevel(f.bond)));
 }
 // 成长分 E：等级 + 装备（临时BUFF不算）
 export function growthE(f) {

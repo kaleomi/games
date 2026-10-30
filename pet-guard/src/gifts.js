@@ -97,10 +97,10 @@ export function applyGift(game, f, kind, amount) {
   saveBuffs(game, f);
 }
 
-// ───────── 天赋觉醒：重洗当前萌宠的天赋，随机出一档，取最好；有机会变闪光 ─────────
+// ───────── 天赋觉醒：重洗当前萌宠的天赋，随机出一档，取最好；最高档「闪光」（200 次保底）─────────
 export function awaken(game, f, times = 1) {
   const T = TALENT.tiers, top = T.length - 1;
-  const d = petRecord(game, f) || (f.talentMem ||= { talent: f.talent || 0, talentPity: 0, star: f.star || 0, sub: f.sub || 0, shiny: !!f.shiny, shinyPity: 0 });
+  const d = petRecord(game, f) || (f.talentMem ||= { talent: f.talent || 0, talentPity: 0, star: f.star || 0, sub: f.sub || 0, shiny: !!f.shiny });
   const from = d.talent || 0, fromStar = starOf(d), fromSub = fromStar ? d.sub || 0 : 0, mulFrom = talentMul(d);
   let star = fromStar, sub = fromSub, tal = from, pityHit = false, shinyNew = false;
   const rolls = [];
@@ -113,11 +113,8 @@ export function awaken(game, f, times = 1) {
     if (r === top) { if (tal === top) star++; else star = Math.max(star, 1); tal = top; sub = 0; }
     else if (tal === top) { if (r > sub) sub = r; }
     else if (r > tal) tal = r;
-    if (!d.shiny) {
-      d.shinyPity = (d.shinyPity || 0) + 1;
-      if (game.random() < TALENT.shiny.chance || d.shinyPity >= TALENT.shiny.pity) { d.shiny = true; shinyNew = true; }
-    }
   }
+  if (tal === top && !d.shiny) { d.shiny = true; shinyNew = true; }
   const best = Math.max(...rolls);
   d.talent = tal; d.star = star; d.sub = sub;
   f.talent = tal; f.star = star; f.sub = sub; f.shiny = !!d.shiny;
@@ -125,7 +122,7 @@ export function awaken(game, f, times = 1) {
   refreshStats(f);
   const mulTo = talentMul(d);
   game.emit('awaken', { uid: f.uid, name: f.name, nick: f.nick, sp: f.sp, from, to: tal, best, rolls, up: mulTo > mulFrom, fromStar, star, fromSub, sub, mulFrom, mulTo, pityHit, pity: d.talentPity || 0, shinyNew, shiny: f.shiny, level: f.level });
-  if (shinyNew) game.emit('banner', { uid: f.uid, name: f.name, text: `✦ 闪光了！${who(f)}变成了异色闪光萌宠，全属性×1.1 ✦`, tier: 5 });
+  if (shinyNew) game.emit('banner', { uid: f.uid, name: f.name, text: `✦ 闪光了！${who(f)}觉醒出最高天赋「闪光」，全属性×${T[top].mul} ✦`, tier: 5 });
   return { from, to: tal, rolls, star, sub, shinyNew };
 }
 
