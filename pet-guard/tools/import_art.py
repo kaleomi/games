@@ -63,6 +63,7 @@ def spec_of(fid):
         'fx_sticker':    dict(grid=(2, 5), names=[f'fx:{n}' for n in ['heart', 'star', 'note', 'bubble', 'petal', 'snow', 'drop', 'leaf', 'rainbow', 'cloud']], box=110, bg='white', dir='fx'),
         'fx_projectile': dict(grid=(2, 4), names=[f'proj:{n}' for n in ['foxfire', 'snowball', 'rainbow', 'heart', 'bamboo', 'seed', 'claw', 'poof']], box=140, bg='white', dir='fx'),
         'fx_glow':       dict(grid=(2, 4), names=[f'glow:{n}' for n in ['glow', 'sparkle', 'ring', 'circle', 'pillar', 'wave', 'frost', 'bolt']], box=240, bg='black', dir='fx', split='cells'),
+        'shiny_fx':      dict(grid=(1, 4), names=[f'shiny:{n}' for n in ['twinkle', 'halo', 'circle', 'dust']], box=240, bg='black', dir='fx', split='cells'),
         'gift_truck':    dict(grid=(1, 1), names=['truck'], h=320, bg='white', dir='misc'),
         'logo':          dict(grid=(1, 1), names=['logo'], w=760, bg='white', dir='misc'),
         'flowers':       dict(grid=(1, 4), names=[f'flower:{i}' for i in range(4)], h=200, bg='white', dir='misc'),

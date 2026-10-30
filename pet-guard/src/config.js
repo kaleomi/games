@@ -152,7 +152,7 @@ export const TALENT = {
   maxPerGift: 99, pity: 200,
   star: { base: 2, subK: 0.5 },   // 神话之后升星：N★ = ×(N+2)，两星之间最好那一档记「副天赋」
   // 闪光：每次觉醒有一点机会变成异色闪光萌宠（永久，全属性 ×1.1，画面上换色 + 一直闪星星）
-  shiny: { chance: 0.012, pity: 150, mul: 1.1 },   // 闪光配色见 src/shiny.js
+  shiny: { chance: 0.012, pity: 150, mul: 1.1 },   // 闪光不换颜色，只加特效（src/render.js 的 shinyBack / shinyFront）
 };
 
 // ───────── 亲密度：摸摸、投喂涨；每过一档全属性 +2% ─────────

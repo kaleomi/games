@@ -243,10 +243,10 @@ export class Renderer {
   }
 
   // ───────── 贴图 ─────────
-  // 按高度画一张图，脚底中点在 (cx, fy)；o: { flip, sx, sy, rot, alpha, variant: white|shiny|gray|gold, ax:锚点比例 }
+  // 按高度画一张图，脚底中点在 (cx, fy)；o: { flip, sx, sy, rot, alpha, variant: white|gray|gold, sheen: 0~1 闪光扫光进度 }
   sprite(x, name, cx, fy, h, o = {}) {
     const A = this.assets;
-    let a = o.variant === 'white' ? A.white(name) : o.variant === 'shiny' ? A.shiny(name) : o.variant === 'gray' ? A.gray(name) : o.variant === 'gold' ? A.gold(name) : A.get(name);
+    let a = o.variant === 'white' ? A.white(name) : o.variant === 'gray' ? A.gray(name) : o.variant === 'gold' ? A.gold(name) : A.get(name);
     if (!a) return null;
     const s = h / a.h, w = a.w * s;
     x.save();
@@ -255,9 +255,24 @@ export class Renderer {
     x.scale((o.flip ? -1 : 1) * (o.sx || 1), o.sy || 1);
     if (o.alpha != null) x.globalAlpha *= o.alpha;
     x.drawImage(a.img, -w / 2, -h, w, h);
+    if (o.sheen != null && o.sheen > 0 && o.sheen < 1) this.sheen(x, a, w, h, o.sheen);
     if (o.tint > 0) { const wh = this.assets.white(name); if (wh) { x.globalAlpha *= Math.min(1, o.tint); x.drawImage(wh.img, -w / 2, -h, w, h); } }   // 受击：半透明白光盖一层，不整只变白
     x.restore();
     return { w, h };
+  }
+  // 闪光扫光：一道斜斜的彩虹亮光从身上扫过去（只在萌宠的轮廓里，原图颜色不动）
+  sheen(x, a, w, h, k) {
+    if (typeof document === 'undefined') return;
+    const cv = this.sheenCv ||= document.createElement('canvas'), cw = Math.max(2, Math.ceil(w)), ch = Math.max(2, Math.ceil(h));
+    if (cv.width < cw) cv.width = cw; if (cv.height < ch) cv.height = ch;
+    const s = cv.getContext('2d');
+    s.globalCompositeOperation = 'source-over'; s.clearRect(0, 0, cv.width, cv.height);
+    s.drawImage(a.img, 0, 0, cw, ch);
+    s.globalCompositeOperation = 'source-in';
+    const bx = (-0.4 + k * 1.8) * cw, gr = s.createLinearGradient(bx - cw * 0.17, ch * 0.2, bx + cw * 0.17, ch * 0.45);
+    gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.32, 'rgba(255,205,240,0.55)'); gr.addColorStop(0.5, 'rgba(255,255,255,0.85)'); gr.addColorStop(0.68, 'rgba(200,232,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    s.fillStyle = gr; s.fillRect(0, 0, cw, ch);
+    x.save(); x.globalAlpha *= 0.6 * Math.sin(k * Math.PI); x.drawImage(cv, 0, 0, cw, ch, -w / 2, -h, w, h); x.restore();
   }
   icon(x, name, cx, cy, size, o = {}) {
     const a = this.assets.get(name);
@@ -433,6 +448,7 @@ export class Renderer {
     // 光环（天赋）
     const tal = f.star > 0 ? 5 : f.talent || 0;
     if (!f.egg && tal >= 3 && !f.mini) this.aura(x, f, tal, t);
+    if (f.shiny && !f.egg && f.alive) this.shinyBack(x, f, t, h);
     if (f.auto > 0 && !f.npc) { x.save(); x.globalAlpha = 0.5 + 0.2 * Math.sin(t * 4); x.strokeStyle = '#ff9fd0'; x.lineWidth = 2; x.beginPath(); x.ellipse(f.x, f.y, h * 0.42, h * 0.14, 0, 0, TAU); x.stroke(); x.restore(); }
     this.shadow(x, f.x, f.y, h * 0.32, f.alive ? 0.22 : 0.15);
     if (f.egg) { this.drawEgg(x, f, t); return; }
@@ -440,7 +456,7 @@ export class Renderer {
     if (f.follow && f.alive && !f.mini) this.drawFollower(x, f, t, h);
     if (!f.alive || dozing) { // 打盹：有睡觉序列帧就放序列帧，没有就把站着的图压扁、变灰
       const hasSleep = !!this.assets.frames(`seq:${sp}:${f.form ?? 0}:sleep`);
-      if (hasSleep) this.petSprite(x, f, f.x, f.y, h, { flip, sy: 1 + Math.sin(t * 2) * 0.015, variant: f.shiny ? 'shiny' : null, anim: 'sleep' });
+      if (hasSleep) this.petSprite(x, f, f.x, f.y, h, { flip, sy: 1 + Math.sin(t * 2) * 0.015, anim: 'sleep' });
       else this.petSprite(x, f, f.x, f.y, h, { flip, sx: 1.12, sy: 0.78 + Math.sin(t * 2) * 0.03, alpha: 0.9, variant: 'gray' });
       this.zzz(x, f.x + 16, f.y - h * (hasSleep ? 0.55 : 0.8), t);
       return;
@@ -460,8 +476,8 @@ export class Renderer {
     if (flash?.kind === 'evolve' || flash?.kind === 'hatch') { const k = flash.t / flash.life, p = Math.sin(Math.min(1, k * 1.4) * Math.PI); sx *= 1 + 0.28 * p; sy *= 1 + 0.28 * p; }
     const blink = flash && flash.kind !== 'ult' && flash.t < flash.life * 0.7 ? 0.35 + 0.35 * Math.sin(flash.t * 24) : 0;
     const tint = Math.max(blink, (f.hitFlash || 0) / 0.15 * 0.55);
-    const variant = f.shiny ? 'shiny' : null;
-    const dims = this.petSprite(x, f, f.x + ox, f.y + oy, h, { flip, sx, sy, rot, alpha, variant, tint });
+    const sheen = f.shiny ? ((t / 2.8) % 1) * 4 : null;   // 每 2.8 秒从身上扫过一道光（扫 0.7 秒）
+    const dims = this.petSprite(x, f, f.x + ox, f.y + oy, h, { flip, sx, sy, rot, alpha, tint, sheen });
     // 头饰 / 墨镜
     const wear = wearOf(sp), w = dims?.w || h * 0.9;
     const headX = f.x + ox + (flip ? -1 : 1) * wear.hatX * w, headY = f.y + oy - h * sy;
@@ -475,8 +491,7 @@ export class Renderer {
     if (f.umbrellaT > 0 || this.game.zones.some(z => z.full && f.umbrellaZ === z.id)) { if (!this.icon(x, 'misc:umbrella', f.x + ox, headY - 18, h * 0.9)) { x.fillStyle = '#7fd3ff'; x.beginPath(); x.arc(f.x + ox, headY - 6, h * 0.42, Math.PI, 0); x.fill(); } }
     f.umbrellaT = Math.max(0, (f.umbrellaT || 0) - dt);
     if (f.farmTool) this.drawTool(x, f, f.x + ox, headY, h, flip);
-    if (f.shiny && Math.random() < 0.012) this.glow('sparkle', f.x + (Math.random() - 0.5) * h * 0.6, f.y - h * (0.3 + Math.random() * 0.6), 40, 0.7);
-    if (f.shiny && Math.random() < 0.05) this.burst('star', f.x + (Math.random() - 0.5) * h * 0.8, f.y - h * Math.random(), 1, { spread: 4, up: 30, size: 10, life: 0.7 });
+    if (f.shiny) this.shinyFront(x, f, t, h, ox, oy);
     if (flash?.kind === 'evolve' || flash?.kind === 'ult') { x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.5 * (1 - flash.t / flash.life); x.fillStyle = flash.kind === 'ult' ? '#ffd0ef' : '#fff6b0'; x.beginPath(); x.arc(f.x, f.y - h * 0.5, h * (0.7 + flash.t), 0, TAU); x.fill(); x.restore(); }
     if ((f.stunUntil || 0) > g.clock) this.stunStars(x, f.x, f.y - h - 6, t);
   }
@@ -509,6 +524,44 @@ export class Renderer {
       x.restore();
     }
     if (Math.random() < 0.1 + k * 0.3) this.burst('star', f.x + (Math.random() - 0.5) * 40, f.y - 30 - Math.random() * 30, 1, { spread: 6, up: 30, size: 10, life: 0.6 });
+  }
+  // ───────── 闪光萌宠：原图不改色，身上多几样特效 ─────────
+  // 背后：一圈慢慢转的马卡龙彩虹柔光 + 脚下转圈的小星星（有 shiny:halo / shiny:circle 贴图就用图）
+  shinyBack(x, f, t, h) {
+    const cy = f.y - h * 0.5, pulse = 0.5 + 0.5 * Math.sin(t * 2.4);
+    if (!this.glowImg(x, 'shiny:halo', f.x, cy, h * 1.35, 0.42 + 0.18 * pulse, t * 0.4)) rainbowHalo(x, f.x, cy, h * 0.68, 0.6 + 0.2 * pulse, t * 0.4);
+    x.save(); x.globalCompositeOperation = 'lighter';
+    if (!this.glowImg(x, 'shiny:circle', f.x, f.y, h * 1.15, 0.6 + 0.25 * pulse)) {
+      for (let i = 0; i < 10; i++) {
+        const an = t * 0.9 + i * TAU / 10, px = f.x + Math.cos(an) * h * 0.5, py = f.y + Math.sin(an) * h * 0.16, front = Math.sin(an) > 0;
+        x.globalAlpha = (front ? 0.95 : 0.5) * (0.7 + 0.3 * Math.sin(t * 5 + i));
+        twinkle(x, px, py, h * (i % 2 ? 0.05 : 0.075), `hsl(${(i * 36 + t * 40) % 360},95%,82%)`);
+      }
+    }
+    x.restore();
+  }
+  // 身前：三颗十字星芒轮流在身上一闪一闪，偶尔飘起一颗彩色小光点
+  shinyFront(x, f, t, h, ox, oy) {
+    const P = 1.5, seed = f.uid.length * 13.7;
+    x.save(); x.globalCompositeOperation = 'lighter';
+    for (let j = 0; j < 3; j++) {
+      const tt = t + j * P / 3, cyc = Math.floor(tt / P), q = (tt / P - cyc) / 0.55;
+      if (q >= 1) continue;
+      const r1 = frac(Math.sin(seed + cyc * 12.9898 + j * 78.233) * 43758.5), r2 = frac(Math.sin(seed + cyc * 39.346 + j * 11.135) * 24634.6);
+      const px = f.x + ox + (r1 - 0.5) * h * 0.8, py = f.y + oy - h * (0.3 + r2 * 0.7), sz = h * (0.17 + 0.07 * r2) * Math.sin(q * Math.PI);
+      x.globalAlpha = 1;
+      if (!this.glowImg(x, 'shiny:twinkle', px, py, sz * 2.4, 1, q * 0.8)) twinkle(x, px, py, sz, '#fff6c8', q * 0.8);
+    }
+    x.restore();
+    if (Math.random() < 0.06) this.parts.push({ kind: 'glowimg', icon: this.assets.has('shiny:dust') ? 'shiny:dust' : 'glow:sparkle', x: f.x + (Math.random() - 0.5) * h * 0.7, y: f.y - h * Math.random() * 0.9, t: 0, life: 0.9, size: h * 0.32, grow: 0.3, rot: Math.random() * TAU, spin: 1, flat: 1, alpha: 0.7 });
+  }
+  // 黑底发光贴图（导入时黑色变透明），用「变亮」叠上去
+  glowImg(x, name, cx, cy, size, alpha = 1, rot = 0, flat = 1) {
+    const a = this.assets.get(name);
+    if (!a) return false;
+    const s = size / Math.max(a.w, a.h);
+    x.save(); x.globalCompositeOperation = 'lighter'; x.globalAlpha *= alpha; x.translate(cx, cy); x.scale(1, flat); x.rotate(rot); x.drawImage(a.img, -a.w * s / 2, -a.h * s / 2, a.w * s, a.h * s); x.restore();
+    return true;
   }
   aura(x, f, tal, t) {
     const c = TALENT.tiers[Math.min(5, tal)].color, h = f.h || 66, st = Math.min(5, f.star || 0);
@@ -1123,6 +1176,41 @@ const SEQ_K = { idle: 1, attack: 0.96, happy: 1.02, sleep: 0.62 };
 const PART_ICON = { heart: 'fx:heart', star: 'fx:star', note: 'fx:note', bubble: 'fx:bubble', petal: 'fx:petal', snow: 'fx:snow', drop: 'fx:drop', leaf: 'fx:leaf', rainbow: 'fx:rainbow', cloud: 'fx:cloud', spark: 'proj:foxfire', carrot: 'icon:carrot' };
 export function rr(x, l, t, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); x.beginPath(); x.moveTo(l + r, t); x.arcTo(l + w, t, l + w, t + h, r); x.arcTo(l + w, t + h, l, t + h, r); x.arcTo(l, t + h, l, t, r); x.arcTo(l, t, l + w, t, r); x.closePath(); }
 export function heart(x, cx, cy, s) { x.beginPath(); x.moveTo(cx, cy + s * 0.9); x.bezierCurveTo(cx - s * 1.6, cy - s * 0.2, cx - s * 0.6, cy - s * 1.3, cx, cy - s * 0.45); x.bezierCurveTo(cx + s * 0.6, cy - s * 1.3, cx + s * 1.6, cy - s * 0.2, cx, cy + s * 0.9); x.closePath(); }
+const frac = v => v - Math.floor(v);
+// 十字星芒：中间一个亮点，四条细长的光（闪光萌宠身上一闪一闪的那种）
+export function twinkle(x, cx, cy, r, color = '#fff6c8', rot = 0) {
+  if (r <= 0.5) return;
+  x.save(); x.translate(cx, cy); x.rotate(rot);
+  const g = x.createRadialGradient(0, 0, 0, 0, 0, r);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, color); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g;
+  x.beginPath();
+  for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr2 = i % 2 ? r * 0.16 : r; x.lineTo(Math.cos(a) * rr2, Math.sin(a) * rr2); }
+  x.closePath(); x.fill();
+  x.globalAlpha *= 0.6; x.beginPath(); x.arc(0, 0, r * 0.32, 0, Math.PI * 2); x.fill();
+  x.restore();
+}
+// 马卡龙彩虹柔光（没有 shiny:halo 贴图时用）：先在小画布上画好一次，之后转着贴
+let haloCv = null;
+function haloCanvas() {
+  if (haloCv || typeof document === 'undefined') return haloCv;
+  const N = 192, c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d'), r = N / 2;
+  x.translate(r, r);
+  let fill = '#ffd0ec';
+  if (x.createConicGradient) { fill = x.createConicGradient(0, 0, 0); ['#ff9fd2', '#ffc58f', '#fff08a', '#9fd8ff', '#c3a8ff', '#ff9fd2'].forEach((col, i, l) => fill.addColorStop(i / (l.length - 1), col)); }
+  x.fillStyle = fill; x.beginPath(); x.arc(0, 0, r, 0, Math.PI * 2); x.fill();
+  x.globalCompositeOperation = 'destination-in';
+  const m = x.createRadialGradient(0, 0, 0, 0, 0, r);
+  m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(0.45, 'rgba(0,0,0,0.2)'); m.addColorStop(0.7, 'rgba(0,0,0,0.95)'); m.addColorStop(0.86, 'rgba(0,0,0,0.45)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = m; x.fillRect(-r, -r, N, N);
+  return (haloCv = c);
+}
+export function rainbowHalo(x, cx, cy, r, alpha, rot = 0) {
+  const c = haloCanvas();
+  if (!c) return;
+  x.save(); x.globalAlpha *= alpha; x.translate(cx, cy); x.rotate(rot); x.drawImage(c, -r, -r, r * 2, r * 2); x.restore();
+}
 export function star(x, cx, cy, r) { x.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr2 = i % 2 ? r * 0.45 : r; x.lineTo(cx + Math.cos(a) * rr2, cy + Math.sin(a) * rr2); } x.closePath(); }
 export function clipText(x, s, maxW) { s = String(s || ''); if (x.measureText(s).width <= maxW) return s; while (s.length > 1 && x.measureText(s + '…').width > maxW) s = s.slice(0, -1); return s + '…'; }
 function placeholderPet(x, f, cx, fy, h, o) {
