@@ -270,7 +270,7 @@ function bottomPanels(r, x) {
     petIcon(r, x, p.sp, FORMS.findLastIndex(fm => p.level >= fm.lv), l1 + 176, y - 6, 24, p.shiny);
     x.font = `bold 12px ${FONT}`;
     text(x, clipText(x, `${p.nick || SPECIES[p.sp]?.name} Lv${p.level}`, 82), l1 + 192, y, 12, C.ink, 'left', 'normal');
-    partsText(x, talentParts(p).slice(0, 1).map(q => ({ ...q, text: q.text.replace(/\d+★$/, '') })), l1 + 280, y, 12);   // 榜上地方小，星数不写
+    if ((p.talent || 0) > 0 || (p.star || 0) > 0) partsText(x, talentParts(p).slice(0, 1).map(q => ({ ...q, text: q.text.replace(/\d+★$/, '') })), l1 + 280, y, 12);   // 榜上地方小：星数不写，没觉醒过的不写
     text(x, String(p.cp), l1 + w1 - 10, y, 12, '#e08a2a', 'right');
     r.rankRows.push({ uid: p.uid, online: p.online, l: l1, t: y - 18, w: w1, h: 26 });
   });
