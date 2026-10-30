@@ -7,6 +7,12 @@ import { profileOf } from './loot.js';
 import { bestFriend, addFriendship } from './friends.js';
 
 export const CROP = Object.fromEntries(CROPS.map(c => [c.id, c]));
+// 变异：仓库里普通菜存 'carrot'，变异的存 'carrot:gold'
+export const MUT = Object.fromEntries(FARM.mutations.map(m => [m.id, m]));
+export const splitKey = key => { const [c, m] = String(key).split(':'); return { c, m: MUT[m] ? m : null }; };
+export const keyName = key => { const { c, m } = splitKey(key); return (m ? MUT[m].name : '') + (CROP[c]?.name || c); };
+export const keyPrice = (game, key) => { const { c, m } = splitKey(key); return (CROP[c]?.sell || 0) * marketMul(game, c) * (m ? MUT[m].mul : 1); };
+function rollMut(game) { let r = game.random(); for (const m of FARM.mutations) { if (r < m.chance) return m.id; r -= m.chance; } return null; }
 const CROP_WORDS = CROPS.flatMap(c => [c.name, ...c.words].map(w => [w, c.id])).sort((a, b) => b[0].length - a[0].length);
 export function parseCrop(text) {
   const s = String(text || '').trim();
@@ -89,7 +95,8 @@ function doPlant(game, f, cropId = null, quiet = false) {
   for (const i of empty) {
     if (farm.coins < c.seed) break;
     farm.coins -= c.seed;
-    farm.plots[i] = { c: c.id, at: now, ready: now + c.grow * 1000, w: 0, fw: 0 };
+    const m = rollMut(game);
+    farm.plots[i] = { c: c.id, at: now, ready: now + c.grow * 1000, w: 0, fw: 0, ...(m ? { m } : {}) };
     idx.push(i);
   }
   const n = idx.length;
@@ -120,7 +127,8 @@ function doWater(game, f, quiet = false) {
 // 收：熟了的都收进仓库，涨农场经验
 function doHarvest(game, f, quiet = false) {
   const farm = farmOf(game, f), now = nowMs(game), got = [], idx = [];
-  farm.plots.forEach((p, i) => { if (p && p.ready <= now) { got.push(p.c); idx.push(i); farm.barn[p.c] = (farm.barn[p.c] || 0) + 1; farm.plots[i] = null; } });
+  const muts = [];
+  farm.plots.forEach((p, i) => { if (p && p.ready <= now) { const key = p.m ? `${p.c}:${p.m}` : p.c; got.push(p.c); muts.push(p.m || null); idx.push(i); farm.barn[key] = (farm.barn[key] || 0) + 1; farm.plots[i] = null; } });
   if (!got.length) {
     if (!quiet) { const next = farm.plots.filter(Boolean).map(p => (p.ready - now) / 1000).sort((a, b) => a - b)[0]; say(game, f, next ? `还没熟，最快的还要${fmtSec(next)}（浇水更快）` : '地里还空着，先「种」吧'); }
     return 0;
@@ -128,38 +136,52 @@ function doHarvest(game, f, quiet = false) {
   const xp = got.reduce((s, id) => s + CROP[id].xp, 0);
   farm.harvest += got.length;
   dirty(game);
-  game.emit('farmHarvest', { uid: f.uid, crops: got, idx, n: got.length, xp, dur: DUR.harvest(got.length) });
+  game.emit('farmHarvest', { uid: f.uid, crops: got, muts, idx, n: got.length, xp, dur: DUR.harvest(got.length) });
   game.scoreFarm?.(f, got.length);
   addFarmXp(game, f, farm, xp);
-  if (!quiet) say(game, f, `收获${got.length}个（${summary(got)}），农场经验+${xp}，发「卖」换金币`);
+  // 收到变异的：全场播报（越稀有越显眼）
+  muts.forEach((m, k) => { if (!m) return; const M = MUT[m]; game.emit('banner', { uid: f.uid, name: f.name, text: `变异啦！${f.name}收获了${M.name}${CROP[got[k]].name}（卖价 ×${M.mul}）`, tier: m === 'rainbow' ? 5 : m === 'gold' ? 4 : 3 }); });
+  if (!quiet) say(game, f, `收获${got.length}个（${summary(got.map((c, k) => muts[k] ? `${c}:${muts[k]}` : c))}）放进仓库，农场经验+${xp}；想卖发「卖」`);
   return got.length;
 }
-// 卖：仓库里的全卖了（今日行情：一种 ×2，一种 ×0.7）
-function doSell(game, f, quiet = false) {
+// 卖：收的菜都先放仓库，观众自己决定卖不卖。mode：'all' 全卖；'normal' 只卖普通的（变异的留着）；作物 id 只卖这一种
+function doSell(game, f, quiet = false, mode = 'all') {
   const farm = farmOf(game, f);
   let coins = 0, n = 0;
-  const list = [];
-  for (const [id, cnt] of Object.entries(farm.barn)) { if (!(cnt > 0)) continue; coins += Math.round(cnt * CROP[id].sell * marketMul(game, id)); n += cnt; for (let k = 0; k < cnt; k++) list.push(id); }
-  if (!n) { if (!quiet) say(game, f, '仓库是空的，先「收」菜'); return { coins: 0, n: 0 }; }
-  farm.barn = {}; farm.coins += coins; farm.sold += coins;
+  const list = [], muts = [];
+  for (const [key, cnt] of Object.entries(farm.barn)) {
+    if (!(cnt > 0)) continue;
+    const { c, m } = splitKey(key);
+    if (mode === 'normal' && m) continue;
+    if (mode !== 'all' && mode !== 'normal' && c !== mode) continue;
+    coins += Math.round(cnt * keyPrice(game, key)); n += cnt;
+    for (let k = 0; k < cnt; k++) { list.push(c); muts.push(m); }
+    delete farm.barn[key];
+  }
+  if (!n) { if (!quiet) say(game, f, mode === 'all' ? '仓库是空的，先「收」菜' : mode === 'normal' ? '仓库里没有普通的菜' : `仓库里没有${CROP[mode]?.name || '这种菜'}`); return { coins: 0, n: 0 }; }
+  farm.coins += coins; farm.sold += coins;
   dirty(game);
-  game.emit('farmSell', { uid: f.uid, coins, n, crops: list.slice(0, 8), dur: DUR.sell(n) });
+  game.emit('farmSell', { uid: f.uid, coins, n, crops: list.slice(0, 8), muts: muts.slice(0, 8), dur: DUR.sell(n) });
   if (!quiet) say(game, f, `卖了${n}个菜，赚了${coins}金币（现在${farm.coins}金币）`);
   return { coins, n };
 }
+// 自动守护：钱不够买种子时，先把普通的菜卖了（变异的留给主人自己决定）
+function cheapestSeed(farm) { return Math.min(...CROPS.filter(c => cropUnlocked(farm, c.id)).map(c => c.seed)); }
 
 // ───────── 排队：一样做完（动画播完）再做下一样 ─────────
 function runStep(game, f, j) {
   const sum = f.farmSum ||= { h: 0, s: 0, p: 0, w: 0 };
   switch (j.st) {
     case 'harvest': { const n = doHarvest(game, f, j.quiet); sum.h += n; return { v: n, dur: n ? DUR.harvest(n) : 0 }; }
-    case 'sell': { const r = doSell(game, f, j.quiet); sum.s += r.coins; return { v: r.coins, dur: r.n ? DUR.sell(r.n) : 0 }; }
+    case 'sell': { const r = doSell(game, f, j.quiet, j.arg || 'all'); sum.s += r.coins; return { v: r.coins, dur: r.n ? DUR.sell(r.n) : 0 }; }
+    case 'sellIfBroke': { const farm = farmOf(game, f); if (farm.coins >= cheapestSeed(farm) || !farm.plots.some(p => !p)) return { v: 0, dur: 0 }; const r = doSell(game, f, true, 'normal'); sum.s += r.coins; return { v: r.coins, dur: r.n ? DUR.sell(r.n) : 0 }; }
     case 'plant': { const n = doPlant(game, f, j.arg, j.quiet); sum.p += n; return { v: n, dur: n ? DUR.plant(n) : 0 }; }
     case 'water': { const r = doWater(game, f, j.quiet); sum.w += r.n; return { v: r.n + r.fn, dur: r.n + r.fn ? DUR.water(r.n, r.fn) : 0 }; }
     case 'summary': {
       const farm = farmOf(game, f), parts = [];
       if (sum.h) parts.push(`收了${sum.h}个`); if (sum.s) parts.push(`卖了${sum.s}金币`); if (sum.p) parts.push(`种了${sum.p}棵`); if (sum.w) parts.push(`浇了${sum.w}块`);
-      if (!j.quiet) say(game, f, parts.length ? `${parts.join('、')}（${farm.coins}金币）` : '菜还没熟，也没空地了，等一会儿再来');
+      const barnN = Object.values(farm.barn).reduce((a, b) => a + b, 0), broke = !sum.p && farm.plots.some(p => !p) && farm.coins < cheapestSeed(farm);
+      if (!j.quiet) say(game, f, (parts.length ? `${parts.join('、')}（${farm.coins}金币` + (barnN ? `，仓库${barnN}个菜，发「卖」换金币）` : '）') : '菜还没熟，也没空地了，等一会儿再来') + (broke ? '；金币不够买种子了，先发「卖」' : ''));
       f.farmSum = { h: 0, s: 0, p: 0, w: 0 };
       return { v: 0, dur: 0 };
     }
@@ -187,13 +209,14 @@ function enqueue(game, f, steps, arg = null, quiet = false) {
 export const plant = (game, f, cropId = null, { quiet = false } = {}) => enqueue(game, f, ['plant'], cropId, quiet);
 export const water = (game, f, { quiet = false } = {}) => enqueue(game, f, ['water'], null, quiet);
 export const harvest = (game, f, { quiet = false } = {}) => enqueue(game, f, ['harvest'], null, quiet);
-export const sell = (game, f, { quiet = false } = {}) => enqueue(game, f, ['sell'], null, quiet);
-// 一键「种田」：收 → 卖 → 种 → 浇，一样样来，最后报个总账
-export function farmAll(game, f, { quiet = false } = {}) {
+export const sell = (game, f, { quiet = false, mode = 'all' } = {}) => enqueue(game, f, ['sell'], mode, quiet);
+// 一键「种田」：收 → 种 → 浇，一样样来，最后报个总账（收的菜先放仓库，卖不卖观众自己发「卖」）
+// 自动守护的：钱不够买种子时先卖掉普通的菜再种
+export function farmAll(game, f, { quiet = false, auto = false } = {}) {
   if (!needHome(game, f)) return false;
   const q = (f.farmJobs ||= []);
   if (q.length > 12) return false;
-  q.push({ st: 'harvest', quiet: true }, { st: 'sell', quiet: true }, { st: 'plant', quiet: true }, { st: 'water', quiet: true }, { st: 'summary', quiet });
+  q.push({ st: 'harvest', quiet: true }, ...(auto ? [{ st: 'sellIfBroke', quiet: true }] : []), { st: 'plant', quiet: true }, { st: 'water', quiet: true }, { st: 'summary', quiet });
   runJobs(game, f);
   return true;
 }
@@ -289,9 +312,9 @@ export function stepHome(game, dt) {
   for (const f of game.pets.values()) if (f.farmJobs?.length && !((f.farmBusy || 0) > game.clock)) runJobs(game, f);
   if ((game.homeAutoT -= dt) > 0) return;
   game.homeAutoT = FARM.autoEvery;
-  for (const f of game.humans()) if (!f.merc && !f.reserve && (f.auto || 0) > 0 && !busyFarm(f, game)) farmAll(game, f, { quiet: true });
+  for (const f of game.humans()) if (!f.merc && !f.reserve && (f.auto || 0) > 0 && !busyFarm(f, game)) farmAll(game, f, { quiet: true, auto: true });
 }
 
-function summary(ids) { const m = {}; for (const id of ids) m[id] = (m[id] || 0) + 1; return Object.entries(m).map(([id, n]) => `${CROP[id].name}×${n}`).join(' '); }
+function summary(keys) { const m = {}; for (const k of keys) m[k] = (m[k] || 0) + 1; return Object.entries(m).map(([k, n]) => `${keyName(k)}×${n}`).join(' '); }
 export function fmtSec(s) { s = Math.max(0, Math.ceil(s)); return s >= 3600 ? `${Math.floor(s / 3600)}小时${Math.round(s % 3600 / 60)}分` : s >= 60 ? `${Math.floor(s / 60)}分${s % 60 ? (s % 60) + '秒' : ''}` : `${s}秒`; }
 export { SCORE };

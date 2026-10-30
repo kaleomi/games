@@ -33,7 +33,9 @@ export function parseCommand(text) {
   if (pl && !/^(花|树|蛋)/.test(pl[1])) return { type: 'plant', crop: parseCrop(pl[1]) };
   if (/^(浇水|浇|浇浇|浇花|浇菜|js)$/.test(s)) return { type: 'water' };
   if (/^(收|收获|收菜|收割|摘|摘菜|收成)$/.test(s)) return { type: 'harvest' };
-  if (/^(卖|卖菜|卖掉|出售|卖货|卖了|全卖)$/.test(s)) return { type: 'sell' };
+  if (/^(卖|卖菜|卖掉|出售|卖货|卖了|全卖|全部卖)$/.test(s)) return { type: 'sell', mode: 'all' };
+  if (/^(卖普通|卖普通的|只卖普通|卖普通菜|卖普通的菜)$/.test(s)) return { type: 'sell', mode: 'normal' };
+  { const m = s.match(/^(?:卖|卖掉|出售)\s*(.{1,6})$/); if (m) { const c = parseCrop(m[1]); if (c) return { type: 'sell', mode: c }; } }
   if (/^(扩地|开垦|买地|加地|开荒)$/.test(s)) return { type: 'expand' };
   const ul = raw.match(/^(?:解锁|买|购买|兑换)\s*(.{1,8})$/);
   if (ul && parseSpecies(ul[1])) return { type: 'unlock', sp: parseSpecies(ul[1]) };
@@ -112,7 +114,7 @@ export class Game {
     for (const f of this.pets.values()) if (!f.egg) { if (!f.alive) setupPet(this, f, { keepCd: false }); f.act = null; }
     startHome(this);
     this.emit('phase', { phase: 'home', n: this.stageN });
-    this.emit('banner', { text: '回家啦！发「种田」一键收菜、卖菜、种菜、浇水', tier: 4 });
+    this.emit('banner', { text: '回家啦！发「种田」一键收菜、种菜、浇水；收的菜放仓库，发「卖」才卖', tier: 4 });
   }
   startBattle() {
     const n = this.stageN;
@@ -509,7 +511,7 @@ export class Game {
       case 'plant': plant(this, f, cmd.crop); break;
       case 'water': water(this, f); break;
       case 'harvest': harvest(this, f); break;
-      case 'sell': sell(this, f); break;
+      case 'sell': sell(this, f, { mode: cmd.mode || 'all' }); break;
       case 'expand': expand(this, f); break;
       case 'unlock': unlockPet(this, f, cmd.sp); break;
       case 'farm': this.emit('farmCard', { uid: f.uid }); break;

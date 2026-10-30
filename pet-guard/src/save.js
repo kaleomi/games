@@ -210,14 +210,14 @@ function validFriends(o) {
 export function newFarm() { return { coins: FARM.startCoins, lv: 1, xp: 0, plots: Array(FARM.plotsStart).fill(null), barn: {}, pets: [], harvest: 0, sold: 0 }; }
 function validFarm(o) {
   if (!o || typeof o !== 'object') return null;
-  const ids = new Set(CROPS.map(c => c.id)), n = clampInt(Array.isArray(o.plots) ? o.plots.length : FARM.plotsStart, FARM.plotsStart, FARM.plotsMax, FARM.plotsStart);
+  const ids = new Set(CROPS.map(c => c.id)), muts = new Set(FARM.mutations.map(m => m.id)), n = clampInt(Array.isArray(o.plots) ? o.plots.length : FARM.plotsStart, FARM.plotsStart, FARM.plotsMax, FARM.plotsStart);
   const plots = [];
   for (let i = 0; i < n; i++) {
     const p = o.plots?.[i];
-    plots.push(p && typeof p === 'object' && ids.has(p.c) ? { c: p.c, at: Number(p.at) || 0, ready: Number(p.ready) || 0, w: p.w ? 1 : 0, fw: p.fw ? 1 : 0 } : null);
+    plots.push(p && typeof p === 'object' && ids.has(p.c) ? { c: p.c, at: Number(p.at) || 0, ready: Number(p.ready) || 0, w: p.w ? 1 : 0, fw: p.fw ? 1 : 0, ...(muts.has(p.m) ? { m: p.m } : {}) } : null);
   }
   const barn = {};
-  for (const id of ids) if (o.barn?.[id] > 0) barn[id] = clampInt(o.barn[id], 0, 1e9, 0);
+  for (const [k, v] of Object.entries(o.barn || {})) { const [c, m] = k.split(':'); if (ids.has(c) && (!m || muts.has(m)) && v > 0) barn[k] = clampInt(v, 0, 1e9, 0); }
   return { coins: clampInt(o.coins, 0, 1e12, 0), lv: clampInt(o.lv, 1, 999, 1), xp: clampInt(o.xp, 0, 1e12, 0), plots, barn,
     pets: Array.isArray(o.pets) ? o.pets.filter(sp => ADV_PETS[sp]).slice(0, 20) : [], harvest: clampInt(o.harvest, 0, 1e12, 0), sold: clampInt(o.sold, 0, 1e15, 0) };
 }

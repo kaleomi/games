@@ -120,11 +120,17 @@
   "egg:dragon": {
    "src": "misc/egg_dragon.webp"
   },
+  "egg:elephant": {
+   "src": "misc/egg_elephant.webp"
+  },
   "egg:fox": {
    "src": "misc/egg_fox.webp"
   },
   "egg:hamster": {
    "src": "misc/egg_hamster.webp"
+  },
+  "egg:koi": {
+   "src": "misc/egg_koi.webp"
   },
   "egg:panda": {
    "src": "misc/egg_panda.webp"
@@ -135,11 +141,17 @@
   "egg:phoenix": {
    "src": "misc/egg_phoenix.webp"
   },
+  "egg:qilin": {
+   "src": "misc/egg_qilin.webp"
+  },
   "egg:sheep": {
    "src": "misc/egg_sheep.webp"
   },
   "egg:shiba": {
    "src": "misc/egg_shiba.webp"
+  },
+  "egg:tiger": {
+   "src": "misc/egg_tiger.webp"
   },
   "egg:unicorn": {
    "src": "misc/egg_unicorn.webp"
@@ -498,6 +510,15 @@
   "pet:dragon:2": {
    "src": "pets/pet_dragon_2.webp"
   },
+  "pet:elephant:0": {
+   "src": "pets/pet_elephant_0.webp"
+  },
+  "pet:elephant:1": {
+   "src": "pets/pet_elephant_1.webp"
+  },
+  "pet:elephant:2": {
+   "src": "pets/pet_elephant_2.webp"
+  },
   "pet:fox:0": {
    "src": "pets/pet_fox_0.webp"
   },
@@ -515,6 +536,15 @@
   },
   "pet:hamster:2": {
    "src": "pets/pet_hamster_2.webp"
+  },
+  "pet:koi:0": {
+   "src": "pets/pet_koi_0.webp"
+  },
+  "pet:koi:1": {
+   "src": "pets/pet_koi_1.webp"
+  },
+  "pet:koi:2": {
+   "src": "pets/pet_koi_2.webp"
   },
   "pet:panda:0": {
    "src": "pets/pet_panda_0.webp"
@@ -543,6 +573,15 @@
   "pet:phoenix:2": {
    "src": "pets/pet_phoenix_2.webp"
   },
+  "pet:qilin:0": {
+   "src": "pets/pet_qilin_0.webp"
+  },
+  "pet:qilin:1": {
+   "src": "pets/pet_qilin_1.webp"
+  },
+  "pet:qilin:2": {
+   "src": "pets/pet_qilin_2.webp"
+  },
   "pet:sheep:0": {
    "src": "pets/pet_sheep_0.webp"
   },
@@ -560,6 +599,15 @@
   },
   "pet:shiba:2": {
    "src": "pets/pet_shiba_2.webp"
+  },
+  "pet:tiger:0": {
+   "src": "pets/pet_tiger_0.webp"
+  },
+  "pet:tiger:1": {
+   "src": "pets/pet_tiger_1.webp"
+  },
+  "pet:tiger:2": {
+   "src": "pets/pet_tiger_2.webp"
   },
   "pet:unicorn:0": {
    "src": "pets/pet_unicorn_0.webp"
@@ -612,6 +660,9 @@
   "proj:foxfire": {
    "src": "fx/proj_foxfire.webp"
   },
+  "proj:goldbubble": {
+   "src": "fx/proj_goldbubble.webp"
+  },
   "proj:heart": {
    "src": "fx/proj_heart.webp"
   },
@@ -629,6 +680,9 @@
   },
   "proj:snowball": {
    "src": "fx/proj_snowball.webp"
+  },
+  "proj:water": {
+   "src": "fx/proj_water.webp"
   },
   "proj:wool": {
    "src": "fx/proj_wool.webp"

@@ -3,7 +3,7 @@
 import { W, H, FONT, ROUND_FONT, BOTTOM_Y, SPECIES, SPECIES_IDS, GEAR, TALENT, FORMS, TREE, GIFTS, GIFT_TITLES, MORALE, LEVEL, FOES, ROLE_NAMES, BOND, COMFORT, FRIEND, SPRITES, WISH } from './config.js';
 import { wishStore } from './wish.js';
 import { bestFriend, friendLevel, SPRITE_UNITS } from './friends.js';
-import { farmOf, plotStage, CROP, levelNeed, plotCost, marketMul, fmtSec, petUnlocked } from './farm.js';
+import { farmOf, plotStage, CROP, MUT, splitKey, keyName, levelNeed, plotCost, marketMul, fmtSec, petUnlocked } from './farm.js';
 import { CROPS, FARM, ADV_PETS, ADV_IDS } from './config.js';
 import { rr, heart, star, clipText, twinkle, rainbowHalo, flowFill } from './render.js';
 import { talentParts, combatPower, setBonus, itemName, bondLevel, bondNext, SLOT_IDS, talentMul, starOf } from './gear.js';
@@ -217,12 +217,15 @@ function pfFarm(r, x, p, f, l, t, w) {
   text(x, '仓库', l + 8, t + 222, 15, C.ink);
   const barn = Object.entries(fm.barn || {}).filter(([, n]) => n > 0);
   if (!barn.length) text(x, '空的（收了菜还没卖的会放在这里）', l + 60, t + 222, 12, C.mute, 'left', 'normal');
-  barn.forEach(([id, n], i) => {
+  barn.sort((a, b) => (splitKey(b[0]).m ? 1 : 0) - (splitKey(a[0]).m ? 1 : 0)).slice(0, 12).forEach(([key, n], i) => {
+    const { c: id, m } = splitKey(key), M = m ? MUT[m] : null;
     const cx = l + 8 + (i % 6) * 104, cy = t + 234 + Math.floor(i / 6) * 70;
-    x.fillStyle = 'rgba(255,255,255,0.7)'; rr(x, cx, cy, 96, 60, 10); x.fill();
-    if (!r.icon(x, 'produce:' + id, cx + 26, cy + 30, 40)) { x.fillStyle = '#ff9fc4'; x.beginPath(); x.arc(cx + 26, cy + 30, 14, 0, TAU); x.fill(); }
-    text(x, CROP[id]?.name || id, cx + 52, cy + 26, 12, C.ink);
-    text(x, `×${n}`, cx + 52, cy + 46, 14, '#e08a2a');
+    x.fillStyle = M ? 'rgba(255,248,220,0.95)' : 'rgba(255,255,255,0.7)'; rr(x, cx, cy, 96, 60, 10); x.fill();
+    if (M) { x.strokeStyle = M.color; x.lineWidth = 2.5; x.stroke(); if (m === 'rainbow') rainbowHalo(x, cx + 26, cy + 30, 24, 0.8, r.t); }
+    const ic = m === 'gold' ? r.assets.gold('produce:' + id) : r.assets.get('produce:' + id), isz = m === 'big' ? 48 : 40;
+    if (ic) { const s2 = isz / Math.max(ic.w, ic.h); x.drawImage(ic.img, cx + 26 - ic.w * s2 / 2, cy + 30 - ic.h * s2 / 2, ic.w * s2, ic.h * s2); } else { x.fillStyle = '#ff9fc4'; x.beginPath(); x.arc(cx + 26, cy + 30, 14, 0, TAU); x.fill(); }
+    text(x, clipText(x, keyName(key), 46), cx + 52, cy + 24, 11, M ? M.color : C.ink);
+    text(x, `×${n}`, cx + 52, cy + 44, 14, '#e08a2a');
   });
   // 作物解锁 + 高级萌宠
   const y2 = t + 400;
@@ -335,7 +338,7 @@ function homeBar(r, x) {
   pill(x, `在家 ${fmtDuration(g.phaseT)}`, 360, 31, '#8fd36a', '#fff', 20);
   if (!r.icon(x, 'farm:coin', 548, 31, 30)) { x.fillStyle = '#ffd23a'; x.beginPath(); x.arc(548, 31, 13, 0, TAU); x.fill(); }
   text(x, '发「种田」', 568, 28, 15, '#c0573d');
-  text(x, '收·卖·种·浇一键做完', 568, 50, 11, C.mute, 'left', 'normal');
+  text(x, '收·种·浇一键 · 发「卖」卖菜', 568, 50, 11, C.mute, 'left', 'normal');
   x.restore();
 }
 function bossBar(r, x) {
@@ -424,11 +427,12 @@ function bottomPanels(r, x) {
     text(x, String(i + 1), l1 + 18, y, 12, i < 3 ? '#6a4a20' : C.mute, 'center');
     avatarCircle(r, x, p.avatar, l1 + 44, y - 5, 11, SPECIES[p.sp]?.color, p.name);
     if (p.online) { x.fillStyle = '#3fcf7a'; x.beginPath(); x.arc(l1 + 53, y + 3, 4, 0, TAU); x.fill(); }
-    text(x, clipText(x, p.name, 92), l1 + 62, y, 13, C.ink, 'left', 'bold');
-    petIcon(r, x, p.sp, FORMS.findLastIndex(fm => p.level >= fm.lv), l1 + 176, y - 6, 24, p.shiny);
-    x.font = `bold 12px ${FONT}`;
-    text(x, clipText(x, `${p.nick || SPECIES[p.sp]?.name} Lv${p.level}`, 82), l1 + 192, y, 12, C.ink, 'left', 'normal');
-    if ((p.talent || 0) > 0 || (p.star || 0) > 0) partsText(x, talentParts(p).slice(0, 1).map(q => ({ ...q, text: q.text.replace(/\d+★$/, '') })), l1 + 280, y, 12);   // 榜上地方小：星数不写，没觉醒过的不写
+    x.font = `bold 13px ${FONT}`;
+    text(x, clipText(x, p.name, 82), l1 + 62, y, 13, C.ink, 'left', 'bold');
+    petIcon(r, x, p.sp, FORMS.findLastIndex(fm => p.level >= fm.lv), l1 + 162, y - 6, 24, p.shiny);
+    x.font = `12px ${FONT}`;
+    text(x, clipText(x, `${p.nick || SPECIES[p.sp]?.name} Lv${p.level}`, 76), l1 + 178, y, 12, C.ink, 'left', 'normal');
+    if ((p.talent || 0) > 0 || (p.star || 0) > 0) partsText(x, talentParts(p).slice(0, 1).map(q => ({ ...q, text: q.text.replace(/\d+★$/, '') })), l1 + 258, y, 12);   // 榜上地方小：星数不写，没觉醒过的不写
     text(x, String(p.cp), l1 + w1 - 10, y, 12, '#e08a2a', 'right');
     r.rankRows.push({ uid: p.uid, online: p.online, l: l1, t: y - 18, w: w1, h: 26 });
     if (r.mouse && r.mouse.x >= l1 && r.mouse.x <= l1 + w1 && r.mouse.y >= y - 18 && r.mouse.y <= y + 8) { x.save(); x.strokeStyle = C.pink; x.lineWidth = 2; x.beginPath(); x.arc(l1 + 44, y - 5, 13, 0, TAU); x.stroke(); x.restore(); }
@@ -486,7 +490,7 @@ function homePanels(r, x, t0, h) {
 }
 const HOME_PAGES = [
   { title: '种田口令', draw(r, x, l, t) {
-    const rows = [['种田', '一键：收→卖→种→浇'], ['种 萝卜', '种指定的菜（不说就种最好的）'], ['浇水', '快40%，顺手给好朋友也浇'], ['收', '熟了的收进仓库'], ['卖', '仓库全卖掉换金币'], ['扩地', '加一块地（最多6块）'], ['解锁 小羊', '用金币解锁高级萌宠'], ['农场', '看自己的菜地和金币']];
+    const rows = [['种田', '一键：收→种→浇（菜先进仓库）'], ['种 萝卜', '种指定的菜（不说就种最好的）'], ['浇水', '快40%，顺手给好朋友也浇'], ['卖', '仓库全卖掉换金币'], ['卖普通', '只卖普通的，变异的留着'], ['卖 萝卜', '只卖这一种'], ['扩地 · 解锁 小羊', '加地 · 金币解锁高级萌宠'], ['农场', '看自己的菜地、仓库']];
     rows.forEach(([a, b], i) => { const y = t + 18 + i * 26; pill(x, a, l + 66, y - 5, '#eef8e6', '#4a8a2a', 12); text(x, b, l + 132, y, 13, C.ink, 'left', 'normal'); });
   } },
   { title: '作物', draw(r, x, l, t, w) {
@@ -854,7 +858,7 @@ function drawFarmCard(r, x, c, f) {
     text(x, st.stage === 2 ? '熟了！' : fmtSec(st.left), cx + 40, cy + 33, 11, st.stage === 2 ? '#e08a2a' : C.mute, 'left', 'normal');
   });
   const barn = Object.entries(fm.barn).filter(([, n]) => n > 0);
-  text(x, barn.length ? `仓库：${barn.map(([id, n]) => `${CROP[id].name}×${n}`).join(' ')}` : '仓库空空的', l + 14, t + h - 34, 12, C.ink, 'left', 'normal');
+  text(x, clipText(x, barn.length ? `仓库：${barn.map(([k, n]) => `${keyName(k)}×${n}`).join(' ')}` : '仓库空空的（收的菜放这里，发「卖」才卖）', 320), l + 14, t + h - 34, 12, C.ink, 'left', 'normal');
   const pets = ADV_IDS.map(sp => `${SPECIES[sp].kind}${petUnlocked(g, f, sp) ? '✓' : `(Lv${ADV_PETS[sp].lv})`}`).join(' ');
   text(x, clipText(x, pets, w - 28), l + 14, t + h - 12, 11, '#c0578a', 'left', 'normal');
   x.restore();

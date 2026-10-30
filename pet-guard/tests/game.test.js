@@ -291,7 +291,7 @@ test('收服小精灵、鲜花种花', () => {
 });
 
 // ───────── 回家种田 ─────────
-import { farmOf, plotStage, marketMul, marketOf } from '../src/farm.js';
+import { farmOf, plotStage, marketMul, marketOf, keyPrice } from '../src/farm.js';
 import { FARM, CROPS, ADV_PETS } from '../src/config.js';
 
 test('打完首领回家：结算后进家园，待够时间再出发去下一章', () => {
@@ -334,12 +334,13 @@ test('种田：种 → 浇水更快 → 收 → 卖；升级解锁新作物；�
   assert.equal(fm.plots.filter(Boolean).length, 2, '没熟收不了');
   run(left1 + 0.5);
   g.chat({ id: 'm1', name: '农夫' }, '收');
-  assert.equal(fm.barn.carrot, 2);
+  assert.equal(Object.values(fm.barn).reduce((a, b) => a + b, 0), 2);
   assert.equal(fm.xp, 2 * CROPS[0].xp);
+  const fmBarn = { ...fm.barn };
   g.chat({ id: 'm1', name: '农夫' }, '卖');
-  assert.equal(fm.barn.carrot, 2, '收菜动画还没放完，卖要排在后面');
+  assert.equal(Object.values(fm.barn).reduce((a, b) => a + b, 0), 2, '收菜动画还没放完，卖要排在后面');
   run(2);
-  const price = Math.round(2 * CROPS[0].sell * marketMul(g, 'carrot'));
+  const price = Object.entries({ ...fmBarn }).reduce((a, [k, n]) => a + Math.round(n * keyPrice(g, k)), 0);
   assert.equal(fm.coins, FARM.startCoins - 2 * CROPS[0].seed + price);
   assert.equal(save.data.players.m1.farm.coins, fm.coins, '存进存档');
   run(3);
@@ -355,30 +356,50 @@ test('种田：种 → 浇水更快 → 收 → 卖；升级解锁新作物；�
   assert.equal(fm.coins, 5000 - 2 * CROPS[2].seed - FARM.plotCost[0]);
 });
 
-test('一键种田：收 → 卖 → 种 → 浇 一样样来，上一样的动画放完才做下一样', () => {
+test('一键种田：收 → 种 → 浇 一样样来（菜先进仓库，不自动卖）；上一样的动画放完才做下一样', () => {
   const { g, run } = setup(44);
   g.chat({ id: 'q1', name: '勤快' }, '兔');
   run(3); g.startHome(); g.drainEvents();
   const f = g.pets.get('q1'), fm = farmOf(g, f);
   fm.coins = 500;
-  fm.plots = [{ c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0 }, { c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0 }];
+  fm.plots = [{ c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0 }, { c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0, m: 'gold' }];
   g.chat({ id: 'q1', name: '勤快' }, '种田');
   const seen = [], when = {};
   for (let t = 0; t < 8; t += 0.05) {
     run(0.05);
     for (const e of g.drainEvents()) if (/^farm(Harvest|Sell|Plant|Water)$/.test(e.type) && e.uid === 'q1') { seen.push(e.type); when[e.type] = g.clock; }
   }
-  assert.deepEqual(seen, ['farmHarvest', 'farmSell', 'farmPlant', 'farmWater'], seen.join(','));
-  assert.ok(when.farmSell - when.farmHarvest >= 0.8, '收完才卖');
-  assert.ok(when.farmPlant - when.farmSell >= 1.4, '卖完才种');
+  assert.deepEqual(seen, ['farmHarvest', 'farmPlant', 'farmWater'], seen.join(','));
+  assert.ok(when.farmPlant - when.farmHarvest >= 0.8, '收完才种');
   assert.ok(when.farmWater - when.farmPlant >= 0.9, '种完才浇');
+  assert.equal(fm.barn.carrot, 1, '普通萝卜进仓库');
+  assert.equal(fm.barn['carrot:gold'], 1, '变异的单独放');
   assert.equal(fm.plots.filter(p => p && p.w).length, 2, '新种的都浇上了');
+  // 卖普通：变异的留着
+  const c0 = fm.coins;
+  g.chat({ id: 'q1', name: '勤快' }, '卖普通'); run(3);
+  assert.ok(!fm.barn.carrot && fm.barn['carrot:gold'] === 1 && fm.coins > c0);
+  const c1 = fm.coins;
+  g.chat({ id: 'q1', name: '勤快' }, '卖萝卜'); run(3);
+  assert.ok(!fm.barn['carrot:gold'] && fm.coins - c1 >= Math.round(CROPS[0].sell * 6 * 0.5), '金灿灿的卖得贵');
   // 回家时间到了还没做完的，出门前一口气做完
   fm.plots = [{ c: 'carrot', at: 0, ready: g.now() - 1, w: 0, fw: 0 }, null];
   g.chat({ id: 'q1', name: '勤快' }, '种田');
   g.phaseT = 0.01; run(0.1);
   assert.equal(g.phase, 'lobby');
   assert.ok(!f.farmJobs?.length && fm.plots.every(p => p && p.c), '出门前都做完了');
+});
+
+test('变异：种下时掷，大约 9% 出变异；存档能存', () => {
+  const { g, save, run } = setup(52);
+  g.chat({ id: 'v1', name: '种很多' }, '兔'); run(3); g.startHome();
+  const f = g.pets.get('v1'), fm = farmOf(g, f);
+  let n = 0, mu = 0;
+  for (let i = 0; i < 400; i++) { fm.plots = [null, null]; fm.coins = 100; g.chat({ id: 'v1', name: '种很多' }, '种萝卜'); run(2); for (const p of fm.plots) if (p) { n++; if (p.m) mu++; } }
+  assert.ok(n > 150 && mu / n > 0.04 && mu / n < 0.16, `${mu}/${n}`);
+  fm.barn = { 'carrot:rainbow': 2, carrot: 3, 'carrot:bogus': 1 };
+  const v = Save.validate(JSON.parse(JSON.stringify(save.data))).players.v1.farm;
+  assert.deepEqual(v.barn, { 'carrot:rainbow': 2, carrot: 3 });
 });
 
 test('今日行情：每天每种菜一个价（×0.5~×2），同一天都一样，第二天会变', () => {

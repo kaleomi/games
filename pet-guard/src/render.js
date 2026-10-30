@@ -3,7 +3,7 @@
 import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS, WISH, STAGE, GARDEN, FRIEND, SHINY_FX } from './config.js';
 import { starOf } from './gear.js';
 import { wishAt } from './wish.js';
-import { farmOf, plotStage, tileRect, CROP, marketOf, FARM_FX } from './farm.js';
+import { farmOf, plotStage, tileRect, CROP, MUT, marketOf, FARM_FX } from './farm.js';
 import { CROPS, FARM } from './config.js';
 import { partHit, partLabels, safeParts, clamp, partOf as partOfZ } from './combat.js';
 const RINGS_SQUASH = RINGS.squash;
@@ -731,7 +731,10 @@ export class Renderer {
         if (p.t < 0) { out.push(p); continue; }
         const e2 = p.ease === 'in' ? k * k : 1 - (1 - k) * (1 - k), px = p.x0 + (p.x1 - p.x0) * e2, py = p.y0 + (p.y1 - p.y0) * e2 - Math.sin(k * Math.PI) * (p.arc ?? 90);
         const sz = p.size * (p.shrink ? 1 - k * p.shrink : 1);
-        x.save(); x.globalAlpha = k > 0.85 ? (1 - k) / 0.15 : 1; if (!this.icon(x, p.icon, px, py, sz, { rot: (p.spin || 0) * p.t })) placeholderProduce(x, p.crop, px, py, sz); x.restore();
+        x.save(); x.globalAlpha = k > 0.85 ? (1 - k) / 0.15 : 1;
+        if (p.mut === 'rainbow') rainbowHalo(x, px, py, sz * 0.75, 0.8, this.t * 2);
+        if (p.mut === 'gold') { const ga = this.assets.gold(p.icon); if (ga) { const s3 = sz / Math.max(ga.w, ga.h); x.translate(px, py); x.rotate((p.spin || 0) * p.t); x.drawImage(ga.img, -ga.w * s3 / 2, -ga.h * s3 / 2, ga.w * s3, ga.h * s3); x.restore(); continue; } }
+        if (!this.icon(x, p.icon, px, py, sz, { rot: (p.spin || 0) * p.t })) placeholderProduce(x, p.crop, px, py, sz); x.restore();
         continue;
       }
       if (p.kind === 'produce') {
@@ -926,7 +929,9 @@ export class Renderer {
         const p = this.slotPos(r2, i), to = this.toolPos(f);
         this.burst('leaf', p.x, p.y - 16, 4, { spread: 26, up: 70, size: 11, grav: 300, life: 0.6 });
         this.parts.push({ kind: 'ring', x: p.x, y: p.y, t: 0, life: 0.4, size: 34, color: '#fff3b0', squash: 0.45, w: 3 });
-        this.parts.push({ kind: 'fly', icon: 'produce:' + crop, crop, x0: p.x, y0: p.y - 24, x1: to.x, y1: to.y, x: p.x, y: p.y, t: 0, life: 0.5, size: 30, arc: 70, spin: 4 });
+        const mut = e.muts?.[j];
+        this.parts.push({ kind: 'fly', icon: 'produce:' + crop, crop, mut, x0: p.x, y0: p.y - 24, x1: to.x, y1: to.y, x: p.x, y: p.y, t: 0, life: mut ? 0.8 : 0.5, size: mut === 'big' ? 42 : mut ? 36 : 30, arc: mut ? 130 : 70, spin: 4 });
+        if (mut) { this.glow('sparkle', p.x, p.y - 30, 120, 0.9); this.burst('star', p.x, p.y - 30, 10, { spread: 50, up: 120, size: 14 }); this.floaters.push({ x: p.x, y: p.y - 60, text: `变异！${MUT[mut].name}${CROP[crop]?.name || ''}`, color: MUT[mut].color, size: 18, t: 0, life: 2, vy: -22 }); }
         this.after(0.5, () => { this.bumpTool(f); const t2 = this.toolPos(f); this.burst('star', t2.x, t2.y - 6, 2, { spread: 14, up: 40, size: 10, life: 0.5 }); });
       });
     });
@@ -940,7 +945,8 @@ export class Renderer {
     this.setTool(f, 'farm:basket', back, `卖菜 ${e.n}`);
     for (let j = 0; j < mm; j++) {
       const crop = e.crops[j % e.crops.length];
-      this.after(FARM_FX.sellItem(j), () => { const p = this.toolPos(f); this.bumpTool(f); this.parts.push({ kind: 'fly', icon: 'produce:' + crop, crop, x0: p.x, y0: p.y, x1: m.x, y1: m.y + 20, x: p.x, y: p.y, t: 0, life: 0.7, size: 26, arc: 110, spin: 3, shrink: 0.3 }); });
+      const mut = e.muts?.[j % e.crops.length];
+      this.after(FARM_FX.sellItem(j), () => { const p = this.toolPos(f); this.bumpTool(f); this.parts.push({ kind: 'fly', icon: 'produce:' + crop, crop, mut, x0: p.x, y0: p.y, x1: m.x, y1: m.y + 20, x: p.x, y: p.y, t: 0, life: 0.7, size: 26, arc: 110, spin: 3, shrink: 0.3 }); });
     }
     this.after(FARM_FX.sellItem(mm - 1) + 0.7, () => { this.glow('sparkle', m.x, m.y + 10, 150, 0.7); this.floaters.push({ x: m.x, y: m.y - 50, text: `+${e.coins}金币`, color: '#ffd84a', size: 20, t: 0, life: 1.6, vy: -22 }); });
     this.after(back, () => {
@@ -1032,9 +1038,12 @@ export class Renderer {
         }
         let grow = 1;
         if (fx?.kind === 'sprout') { if (this.t < fx.at) { hole(); return; } const q = Math.min(1, (this.t - fx.at) / 0.35); grow = q >= 1 ? 1 : 1 + 2.7 * (q - 1) ** 3 + 1.7 * (q - 1) ** 2; }
-        const st = plotStage(p, now), sway = Math.sin(this.t * 2 + i + k) * 0.05;
-        const hh = [26, 40, 52][st.stage] * Math.max(0.05, grow);
-        if (!this.sprite(x, `crop:${p.c}:${st.stage}`, px, py, hh, { rot: sway })) placeholderCrop(x, p.c, st.stage, px, py, hh, sway);
+        const st = plotStage(p, now), sway = Math.sin(this.t * 2 + i + k) * 0.05, mut = st.stage === 2 && p.m ? p.m : null;   // 变异的熟了才看得出来
+        const hh = [26, 40, 52][st.stage] * Math.max(0.05, grow) * (mut === 'big' ? 1.35 : 1);
+        if (mut === 'rainbow') rainbowHalo(x, px, py - hh * 0.5, hh * 0.75, 0.75, this.t);
+        if (mut === 'gold') { x.save(); x.globalAlpha = 0.5 + 0.2 * Math.sin(this.t * 4); const gg = x.createRadialGradient(px, py - hh * 0.5, 2, px, py - hh * 0.5, hh * 0.8); gg.addColorStop(0, 'rgba(255,220,90,0.9)'); gg.addColorStop(1, 'rgba(255,220,90,0)'); x.fillStyle = gg; x.beginPath(); x.arc(px, py - hh * 0.5, hh * 0.8, 0, TAU); x.fill(); x.restore(); }
+        if (!this.sprite(x, `crop:${p.c}:${st.stage}`, px, py, hh, { rot: sway, variant: mut === 'gold' ? 'gold' : null })) placeholderCrop(x, p.c, st.stage, px, py, hh, sway);
+        if (mut && Math.random() < 0.08) this.burst('star', px + (Math.random() - 0.5) * 24, py - hh * Math.random(), 1, { spread: 6, up: 40, size: 12, life: 0.7 });
         const wetYet = p.w && !(fx?.kind === 'wet' && this.t < fx.at);
         if (st.stage === 2 && Math.random() < 0.04) this.burst('star', px + (Math.random() - 0.5) * 20, py - hh * Math.random(), 1, { spread: 4, up: 30, size: 10, life: 0.6 });
         if (st.stage < 2 && grow >= 1) { x.fillStyle = 'rgba(40,30,20,0.35)'; rr(x, px - 14, py + 4, 28, 4, 2); x.fill(); x.fillStyle = wetYet ? '#7fd3ff' : '#ffd84a'; rr(x, px - 14, py + 4, 28 * st.k, 4, 2); x.fill(); }

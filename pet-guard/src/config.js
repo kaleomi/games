@@ -383,6 +383,12 @@ export const CROPS = [
   { id: 'starfruit',  name: '星星果', words: ['星星果', '杨桃', '星果'],         seed: 400, grow: 2700, sell: 1300, xp: 90, lv: 18 },
 ];
 export const FARM = {
+  // 变异：每棵菜种下时掷一次，熟了才看得出来；收进仓库单独放，卖得贵（再乘今日行情）
+  mutations: [
+    { id: 'rainbow', name: '彩虹', mul: 15, chance: 0.006, color: '#ff7ae0' },
+    { id: 'gold',    name: '金灿灿', mul: 6, chance: 0.025, color: '#ffc21a' },
+    { id: 'big',     name: '巨大', mul: 3,  chance: 0.06,  color: '#7cc84a' },
+  ],
   homeSeconds: 180,         // 在家待多久（秒；F2 设置里能改，填0不回家）
   startCoins: 30,
   plotsStart: 2, plotsMax: 6, plotCost: [150, 500, 1500, 4000],   // 第3~6块地的价钱
