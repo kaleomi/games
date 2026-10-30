@@ -773,7 +773,10 @@ export class Renderer {
       const lv = `Lv${f.level || 1}`, lw = x.measureText(lv).width + 8;
       x.font = `bold 14px ${FONT}`;
       const nw = Math.min(110, x.measureText(nm).width);
-      const autoOn = (f.auto || 0) > 0 && !f.npc, aw = autoOn ? 30 : 0;   // 自动守护：名字后面一个「自动」小牌
+      const autoOn = (f.auto || 0) > 0 && !f.npc, autoTxt = autoOn ? `自动 ${autoLeft(f.auto)}` : '';   // 自动守护：名字后面一个「自动 剩余时间」小牌
+      if (autoOn) x.font = `bold 11px ${FONT}`;
+      const aw = autoOn ? x.measureText(autoTxt).width + 12 : 0;
+      x.font = `bold 14px ${FONT}`;
       const total = lw + 4 + nw + (aw ? aw + 4 : 0), left = f.x - total / 2;
       // 等级小胶囊
       const tier = TALENT.tiers[Math.min(TALENT.tiers.length - 1, tal)];
@@ -783,7 +786,7 @@ export class Renderer {
       x.textAlign = 'left';
       const shown = clipText(x, nm, 110);
       x.strokeText(shown, left + lw + 4, top + 1); x.fillText(shown, left + lw + 4, top + 1);
-      if (autoOn) { const ax = left + lw + 4 + Math.min(nw, x.measureText(shown).width) + 4; x.fillStyle = '#ff7fae'; rr(x, ax, top - 13, aw, 16, 8); x.fill(); x.font = `bold 11px ${FONT}`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText('自动', ax + aw / 2, top - 1); }
+      if (autoOn) { const ax = left + lw + 4 + Math.min(nw, x.measureText(shown).width) + 4; x.fillStyle = '#ff7fae'; rr(x, ax, top - 13, aw, 16, 8); x.fill(); x.font = `bold 11px ${FONT}`; x.fillStyle = '#fff'; x.textAlign = 'center'; x.fillText(autoTxt, ax + aw / 2, top - 1); }
       x.textAlign = 'center';
       if (focus && f.nick && !f.npc) { x.font = `11px ${FONT}`; x.fillStyle = '#fff'; x.strokeText(clipText(x, f.name, 120), f.x, top - 18); x.fillText(clipText(x, f.name, 120), f.x, top - 18); }
       // 体力条
@@ -1021,11 +1024,13 @@ export class Renderer {
       const ripe = plots.filter(p => p && p.ready <= now).length;
       // 名字 + 熟了几个
       x.save(); x.font = `bold 12px ${FONT}`; x.textAlign = 'center';
-      const autoOn = (f.auto || 0) > 0, label = clipText(x, f.nick || f.name, autoOn ? 60 : 84) + (ripe ? ` 熟${ripe}` : '');
-      const lw = x.measureText(label).width + 14, aw = autoOn ? 30 : 0, lx = r.cx - (lw + aw) / 2;
+      const autoOn = (f.auto || 0) > 0, label = clipText(x, f.nick || f.name, autoOn ? 50 : 84) + (ripe ? ` 熟${ripe}` : ''), autoTxt = autoOn ? `自动 ${autoLeft(f.auto)}` : '';
+      const lw = x.measureText(label).width + 14;
+      x.font = `bold 11px ${FONT}`; const aw = autoOn ? x.measureText(autoTxt).width + 12 : 0; x.font = `bold 12px ${FONT}`;
+      const lx = r.cx - (lw + aw) / 2;
       x.fillStyle = ripe ? 'rgba(255,176,32,0.92)' : 'rgba(90,60,40,0.72)'; rr(x, lx + aw, r.y + r.h - 4, lw, 17, 8); x.fill();
       x.fillStyle = '#fff'; x.fillText(label, lx + aw + lw / 2, r.y + r.h + 9);
-      if (autoOn) { x.fillStyle = '#ff7fae'; rr(x, lx - 2, r.y + r.h - 4, aw, 17, 8); x.fill(); x.font = `bold 11px ${FONT}`; x.fillStyle = '#fff'; x.fillText('自动', lx - 2 + aw / 2, r.y + r.h + 8); }
+      if (autoOn) { x.fillStyle = '#ff7fae'; rr(x, lx - 2, r.y + r.h - 4, aw, 17, 8); x.fill(); x.font = `bold 11px ${FONT}`; x.fillStyle = '#fff'; x.fillText(autoTxt, lx - 2 + aw / 2, r.y + r.h + 8); }
       x.restore();
     });
   }
@@ -1212,6 +1217,8 @@ const PART_ICON = { heart: 'fx:heart', star: 'fx:star', note: 'fx:note', bubble:
 export function rr(x, l, t, w, h, r) { r = Math.max(0, Math.min(r, w / 2, h / 2)); x.beginPath(); x.moveTo(l + r, t); x.arcTo(l + w, t, l + w, t + h, r); x.arcTo(l + w, t + h, l, t + h, r); x.arcTo(l, t + h, l, t, r); x.arcTo(l, t, l + w, t, r); x.closePath(); }
 export function heart(x, cx, cy, s) { x.beginPath(); x.moveTo(cx, cy + s * 0.9); x.bezierCurveTo(cx - s * 1.6, cy - s * 0.2, cx - s * 0.6, cy - s * 1.3, cx, cy - s * 0.45); x.bezierCurveTo(cx + s * 0.6, cy - s * 1.3, cx + s * 1.6, cy - s * 0.2, cx, cy + s * 0.9); x.closePath(); }
 const frac = v => v - Math.floor(v);
+// 自动守护剩余时间：1小时以内写 分:秒，再长写 几时几分
+function autoLeft(s) { s = Math.max(0, Math.ceil(s)); return s >= 3600 ? `${Math.floor(s / 3600)}时${Math.floor(s % 3600 / 60)}分` : `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }
 // 十字星芒：中间一个亮点，四条细长的光（闪光萌宠身上一闪一闪的那种）
 export function twinkle(x, cx, cy, r, color = '#fff6c8', rot = 0) {
   if (r <= 0.5) return;
