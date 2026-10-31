@@ -292,15 +292,12 @@ export function assignTile(game, f) {
   let i = game.homeTiles.indexOf(f.uid);
   if (i >= 0) return i;
   i = game.homeTiles.findIndex(u => !u || !game.pets.has(u));
-  if (i < 0) { if (game.homeTiles.length >= max * (FARM.tilePages || 1)) return -1; i = game.homeTiles.length; }
+  if (i < 0) { if (game.homeTiles.length >= max) return -1; i = game.homeTiles.length; }
   game.homeTiles[i] = f.uid;
   return i;
 }
-export const TILES_PER_PAGE = FARM.tiles.cols * FARM.tiles.rows;
-export const tilePage = i => Math.floor(i / TILES_PER_PAGE);
-// 第二页的菜地和第一页用同一组位置（轮流显示）
 export function tileRect(i) {
-  const T = FARM.tiles; i %= TILES_PER_PAGE; const col = i % T.cols, row = Math.floor(i / T.cols);
+  const T = FARM.tiles, col = i % T.cols, row = Math.floor(i / T.cols);
   return { x: T.x0 + col * T.gx, y: T.y0 + row * T.gy, w: T.w, h: T.h, cx: T.x0 + col * T.gx + T.w / 2, cy: T.y0 + row * T.gy + T.h / 2 };
 }
 // 萌宠在家的落脚点：自己那块地的左边
