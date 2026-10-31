@@ -2,6 +2,13 @@
   "name": "pet-guard",
   "private": true,
   "type": "module",
-  "description": "萌宠保卫战：抖音直播弹幕互动养成守护（纯静态，无需构建）",
-  "scripts": { "test": "node --test tests/game.test.js", "sim": "node tests/sim.mjs" }
+  "description": "萌宠保卫战：抖音直播弹幕互动养成守护（网页版成品在 dist/，npm run build 生成）",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node --test tests/game.test.js tests/dist.test.js",
+    "sim": "node tests/sim.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12"
+  }
 }

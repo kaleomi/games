@@ -1,0 +1,1269 @@
+{
+ "images": {
+  "bg:autumn": {
+   "src": "bg/autumn.webp"
+  },
+  "bg:home": {
+   "src": "bg/home.webp"
+  },
+  "bg:night": {
+   "src": "bg/night.webp"
+  },
+  "bg:spring": {
+   "src": "bg/spring.webp"
+  },
+  "bg:summer": {
+   "src": "bg/summer.webp"
+  },
+  "bg:winter": {
+   "src": "bg/winter.webp"
+  },
+  "crop:cabbage:0": {
+   "src": "farm/crop_cabbage_0.webp"
+  },
+  "crop:cabbage:1": {
+   "src": "farm/crop_cabbage_1.webp"
+  },
+  "crop:cabbage:2": {
+   "src": "farm/crop_cabbage_2.webp"
+  },
+  "crop:carrot:0": {
+   "src": "farm/crop_carrot_0.webp"
+  },
+  "crop:carrot:1": {
+   "src": "farm/crop_carrot_1.webp"
+  },
+  "crop:carrot:2": {
+   "src": "farm/crop_carrot_2.webp"
+  },
+  "crop:corn:0": {
+   "src": "farm/crop_corn_0.webp"
+  },
+  "crop:corn:1": {
+   "src": "farm/crop_corn_1.webp"
+  },
+  "crop:corn:2": {
+   "src": "farm/crop_corn_2.webp"
+  },
+  "crop:grape:0": {
+   "src": "farm/crop_grape_0.webp"
+  },
+  "crop:grape:1": {
+   "src": "farm/crop_grape_1.webp"
+  },
+  "crop:grape:2": {
+   "src": "farm/crop_grape_2.webp"
+  },
+  "crop:pumpkin:0": {
+   "src": "farm/crop_pumpkin_0.webp"
+  },
+  "crop:pumpkin:1": {
+   "src": "farm/crop_pumpkin_1.webp"
+  },
+  "crop:pumpkin:2": {
+   "src": "farm/crop_pumpkin_2.webp"
+  },
+  "crop:starfruit:0": {
+   "src": "farm/crop_starfruit_0.webp"
+  },
+  "crop:starfruit:1": {
+   "src": "farm/crop_starfruit_1.webp"
+  },
+  "crop:starfruit:2": {
+   "src": "farm/crop_starfruit_2.webp"
+  },
+  "crop:strawberry:0": {
+   "src": "farm/crop_strawberry_0.webp"
+  },
+  "crop:strawberry:1": {
+   "src": "farm/crop_strawberry_1.webp"
+  },
+  "crop:strawberry:2": {
+   "src": "farm/crop_strawberry_2.webp"
+  },
+  "crop:sunflower:0": {
+   "src": "farm/crop_sunflower_0.webp"
+  },
+  "crop:sunflower:1": {
+   "src": "farm/crop_sunflower_1.webp"
+  },
+  "crop:sunflower:2": {
+   "src": "farm/crop_sunflower_2.webp"
+  },
+  "crop:tomato:0": {
+   "src": "farm/crop_tomato_0.webp"
+  },
+  "crop:tomato:1": {
+   "src": "farm/crop_tomato_1.webp"
+  },
+  "crop:tomato:2": {
+   "src": "farm/crop_tomato_2.webp"
+  },
+  "crop:watermelon:0": {
+   "src": "farm/crop_watermelon_0.webp"
+  },
+  "crop:watermelon:1": {
+   "src": "farm/crop_watermelon_1.webp"
+  },
+  "crop:watermelon:2": {
+   "src": "farm/crop_watermelon_2.webp"
+  },
+  "egg:bunny": {
+   "src": "misc/egg_bunny.webp"
+  },
+  "egg:cat": {
+   "src": "misc/egg_cat.webp"
+  },
+  "egg:deer": {
+   "src": "misc/egg_deer.webp"
+  },
+  "egg:dragon": {
+   "src": "misc/egg_dragon.webp"
+  },
+  "egg:elephant": {
+   "src": "misc/egg_elephant.webp"
+  },
+  "egg:fox": {
+   "src": "misc/egg_fox.webp"
+  },
+  "egg:hamster": {
+   "src": "misc/egg_hamster.webp"
+  },
+  "egg:koi": {
+   "src": "misc/egg_koi.webp"
+  },
+  "egg:panda": {
+   "src": "misc/egg_panda.webp"
+  },
+  "egg:penguin": {
+   "src": "misc/egg_penguin.webp"
+  },
+  "egg:phoenix": {
+   "src": "misc/egg_phoenix.webp"
+  },
+  "egg:qilin": {
+   "src": "misc/egg_qilin.webp"
+  },
+  "egg:sheep": {
+   "src": "misc/egg_sheep.webp"
+  },
+  "egg:shiba": {
+   "src": "misc/egg_shiba.webp"
+  },
+  "egg:tiger": {
+   "src": "misc/egg_tiger.webp"
+  },
+  "egg:unicorn": {
+   "src": "misc/egg_unicorn.webp"
+  },
+  "farm:basket": {
+   "src": "farm/farm_basket.webp"
+  },
+  "farm:can": {
+   "src": "farm/farm_can.webp"
+  },
+  "farm:coin": {
+   "src": "farm/farm_coin.webp"
+  },
+  "farm:coins": {
+   "src": "farm/farm_coins.webp"
+  },
+  "farm:fertilizer": {
+   "src": "farm/farm_fertilizer.webp"
+  },
+  "farm:hoe": {
+   "src": "farm/farm_hoe.webp"
+  },
+  "farm:lock": {
+   "src": "farm/farm_lock.webp"
+  },
+  "farm:market": {
+   "src": "farm/farm_market.webp"
+  },
+  "farm:seed": {
+   "src": "farm/farm_seed.webp"
+  },
+  "farm:soil": {
+   "src": "farm/farm_soil.webp"
+  },
+  "farm:wet": {
+   "src": "farm/farm_wet.webp"
+  },
+  "flower:0": {
+   "src": "misc/flower_0.webp"
+  },
+  "flower:1": {
+   "src": "misc/flower_1.webp"
+  },
+  "flower:2": {
+   "src": "misc/flower_2.webp"
+  },
+  "flower:3": {
+   "src": "misc/flower_3.webp"
+  },
+  "foe:bear:0": {
+   "src": "foes/foe_bear_0.webp"
+  },
+  "foe:bear:1": {
+   "src": "foes/foe_bear_1.webp"
+  },
+  "foe:burr:0": {
+   "src": "foes/foe_burr_0.webp"
+  },
+  "foe:burr:1": {
+   "src": "foes/foe_burr_1.webp"
+  },
+  "foe:clock:0": {
+   "src": "foes/foe_clock_0.webp"
+  },
+  "foe:clock:1": {
+   "src": "foes/foe_clock_1.webp"
+  },
+  "foe:cloud:0": {
+   "src": "foes/foe_cloud_0.webp"
+  },
+  "foe:cloud:1": {
+   "src": "foes/foe_cloud_1.webp"
+  },
+  "foe:crow:0": {
+   "src": "foes/foe_crow_0.webp"
+  },
+  "foe:crow:1": {
+   "src": "foes/foe_crow_1.webp"
+  },
+  "foe:dust:0": {
+   "src": "foes/foe_dust_0.webp"
+  },
+  "foe:dust:1": {
+   "src": "foes/foe_dust_1.webp"
+  },
+  "foe:king:0": {
+   "src": "foes/foe_king_0.webp"
+  },
+  "foe:king:1": {
+   "src": "foes/foe_king_1.webp"
+  },
+  "foe:king:2": {
+   "src": "foes/foe_king_2.webp"
+  },
+  "foe:owl:0": {
+   "src": "foes/foe_owl_0.webp"
+  },
+  "foe:owl:1": {
+   "src": "foes/foe_owl_1.webp"
+  },
+  "foe:owl:2": {
+   "src": "foes/foe_owl_2.webp"
+  },
+  "foe:puffer:0": {
+   "src": "foes/foe_puffer_0.webp"
+  },
+  "foe:puffer:1": {
+   "src": "foes/foe_puffer_1.webp"
+  },
+  "foe:puffer:2": {
+   "src": "foes/foe_puffer_2.webp"
+  },
+  "foe:storm:0": {
+   "src": "foes/foe_storm_0.webp"
+  },
+  "foe:storm:1": {
+   "src": "foes/foe_storm_1.webp"
+  },
+  "foe:storm:2": {
+   "src": "foes/foe_storm_2.webp"
+  },
+  "foe:tear:0": {
+   "src": "foes/foe_tear_0.webp"
+  },
+  "foe:tear:1": {
+   "src": "foes/foe_tear_1.webp"
+  },
+  "foe:thief:0": {
+   "src": "foes/foe_thief_0.webp"
+  },
+  "foe:thief:1": {
+   "src": "foes/foe_thief_1.webp"
+  },
+  "foe:yeti:0": {
+   "src": "foes/foe_yeti_0.webp"
+  },
+  "foe:yeti:1": {
+   "src": "foes/foe_yeti_1.webp"
+  },
+  "foe:yeti:2": {
+   "src": "foes/foe_yeti_2.webp"
+  },
+  "fx:bubble": {
+   "src": "fx/fx_bubble.webp"
+  },
+  "fx:cloud": {
+   "src": "fx/fx_cloud.webp"
+  },
+  "fx:drop": {
+   "src": "fx/fx_drop.webp"
+  },
+  "fx:heart": {
+   "src": "fx/fx_heart.webp"
+  },
+  "fx:leaf": {
+   "src": "fx/fx_leaf.webp"
+  },
+  "fx:note": {
+   "src": "fx/fx_note.webp"
+  },
+  "fx:petal": {
+   "src": "fx/fx_petal.webp"
+  },
+  "fx:rainbow": {
+   "src": "fx/fx_rainbow.webp"
+  },
+  "fx:snow": {
+   "src": "fx/fx_snow.webp"
+  },
+  "fx:star": {
+   "src": "fx/fx_star.webp"
+  },
+  "gear:collar:0": {
+   "src": "gear/gear_collar_0.webp"
+  },
+  "gear:collar:1": {
+   "src": "gear/gear_collar_1.webp"
+  },
+  "gear:collar:2": {
+   "src": "gear/gear_collar_2.webp"
+  },
+  "gear:collar:3": {
+   "src": "gear/gear_collar_3.webp"
+  },
+  "gear:collar:4": {
+   "src": "gear/gear_collar_4.webp"
+  },
+  "gear:collar:5": {
+   "src": "gear/gear_collar_5.webp"
+  },
+  "gear:hat:0": {
+   "src": "gear/gear_hat_0.webp"
+  },
+  "gear:hat:1": {
+   "src": "gear/gear_hat_1.webp"
+  },
+  "gear:hat:2": {
+   "src": "gear/gear_hat_2.webp"
+  },
+  "gear:hat:3": {
+   "src": "gear/gear_hat_3.webp"
+  },
+  "gear:hat:4": {
+   "src": "gear/gear_hat_4.webp"
+  },
+  "gear:hat:5": {
+   "src": "gear/gear_hat_5.webp"
+  },
+  "gear:scarf:0": {
+   "src": "gear/gear_scarf_0.webp"
+  },
+  "gear:scarf:1": {
+   "src": "gear/gear_scarf_1.webp"
+  },
+  "gear:scarf:2": {
+   "src": "gear/gear_scarf_2.webp"
+  },
+  "gear:scarf:3": {
+   "src": "gear/gear_scarf_3.webp"
+  },
+  "gear:scarf:4": {
+   "src": "gear/gear_scarf_4.webp"
+  },
+  "gear:scarf:5": {
+   "src": "gear/gear_scarf_5.webp"
+  },
+  "gear:toy:0": {
+   "src": "gear/gear_toy_0.webp"
+  },
+  "gear:toy:1": {
+   "src": "gear/gear_toy_1.webp"
+  },
+  "gear:toy:2": {
+   "src": "gear/gear_toy_2.webp"
+  },
+  "gear:toy:3": {
+   "src": "gear/gear_toy_3.webp"
+  },
+  "gear:toy:4": {
+   "src": "gear/gear_toy_4.webp"
+  },
+  "gear:toy:5": {
+   "src": "gear/gear_toy_5.webp"
+  },
+  "glow:bolt": {
+   "src": "fx/glow_bolt.webp"
+  },
+  "glow:circle": {
+   "src": "fx/glow_circle.webp"
+  },
+  "glow:frost": {
+   "src": "fx/glow_frost.webp"
+  },
+  "glow:glow": {
+   "src": "fx/glow_glow.webp"
+  },
+  "glow:pillar": {
+   "src": "fx/glow_pillar.webp"
+  },
+  "glow:ring": {
+   "src": "fx/glow_ring.webp"
+  },
+  "glow:sparkle": {
+   "src": "fx/glow_sparkle.webp"
+  },
+  "glow:wave": {
+   "src": "fx/glow_wave.webp"
+  },
+  "icon:bamboo": {
+   "src": "icons/icon_bamboo.webp"
+  },
+  "icon:bone": {
+   "src": "icons/icon_bone.webp"
+  },
+  "icon:cake": {
+   "src": "icons/icon_cake.webp"
+  },
+  "icon:candy": {
+   "src": "icons/icon_candy.webp"
+  },
+  "icon:carrot": {
+   "src": "icons/icon_carrot.webp"
+  },
+  "icon:fish": {
+   "src": "icons/icon_fish.webp"
+  },
+  "icon:fruit": {
+   "src": "icons/icon_fruit.webp"
+  },
+  "icon:milk": {
+   "src": "icons/icon_milk.webp"
+  },
+  "icon:seed": {
+   "src": "icons/icon_seed.webp"
+  },
+  "icon:star": {
+   "src": "icons/icon_star.webp"
+  },
+  "logo": {
+   "src": "misc/logo.webp"
+  },
+  "misc:balloon": {
+   "src": "icons/misc_balloon.webp"
+  },
+  "misc:giftbox": {
+   "src": "icons/misc_giftbox.webp"
+  },
+  "misc:lantern": {
+   "src": "icons/misc_lantern.webp"
+  },
+  "misc:medal": {
+   "src": "icons/misc_medal.webp"
+  },
+  "misc:sunglasses": {
+   "src": "icons/misc_sunglasses.webp"
+  },
+  "misc:trophy": {
+   "src": "icons/misc_trophy.webp"
+  },
+  "misc:umbrella": {
+   "src": "icons/misc_umbrella.webp"
+  },
+  "pet:bunny:0": {
+   "src": "pets/pet_bunny_0.webp"
+  },
+  "pet:bunny:1": {
+   "src": "pets/pet_bunny_1.webp"
+  },
+  "pet:bunny:2": {
+   "src": "pets/pet_bunny_2.webp"
+  },
+  "pet:cat:0": {
+   "src": "pets/pet_cat_0.webp"
+  },
+  "pet:cat:1": {
+   "src": "pets/pet_cat_1.webp"
+  },
+  "pet:cat:2": {
+   "src": "pets/pet_cat_2.webp"
+  },
+  "pet:deer:0": {
+   "src": "pets/pet_deer_0.webp"
+  },
+  "pet:deer:1": {
+   "src": "pets/pet_deer_1.webp"
+  },
+  "pet:deer:2": {
+   "src": "pets/pet_deer_2.webp"
+  },
+  "pet:dragon:0": {
+   "src": "pets/pet_dragon_0.webp"
+  },
+  "pet:dragon:1": {
+   "src": "pets/pet_dragon_1.webp"
+  },
+  "pet:dragon:2": {
+   "src": "pets/pet_dragon_2.webp"
+  },
+  "pet:elephant:0": {
+   "src": "pets/pet_elephant_0.webp"
+  },
+  "pet:elephant:1": {
+   "src": "pets/pet_elephant_1.webp"
+  },
+  "pet:elephant:2": {
+   "src": "pets/pet_elephant_2.webp"
+  },
+  "pet:fox:0": {
+   "src": "pets/pet_fox_0.webp"
+  },
+  "pet:fox:1": {
+   "src": "pets/pet_fox_1.webp"
+  },
+  "pet:fox:2": {
+   "src": "pets/pet_fox_2.webp"
+  },
+  "pet:hamster:0": {
+   "src": "pets/pet_hamster_0.webp"
+  },
+  "pet:hamster:1": {
+   "src": "pets/pet_hamster_1.webp"
+  },
+  "pet:hamster:2": {
+   "src": "pets/pet_hamster_2.webp"
+  },
+  "pet:koi:0": {
+   "src": "pets/pet_koi_0.webp"
+  },
+  "pet:koi:1": {
+   "src": "pets/pet_koi_1.webp"
+  },
+  "pet:koi:2": {
+   "src": "pets/pet_koi_2.webp"
+  },
+  "pet:panda:0": {
+   "src": "pets/pet_panda_0.webp"
+  },
+  "pet:panda:1": {
+   "src": "pets/pet_panda_1.webp"
+  },
+  "pet:panda:2": {
+   "src": "pets/pet_panda_2.webp"
+  },
+  "pet:penguin:0": {
+   "src": "pets/pet_penguin_0.webp"
+  },
+  "pet:penguin:1": {
+   "src": "pets/pet_penguin_1.webp"
+  },
+  "pet:penguin:2": {
+   "src": "pets/pet_penguin_2.webp"
+  },
+  "pet:phoenix:0": {
+   "src": "pets/pet_phoenix_0.webp"
+  },
+  "pet:phoenix:1": {
+   "src": "pets/pet_phoenix_1.webp"
+  },
+  "pet:phoenix:2": {
+   "src": "pets/pet_phoenix_2.webp"
+  },
+  "pet:qilin:0": {
+   "src": "pets/pet_qilin_0.webp"
+  },
+  "pet:qilin:1": {
+   "src": "pets/pet_qilin_1.webp"
+  },
+  "pet:qilin:2": {
+   "src": "pets/pet_qilin_2.webp"
+  },
+  "pet:sheep:0": {
+   "src": "pets/pet_sheep_0.webp"
+  },
+  "pet:sheep:1": {
+   "src": "pets/pet_sheep_1.webp"
+  },
+  "pet:sheep:2": {
+   "src": "pets/pet_sheep_2.webp"
+  },
+  "pet:shiba:0": {
+   "src": "pets/pet_shiba_0.webp"
+  },
+  "pet:shiba:1": {
+   "src": "pets/pet_shiba_1.webp"
+  },
+  "pet:shiba:2": {
+   "src": "pets/pet_shiba_2.webp"
+  },
+  "pet:tiger:0": {
+   "src": "pets/pet_tiger_0.webp"
+  },
+  "pet:tiger:1": {
+   "src": "pets/pet_tiger_1.webp"
+  },
+  "pet:tiger:2": {
+   "src": "pets/pet_tiger_2.webp"
+  },
+  "pet:unicorn:0": {
+   "src": "pets/pet_unicorn_0.webp"
+  },
+  "pet:unicorn:1": {
+   "src": "pets/pet_unicorn_1.webp"
+  },
+  "pet:unicorn:2": {
+   "src": "pets/pet_unicorn_2.webp"
+  },
+  "produce:cabbage": {
+   "src": "farm/produce_cabbage.webp"
+  },
+  "produce:carrot": {
+   "src": "farm/produce_carrot.webp"
+  },
+  "produce:corn": {
+   "src": "farm/produce_corn.webp"
+  },
+  "produce:grape": {
+   "src": "farm/produce_grape.webp"
+  },
+  "produce:pumpkin": {
+   "src": "farm/produce_pumpkin.webp"
+  },
+  "produce:starfruit": {
+   "src": "farm/produce_starfruit.webp"
+  },
+  "produce:strawberry": {
+   "src": "farm/produce_strawberry.webp"
+  },
+  "produce:sunflower": {
+   "src": "farm/produce_sunflower.webp"
+  },
+  "produce:tomato": {
+   "src": "farm/produce_tomato.webp"
+  },
+  "produce:watermelon": {
+   "src": "farm/produce_watermelon.webp"
+  },
+  "proj:bamboo": {
+   "src": "fx/proj_bamboo.webp"
+  },
+  "proj:claw": {
+   "src": "fx/proj_claw.webp"
+  },
+  "proj:feather": {
+   "src": "fx/proj_feather.webp"
+  },
+  "proj:foxfire": {
+   "src": "fx/proj_foxfire.webp"
+  },
+  "proj:goldbubble": {
+   "src": "fx/proj_goldbubble.webp"
+  },
+  "proj:heart": {
+   "src": "fx/proj_heart.webp"
+  },
+  "proj:leaf": {
+   "src": "fx/proj_leaf.webp"
+  },
+  "proj:poof": {
+   "src": "fx/proj_poof.webp"
+  },
+  "proj:rainbow": {
+   "src": "fx/proj_rainbow.webp"
+  },
+  "proj:seed": {
+   "src": "fx/proj_seed.webp"
+  },
+  "proj:snowball": {
+   "src": "fx/proj_snowball.webp"
+  },
+  "proj:water": {
+   "src": "fx/proj_water.webp"
+  },
+  "proj:wool": {
+   "src": "fx/proj_wool.webp"
+  },
+  "shiny:circle": {
+   "src": "fx/shiny_circle.webp"
+  },
+  "shiny:dust": {
+   "src": "fx/shiny_dust.webp"
+  },
+  "shiny:halo": {
+   "src": "fx/shiny_halo.webp"
+  },
+  "shiny:twinkle": {
+   "src": "fx/shiny_twinkle.webp"
+  },
+  "tree": {
+   "src": "misc/tree.webp"
+  },
+  "truck": {
+   "src": "misc/truck.webp"
+  }
+ },
+ "seqs": {
+  "seq:bunny:2:attack": {
+   "frames": [
+    "seq/seq_bunny_2_attack_0.webp",
+    "seq/seq_bunny_2_attack_1.webp",
+    "seq/seq_bunny_2_attack_2.webp",
+    "seq/seq_bunny_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:bunny:2:happy": {
+   "frames": [
+    "seq/seq_bunny_2_happy_0.webp",
+    "seq/seq_bunny_2_happy_1.webp",
+    "seq/seq_bunny_2_happy_2.webp",
+    "seq/seq_bunny_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:bunny:2:idle": {
+   "frames": [
+    "seq/seq_bunny_2_idle_0.webp",
+    "seq/seq_bunny_2_idle_1.webp",
+    "seq/seq_bunny_2_idle_2.webp",
+    "seq/seq_bunny_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:bunny:2:sleep": {
+   "frames": [
+    "seq/seq_bunny_2_sleep_0.webp",
+    "seq/seq_bunny_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:dragon:2:attack": {
+   "frames": [
+    "seq/seq_dragon_2_attack_0.webp",
+    "seq/seq_dragon_2_attack_1.webp",
+    "seq/seq_dragon_2_attack_2.webp",
+    "seq/seq_dragon_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:dragon:2:happy": {
+   "frames": [
+    "seq/seq_dragon_2_happy_0.webp",
+    "seq/seq_dragon_2_happy_1.webp",
+    "seq/seq_dragon_2_happy_2.webp",
+    "seq/seq_dragon_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:dragon:2:idle": {
+   "frames": [
+    "seq/seq_dragon_2_idle_0.webp",
+    "seq/seq_dragon_2_idle_1.webp",
+    "seq/seq_dragon_2_idle_2.webp",
+    "seq/seq_dragon_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:dragon:2:sleep": {
+   "frames": [
+    "seq/seq_dragon_2_sleep_0.webp",
+    "seq/seq_dragon_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:fox:2:attack": {
+   "frames": [
+    "seq/seq_fox_2_attack_0.webp",
+    "seq/seq_fox_2_attack_1.webp",
+    "seq/seq_fox_2_attack_2.webp",
+    "seq/seq_fox_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:fox:2:happy": {
+   "frames": [
+    "seq/seq_fox_2_happy_0.webp",
+    "seq/seq_fox_2_happy_1.webp",
+    "seq/seq_fox_2_happy_2.webp",
+    "seq/seq_fox_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:fox:2:idle": {
+   "frames": [
+    "seq/seq_fox_2_idle_0.webp",
+    "seq/seq_fox_2_idle_1.webp",
+    "seq/seq_fox_2_idle_2.webp",
+    "seq/seq_fox_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:fox:2:sleep": {
+   "frames": [
+    "seq/seq_fox_2_sleep_0.webp",
+    "seq/seq_fox_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:hamster:2:attack": {
+   "frames": [
+    "seq/seq_hamster_2_attack_0.webp",
+    "seq/seq_hamster_2_attack_1.webp",
+    "seq/seq_hamster_2_attack_2.webp",
+    "seq/seq_hamster_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:hamster:2:happy": {
+   "frames": [
+    "seq/seq_hamster_2_happy_0.webp",
+    "seq/seq_hamster_2_happy_1.webp",
+    "seq/seq_hamster_2_happy_2.webp",
+    "seq/seq_hamster_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:hamster:2:idle": {
+   "frames": [
+    "seq/seq_hamster_2_idle_0.webp",
+    "seq/seq_hamster_2_idle_1.webp",
+    "seq/seq_hamster_2_idle_2.webp",
+    "seq/seq_hamster_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:hamster:2:sleep": {
+   "frames": [
+    "seq/seq_hamster_2_sleep_0.webp",
+    "seq/seq_hamster_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:panda:2:attack": {
+   "frames": [
+    "seq/seq_panda_2_attack_0.webp",
+    "seq/seq_panda_2_attack_1.webp",
+    "seq/seq_panda_2_attack_2.webp",
+    "seq/seq_panda_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:panda:2:happy": {
+   "frames": [
+    "seq/seq_panda_2_happy_0.webp",
+    "seq/seq_panda_2_happy_1.webp",
+    "seq/seq_panda_2_happy_2.webp",
+    "seq/seq_panda_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:panda:2:idle": {
+   "frames": [
+    "seq/seq_panda_2_idle_0.webp",
+    "seq/seq_panda_2_idle_1.webp",
+    "seq/seq_panda_2_idle_2.webp",
+    "seq/seq_panda_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:panda:2:sleep": {
+   "frames": [
+    "seq/seq_panda_2_sleep_0.webp",
+    "seq/seq_panda_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:penguin:2:attack": {
+   "frames": [
+    "seq/seq_penguin_2_attack_0.webp",
+    "seq/seq_penguin_2_attack_1.webp",
+    "seq/seq_penguin_2_attack_2.webp",
+    "seq/seq_penguin_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:penguin:2:happy": {
+   "frames": [
+    "seq/seq_penguin_2_happy_0.webp",
+    "seq/seq_penguin_2_happy_1.webp",
+    "seq/seq_penguin_2_happy_2.webp",
+    "seq/seq_penguin_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:penguin:2:idle": {
+   "frames": [
+    "seq/seq_penguin_2_idle_0.webp",
+    "seq/seq_penguin_2_idle_1.webp",
+    "seq/seq_penguin_2_idle_2.webp",
+    "seq/seq_penguin_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:penguin:2:sleep": {
+   "frames": [
+    "seq/seq_penguin_2_sleep_0.webp",
+    "seq/seq_penguin_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:shiba:2:attack": {
+   "frames": [
+    "seq/seq_shiba_2_attack_0.webp",
+    "seq/seq_shiba_2_attack_1.webp",
+    "seq/seq_shiba_2_attack_2.webp",
+    "seq/seq_shiba_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:shiba:2:happy": {
+   "frames": [
+    "seq/seq_shiba_2_happy_0.webp",
+    "seq/seq_shiba_2_happy_1.webp",
+    "seq/seq_shiba_2_happy_2.webp",
+    "seq/seq_shiba_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:shiba:2:idle": {
+   "frames": [
+    "seq/seq_shiba_2_idle_0.webp",
+    "seq/seq_shiba_2_idle_1.webp",
+    "seq/seq_shiba_2_idle_2.webp",
+    "seq/seq_shiba_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:shiba:2:sleep": {
+   "frames": [
+    "seq/seq_shiba_2_sleep_0.webp",
+    "seq/seq_shiba_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:cat:2:attack": {
+   "frames": [
+    "seq/seq_cat_2_attack_0.webp",
+    "seq/seq_cat_2_attack_1.webp",
+    "seq/seq_cat_2_attack_2.webp",
+    "seq/seq_cat_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:happy": {
+   "frames": [
+    "seq/seq_cat_2_happy_0.webp",
+    "seq/seq_cat_2_happy_1.webp",
+    "seq/seq_cat_2_happy_2.webp",
+    "seq/seq_cat_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:idle": {
+   "frames": [
+    "seq/seq_cat_2_idle_0.webp",
+    "seq/seq_cat_2_idle_1.webp",
+    "seq/seq_cat_2_idle_2.webp",
+    "seq/seq_cat_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:sleep": {
+   "frames": [
+    "seq/seq_cat_2_sleep_0.webp",
+    "seq/seq_cat_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:bunny:2:awaken": {
+   "frames": [
+    "seq/seq_bunny_2_awaken_0.webp",
+    "seq/seq_bunny_2_awaken_1.webp",
+    "seq/seq_bunny_2_awaken_2.webp",
+    "seq/seq_bunny_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:cat:2:awaken": {
+   "frames": [
+    "seq/seq_cat_2_awaken_0.webp",
+    "seq/seq_cat_2_awaken_1.webp",
+    "seq/seq_cat_2_awaken_2.webp",
+    "seq/seq_cat_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:deer:2:awaken": {
+   "frames": [
+    "seq/seq_deer_2_awaken_0.webp",
+    "seq/seq_deer_2_awaken_1.webp",
+    "seq/seq_deer_2_awaken_2.webp",
+    "seq/seq_deer_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:dragon:2:awaken": {
+   "frames": [
+    "seq/seq_dragon_2_awaken_0.webp",
+    "seq/seq_dragon_2_awaken_1.webp",
+    "seq/seq_dragon_2_awaken_2.webp",
+    "seq/seq_dragon_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:fox:2:awaken": {
+   "frames": [
+    "seq/seq_fox_2_awaken_0.webp",
+    "seq/seq_fox_2_awaken_1.webp",
+    "seq/seq_fox_2_awaken_2.webp",
+    "seq/seq_fox_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:hamster:2:awaken": {
+   "frames": [
+    "seq/seq_hamster_2_awaken_0.webp",
+    "seq/seq_hamster_2_awaken_1.webp",
+    "seq/seq_hamster_2_awaken_2.webp",
+    "seq/seq_hamster_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:panda:2:awaken": {
+   "frames": [
+    "seq/seq_panda_2_awaken_0.webp",
+    "seq/seq_panda_2_awaken_1.webp",
+    "seq/seq_panda_2_awaken_2.webp",
+    "seq/seq_panda_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:penguin:2:awaken": {
+   "frames": [
+    "seq/seq_penguin_2_awaken_0.webp",
+    "seq/seq_penguin_2_awaken_1.webp",
+    "seq/seq_penguin_2_awaken_2.webp",
+    "seq/seq_penguin_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:phoenix:2:awaken": {
+   "frames": [
+    "seq/seq_phoenix_2_awaken_0.webp",
+    "seq/seq_phoenix_2_awaken_1.webp",
+    "seq/seq_phoenix_2_awaken_2.webp",
+    "seq/seq_phoenix_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:sheep:2:awaken": {
+   "frames": [
+    "seq/seq_sheep_2_awaken_0.webp",
+    "seq/seq_sheep_2_awaken_1.webp",
+    "seq/seq_sheep_2_awaken_2.webp",
+    "seq/seq_sheep_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:shiba:2:awaken": {
+   "frames": [
+    "seq/seq_shiba_2_awaken_0.webp",
+    "seq/seq_shiba_2_awaken_1.webp",
+    "seq/seq_shiba_2_awaken_2.webp",
+    "seq/seq_shiba_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:unicorn:2:awaken": {
+   "frames": [
+    "seq/seq_unicorn_2_awaken_0.webp",
+    "seq/seq_unicorn_2_awaken_1.webp",
+    "seq/seq_unicorn_2_awaken_2.webp",
+    "seq/seq_unicorn_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:attack": {
+   "frames": [
+    "seq/seq_elephant_2_attack_0.webp",
+    "seq/seq_elephant_2_attack_1.webp",
+    "seq/seq_elephant_2_attack_2.webp",
+    "seq/seq_elephant_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:awaken": {
+   "frames": [
+    "seq/seq_elephant_2_awaken_0.webp",
+    "seq/seq_elephant_2_awaken_1.webp",
+    "seq/seq_elephant_2_awaken_2.webp",
+    "seq/seq_elephant_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:happy": {
+   "frames": [
+    "seq/seq_elephant_2_happy_0.webp",
+    "seq/seq_elephant_2_happy_1.webp",
+    "seq/seq_elephant_2_happy_2.webp",
+    "seq/seq_elephant_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:idle": {
+   "frames": [
+    "seq/seq_elephant_2_idle_0.webp",
+    "seq/seq_elephant_2_idle_1.webp",
+    "seq/seq_elephant_2_idle_2.webp",
+    "seq/seq_elephant_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:elephant:2:sleep": {
+   "frames": [
+    "seq/seq_elephant_2_sleep_0.webp",
+    "seq/seq_elephant_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:koi:2:attack": {
+   "frames": [
+    "seq/seq_koi_2_attack_0.webp",
+    "seq/seq_koi_2_attack_1.webp",
+    "seq/seq_koi_2_attack_2.webp",
+    "seq/seq_koi_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:koi:2:awaken": {
+   "frames": [
+    "seq/seq_koi_2_awaken_0.webp",
+    "seq/seq_koi_2_awaken_1.webp",
+    "seq/seq_koi_2_awaken_2.webp",
+    "seq/seq_koi_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:koi:2:happy": {
+   "frames": [
+    "seq/seq_koi_2_happy_0.webp",
+    "seq/seq_koi_2_happy_1.webp",
+    "seq/seq_koi_2_happy_2.webp",
+    "seq/seq_koi_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:koi:2:idle": {
+   "frames": [
+    "seq/seq_koi_2_idle_0.webp",
+    "seq/seq_koi_2_idle_1.webp",
+    "seq/seq_koi_2_idle_2.webp",
+    "seq/seq_koi_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:koi:2:sleep": {
+   "frames": [
+    "seq/seq_koi_2_sleep_0.webp",
+    "seq/seq_koi_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:qilin:2:attack": {
+   "frames": [
+    "seq/seq_qilin_2_attack_0.webp",
+    "seq/seq_qilin_2_attack_1.webp",
+    "seq/seq_qilin_2_attack_2.webp",
+    "seq/seq_qilin_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:qilin:2:awaken": {
+   "frames": [
+    "seq/seq_qilin_2_awaken_0.webp",
+    "seq/seq_qilin_2_awaken_1.webp",
+    "seq/seq_qilin_2_awaken_2.webp",
+    "seq/seq_qilin_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:qilin:2:happy": {
+   "frames": [
+    "seq/seq_qilin_2_happy_0.webp",
+    "seq/seq_qilin_2_happy_1.webp",
+    "seq/seq_qilin_2_happy_2.webp",
+    "seq/seq_qilin_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:qilin:2:idle": {
+   "frames": [
+    "seq/seq_qilin_2_idle_0.webp",
+    "seq/seq_qilin_2_idle_1.webp",
+    "seq/seq_qilin_2_idle_2.webp",
+    "seq/seq_qilin_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:qilin:2:sleep": {
+   "frames": [
+    "seq/seq_qilin_2_sleep_0.webp",
+    "seq/seq_qilin_2_sleep_1.webp"
+   ],
+   "fps": 2
+  },
+  "seq:tiger:2:attack": {
+   "frames": [
+    "seq/seq_tiger_2_attack_0.webp",
+    "seq/seq_tiger_2_attack_1.webp",
+    "seq/seq_tiger_2_attack_2.webp",
+    "seq/seq_tiger_2_attack_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:tiger:2:awaken": {
+   "frames": [
+    "seq/seq_tiger_2_awaken_0.webp",
+    "seq/seq_tiger_2_awaken_1.webp",
+    "seq/seq_tiger_2_awaken_2.webp",
+    "seq/seq_tiger_2_awaken_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:tiger:2:happy": {
+   "frames": [
+    "seq/seq_tiger_2_happy_0.webp",
+    "seq/seq_tiger_2_happy_1.webp",
+    "seq/seq_tiger_2_happy_2.webp",
+    "seq/seq_tiger_2_happy_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:tiger:2:idle": {
+   "frames": [
+    "seq/seq_tiger_2_idle_0.webp",
+    "seq/seq_tiger_2_idle_1.webp",
+    "seq/seq_tiger_2_idle_2.webp",
+    "seq/seq_tiger_2_idle_3.webp"
+   ],
+   "fps": 8
+  },
+  "seq:tiger:2:sleep": {
+   "frames": [
+    "seq/seq_tiger_2_sleep_0.webp",
+    "seq/seq_tiger_2_sleep_1.webp"
+   ],
+   "fps": 2
+  }
+ },
+ "audio": [
+  "bgm_battle",
+  "bgm_boss",
+  "bgm_lobby",
+  "bgm_win"
+ ]
+}
