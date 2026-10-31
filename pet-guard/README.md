@@ -26,6 +26,17 @@
 
 和部署到 Cloudflare 的效果一样，熙梦照样能连。存档跟着网址走（`localhost` 和线上网址是两份），要搬用设置里的导出 / 导入。
 
+## 上线（Cloudflare Pages，要卡密才能打开）
+
+网页版在授权站 game-live.xialuoxi.com 上卖卡密（卡种「萌宠保卫战」，卡密 `MC-XXXX-XXXX-XXXX`，永久使用，一机一卡）。
+
+- Pages 项目连接 `kaleomi/games`：**根目录 `pet-guard`**，构建命令留空，**输出目录 `dist`**。自定义域名建议 `mengchong.xialuoxi.com`，绑好后填到授权站后台「设置 → 萌宠保卫战 → 游戏网址」。
+- `functions/_middleware.js` + `license/gate.js` 是卡密门禁：没有有效卡密时只给卡密页，游戏网页、脚本、图片音效都拿不到。
+- `dist/` 是压缩后的成品（游戏脚本打包成一个 `app.js`，加上卡密续签 `license-keeper.js`），已经提交在仓库里。
+  改了 `src/`、`index.html`、`style.css`、`assets/` 之后要重新生成再提交：第一次 `npm i`，之后 `npm run build`。忘了的话 `npm test` 会报错。
+- 本地双击「启动游戏.bat」跑的是源码，不经过门禁，不需要卡密。
+- `license/gate.js`、`license/license-keeper.js` 是授权站 `kaleomi/game-license` 的 `client/` 里那两份的副本，那边改了要同步过来再 `npm run build`。
+
 ## 主播怎么用
 
 1. 打开熙梦并连接直播间（默认端口 8765，和星舰远征、群侠伏魔录一样）。
