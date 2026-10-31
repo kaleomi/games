@@ -3,7 +3,7 @@
 import { W, H, FONT, FIELD, TREE, SPECIES, FOES, CHAPTERS, TALENT, FORMS, LIMITS, GEAR, RINGS, WISH, STAGE, GARDEN, FRIEND, SHINY_FX } from './config.js';
 import { starOf } from './gear.js';
 import { wishAt } from './wish.js';
-import { farmOf, plotStage, tileRect, CROP, MUT, marketOf, FARM_FX } from './farm.js';
+import { farmOf, plotStage, tileRect, tilePage, TILES_PER_PAGE, CROP, MUT, marketOf, FARM_FX } from './farm.js';
 import { CROPS, FARM } from './config.js';
 import { partHit, partLabels, safeParts, clamp, partOf as partOfZ } from './combat.js';
 const RINGS_SQUASH = RINGS.squash;
@@ -125,10 +125,10 @@ export class Renderer {
         case 'hugFriend': this.burst('heart', e.x, e.y - 70, 12, { spread: 60, up: 120, size: 18 }); this.glow('sparkle', e.x, e.y - 60, 120, 0.8); this.floaters.push({ x: e.x, y: e.y - 110, text: e.lv ? `贴贴~ ${FRIEND.names[e.lv - 1]}` : '贴贴~', color: '#ff8fb8', size: 17, t: 0, life: 1.4, vy: -30 }); break;
         case 'duo': this.duos.push({ ...e, t: 0, life: 1.1 }); this.glow('circle', e.tx, e.ty, e.r * 2.2, 1.2, { flat: true, spin: 2 }); this.shake = Math.max(this.shake, 5); break;
         case 'tame': { const f = g.pets.get(e.uid); const px = f?.x ?? e.x, py = f?.y ?? e.y; this.glow('sparkle', px, py - 40, 130, 1); this.burst('star', px, py - 40, 10, { spread: 60, up: 100, size: 15 }); this.floaters.push({ x: px, y: py - 120, text: `收服「${e.unitName}」！`, color: '#9fe8ff', size: 17, t: 0, life: 1.8, vy: -28 }); break; }
-        case 'farmHarvest': this.fxHarvest(e); break;
-        case 'farmSell': this.fxSell(e); break;
-        case 'farmPlant': this.fxPlant(e); break;
-        case 'farmWater': this.fxWater(e); break;
+        case 'farmHarvest': this.showTileOf(e.uid); this.fxHarvest(e); break;
+        case 'farmSell': this.showTileOf(e.uid); this.fxSell(e); break;
+        case 'farmPlant': this.showTileOf(e.uid); this.fxPlant(e); break;
+        case 'farmWater': this.showTileOf(e.uid); this.fxWater(e); break;
         case 'farmLevel': { const r = this.tileOf(e.uid); if (r) { this.glow('sparkle', r.cx, r.cy, 160, 1.2); this.floaters.push({ x: r.cx, y: r.y - 26, text: `农场 Lv${e.lv}！`, color: '#9fe8ff', size: 20, t: 0, life: 2, vy: -22 }); } break; }
         case 'farmUnlock': { const f = g.pets.get(e.uid); if (f) { this.glow('wave', f.x, f.y, 260, 1.4, { flat: true }); this.glow('sparkle', f.x, f.y - 50, 220, 1.4); this.burst('star', f.x, f.y - 50, 24, { spread: 140, up: 220, size: 18 }); } break; }
         case 'farmGift': { const r = this.tileOf(e.uid); if (r) { this.glow('sparkle', r.cx, r.cy, 140, 1); if (e.ripe) this.floaters.push({ x: r.cx, y: r.y - 8, text: '施肥！马上熟了', color: '#ffd84a', size: 16, t: 0, life: 1.6, vy: -24 }); } break; }
@@ -437,7 +437,7 @@ export class Renderer {
     for (const f of g.pets.values()) list.push(f);
     for (const e of g.foes) list.push(e);
     list.sort((a, b) => a.y - b.y);
-    for (const o of list) { if (o.isPet) this.drawPet(x, o, dt); else this.drawFoe(x, o, dt); }
+    for (const o of list) { if (o.isPet) { if (!this.offPage(o)) this.drawPet(x, o, dt); } else this.drawFoe(x, o, dt); }
     for (const [uid, fl] of this.flashes) { fl.t += dt; if (fl.t >= fl.life) this.flashes.delete(uid); }
   }
   shadow(x, cx, fy, w, a = 0.22) { x.fillStyle = `rgba(40,30,50,${a})`; x.beginPath(); x.ellipse(cx, fy, w, w * 0.32, 0, 0, TAU); x.fill(); }
@@ -770,6 +770,7 @@ export class Renderer {
       if (f.mini) continue;
       const h = (f.egg ? 52 : f.h || 66) * (home ? 0.78 : 1), top = f.y - h - 8;
       const tiled = home && g.homeTiles?.includes(f.uid);
+      if (tiled && this.offPage(f)) continue;   // 在另一页菜地上
       this.buffChips(x, f, f.x, tiled ? top + 8 : top - 20 - (this.hoverUid === f.uid || (f.labelUntil || 0) > g.clock ? 14 : 0));
       if (tiled) continue;   // 在家：名字写在菜地上
       const nm = f.nick || f.name, focus = this.hoverUid === f.uid || (f.labelUntil || 0) > g.clock;
@@ -996,6 +997,16 @@ export class Renderer {
   }
   rainOn(p, n) { for (let k = 0; k < n; k++) this.parts.push({ kind: 'drop', x: p.x + (Math.random() - 0.5) * 28, y: p.y - 46 - Math.random() * 16, vx: 0, vy: 90, t: -k * 0.035, life: 0.4, size: 11, rot: 0, spin: 0, grav: 520 }); }
   tileOf(uid) { const i = this.game.homeTiles?.indexOf(uid); return i >= 0 ? tileRect(i) : null; }
+  // 菜地分页：超过 28 人时第二页和第一页轮流显示（12 秒一翻），谁在干活就翻到谁那页停 8 秒
+  homePages() { return Math.max(1, Math.ceil((this.game.homeTiles?.length || 0) / TILES_PER_PAGE)); }
+  homePage() {
+    const n = this.homePages();
+    if (n <= 1) return 0;
+    if (this.pageForce && this.t < this.pageForce.until) return this.pageForce.page % n;
+    return Math.floor(this.t / 12) % n;
+  }
+  showTileOf(uid) { const i = this.game.homeTiles?.indexOf(uid); if (i >= 0 && this.homePages() > 1 && tilePage(i) !== this.homePage()) this.pageForce = { page: tilePage(i), until: this.t + 8 }; }
+  offPage(f) { if (this.game.phase !== 'home' || this.homePages() <= 1) return false; const i = this.game.homeTiles.indexOf(f.uid); return i >= 0 && tilePage(i) !== this.homePage(); }
   drawFarm(x, dt) {
     const g = this.game, now = g.now(), T = FARM.tiles;
     if (this.plotFx.size > 40) for (const [k, v] of this.plotFx) if (this.t > (v.until || v.at || (v.from + v.dur) || 0) + 2) this.plotFx.delete(k);
@@ -1008,9 +1019,11 @@ export class Renderer {
     }
     this.drawMarketBoard(x, g);
     // 每位观众一块菜地
+    const page = this.homePage(), pages = this.homePages();
+    if (pages > 1) { x.save(); x.font = `bold 13px ${FONT}`; x.textAlign = 'center'; const tx = `菜地 第${page + 1}/${pages}页`, tw = x.measureText(tx).width + 20; x.fillStyle = 'rgba(90,60,40,0.78)'; rr(x, 360 - tw / 2, FARM.tiles.y0 - 30, tw, 22, 11); x.fill(); x.fillStyle = '#fff'; x.fillText(tx, 360, FARM.tiles.y0 - 14); x.restore(); }
     (g.homeTiles || []).forEach((uid, i) => {
       const f = uid && g.pets.get(uid);
-      if (!f) return;
+      if (!f || tilePage(i) !== page) return;
       const r = tileRect(i), farm = farmOf(g, f);
       if (!farm) return;
       const plots = farm.plots, wet = plots.some(p => p && p.w && p.ready > now);
@@ -1226,7 +1239,7 @@ export class Renderer {
   // ───────── 点击：看萌宠卡 ─────────
   hitUid(lx, ly) {
     let best = null, bd = 50 * 50;
-    for (const f of this.game.pets.values()) { if (f.npc) continue; const d = (f.x - lx) ** 2 + (f.y - (f.h || 60) * 0.5 - ly) ** 2; if (d < bd) { bd = d; best = f.uid; } }
+    for (const f of this.game.pets.values()) { if (f.npc || this.offPage(f)) continue; const d = (f.x - lx) ** 2 + (f.y - (f.h || 60) * 0.5 - ly) ** 2; if (d < bd) { bd = d; best = f.uid; } }
     return best;
   }
   hudHot(lx, ly) { return hudHot(this, lx, ly); }

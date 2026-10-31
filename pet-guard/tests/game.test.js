@@ -430,6 +430,17 @@ test('自动守护的萌宠在家自己种田：收、卖、种、浇', () => {
   assert.equal(g.homeSeconds(), 180, '默认在家3分钟');
 });
 
+test('人多时菜地分两页：第29个人起分到第二页', () => {
+  const { g, run } = setup(53);
+  for (let i = 0; i < 40; i++) g.chat({ id: 't' + i, name: '人' + i }, '兔');
+  run(3); g.startHome();
+  const n = g.homeTiles.filter(Boolean).length;
+  assert.ok(n >= 30 && n <= 56, String(n));
+  const i = g.homeTiles.length - 1, f = g.pets.get(g.homeTiles[i]);
+  g.chat({ id: f.uid, name: f.name }, '种田'); run(2);
+  assert.ok(farmOf(g, f).plots.some(Boolean), '第二页的人也能种');
+});
+
 test('好朋友顺手浇水；在家送礼施肥、给金币', () => {
   const { g, run } = setup(45);
   g.chat({ id: 'p1', name: '甲' }, '狗'); g.chat({ id: 'p2', name: '乙' }, '猫');

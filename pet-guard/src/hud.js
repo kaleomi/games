@@ -869,6 +869,7 @@ function drawPopups(r, x, dt) {
   r.popups = r.popups.filter(q => q.kind === 'awaken');
   const p = r.popups[0];
   if (!p) return;
+  if (r.game.phase === 'clear' || r.game.phase === 'result') return;   // 过关章 / 结算榜在屏幕中间：觉醒弹窗先排着，结算完再弹（还没开始的不动，弹到一半的也停住）
   if (r.popups.length > 1) p.life = Math.min(p.life, 2.4);   // 后面还有人在排队：快一点
   p.t += dt;
   const k = p.t / p.life, a = k < 0.06 ? k / 0.06 : k > 0.88 ? (1 - k) / 0.12 : 1;
