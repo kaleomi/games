@@ -5,10 +5,10 @@ import { wishStore } from './wish.js';
 
 const SETTINGS_KEY = 'pet-guard-settings-v1';
 export function loadSettings() {
-  const d = { v: 1, port: 8765, autoConnect: true, npcMin: 4, sfx: true, bgm: true, bgmVol: 50, sfxVol: 70, giftByName: {}, giftBox: true, giftPages: true, giftRank: true, rankPage: true, wishShow: true, wishBlock: '', homeSeconds: 180, homeV: 2 };
+  const d = { v: 1, port: 8765, autoConnect: true, npcMin: 4, sfx: true, bgm: true, bgmVol: 50, sfxVol: 70, giftByName: {}, giftBox: true, giftPages: true, giftRank: true, rankPage: true, wishShow: true, wishBlock: '', homeSeconds: 180, homeV: 3 };
   try {
     const s = { ...d, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'), v: 1 };
-    if ((s.homeV | 0) < 2) { if (s.homeSeconds === 90) s.homeSeconds = 180; s.homeV = 2; }   // 旧默认 90 秒 → 新默认 3 分钟（自己改过的不动）
+    if ((s.homeV | 0) < 3) { s.homeSeconds = 180; s.homeV = 3; }   // 在家时长统一重置成 3 分钟一次（之后在 F2 里改的会保留）
     return s;
   } catch { return d; }
 }
