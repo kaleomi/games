@@ -338,7 +338,7 @@ function homeBar(r, x) {
   pill(x, `在家 ${fmtDuration(g.phaseT)}`, 360, 31, '#8fd36a', '#fff', 20);
   if (!r.icon(x, 'farm:coin', 548, 31, 30)) { x.fillStyle = '#ffd23a'; x.beginPath(); x.arc(548, 31, 13, 0, TAU); x.fill(); }
   text(x, '发「种田」', 568, 28, 15, '#c0573d');
-  text(x, '收·种·浇一键 · 发「卖」卖菜', 568, 50, 11, C.mute, 'left', 'normal');
+  text(x, '收·种·浇 · 发「卖」卖菜', 568, 50, 11, C.mute, 'left', 'normal');
   x.restore();
 }
 function bossBar(r, x) {
